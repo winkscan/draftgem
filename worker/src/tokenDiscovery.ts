@@ -77,6 +77,42 @@ const LIST_ENDPOINTS = [
   "https://lite-api.jup.ag/tokens/v2/toptraded/24h?limit=100",
 ];
 
+// Stablecoins pass the $100k mcap / $20k liquidity floor easily but are a
+// pointless pick — pegged price means ~0% movement for the whole round, no
+// upside and no real downside either. Excluded from the browsable pool
+// outright, per the user's explicit "там нет движения, они лишние"
+// (2026-09-18). Two independent signals, either one is enough: a common
+// symbol (catches the coins actually named), or the price already sitting
+// inside the standard ~3% de-peg tolerance of $1 (catches stablecoins this
+// list doesn't happen to name yet, without needing to keep it exhaustive).
+const STABLECOIN_SYMBOLS = new Set([
+  "USDC",
+  "USDT",
+  "DAI",
+  "BUSD",
+  "TUSD",
+  "FDUSD",
+  "USDE",
+  "SUSDE",
+  "PYUSD",
+  "USDY",
+  "USDS",
+  "USDP",
+  "GUSD",
+  "USDD",
+  "FRAX",
+  "LUSD",
+  "CRVUSD",
+]);
+const STABLE_PEG_LOW = 0.97;
+const STABLE_PEG_HIGH = 1.03;
+
+function isStablecoin(t: JupiterToken): boolean {
+  if (STABLECOIN_SYMBOLS.has(t.symbol.toUpperCase())) return true;
+  const price = t.usdPrice ?? 0;
+  return price >= STABLE_PEG_LOW && price <= STABLE_PEG_HIGH;
+}
+
 export function tierForAgeDays(ageDays: number): TierDef {
   return TIERS.find((t) => ageDays <= t.maxAgeDays) ?? TIERS[TIERS.length - 1];
 }
@@ -134,6 +170,7 @@ export async function getAllCandidates(): Promise<DiscoveredAsset[]> {
     if (!createdAt) continue;
     if ((token.liquidity ?? 0) < MIN_LIQUIDITY_USD) continue;
     if ((token.mcap ?? 0) < MIN_MARKET_CAP_USD) continue;
+    if (isStablecoin(token)) continue;
     const discovered = toDiscovered(token, ageDaysFromCreatedAt(createdAt));
     if (discovered) out.push(discovered);
   }
