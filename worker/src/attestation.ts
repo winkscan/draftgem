@@ -1,5 +1,5 @@
 import nacl from "tweetnacl";
-import { tierForAgeDays, ageDaysFromCreatedAt, TIERS } from "./tokenDiscovery";
+import { tierForAgeDays, ageDaysFromCreatedAt } from "./tokenDiscovery";
 
 // Signs a short-lived attestation of each picked mint's real fp_cost (age
 // tier), so `enter_tournament` can verify the budget on-chain without ever
@@ -33,17 +33,6 @@ export interface AttestedPick {
 export class UnknownMintError extends Error {
   constructor(public mint: string) {
     super(`Unknown or unpriced mint: ${mint}`);
-  }
-}
-
-// The product rule ("one pick per tier, no stacking 5 BlueChips") is
-// enforced HERE, not just in the mobile UI — a client can't get a valid
-// signature for a non-diverse composition, and without that signature
-// enter_tournament.rs's verify_attestation rejects the transaction outright.
-// Same trust boundary as fp_cost itself: never take the client's word for it.
-export class InvalidCompositionError extends Error {
-  constructor() {
-    super("Picks must include exactly one coin from each tier: Degen, Gambler, Contender, Veteran, BlueChip");
   }
 }
 
@@ -122,8 +111,6 @@ export interface Attestation {
 export async function signAttestation(mints: string[], attestationSecretKey: Uint8Array): Promise<Attestation> {
   if (mints.length !== 5) throw new Error("Exactly 5 mints required");
   const picks = await computeFpCosts(mints);
-  const tiers = new Set(picks.map((p) => p.tier));
-  if (tiers.size !== TIERS.length) throw new InvalidCompositionError();
   const expiry = Math.floor(Date.now() / 1000) + ATTESTATION_TTL_SECONDS;
   const message = buildAttestationMessage(picks, expiry);
   const signature = nacl.sign.detached(message, attestationSecretKey);
