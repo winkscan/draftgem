@@ -1,6 +1,6 @@
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getAllCandidates } from "./tokenDiscovery";
-import { signAttestation, UnknownMintError } from "./attestation";
+import { signAttestation, UnknownMintError, InvalidCompositionError } from "./attestation";
 import { syncPrices } from "./syncPrices";
 import type { Env } from "./env";
 
@@ -188,7 +188,9 @@ export default {
         const attestation = await signAttestation(body.mints as string[], attestationSecretKey);
         return json(attestation);
       } catch (err) {
-        if (err instanceof UnknownMintError) return json({ error: err.message }, 400);
+        if (err instanceof UnknownMintError || err instanceof InvalidCompositionError) {
+          return json({ error: err.message }, 400);
+        }
         return json({ error: err instanceof Error ? err.message : String(err) }, 500);
       }
     }

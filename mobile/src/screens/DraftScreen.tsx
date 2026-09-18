@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FlatList, ScrollView, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,11 +8,18 @@ import { useConnection } from "../utils/ConnectionProvider";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { useTournament, useMyEntry, useMyEntries, EntryAccount } from "../pumpfantasy/hooks";
-import { useCandidates, CATEGORY_TABS, type Candidate, type CategoryTab } from "../pumpfantasy/candidates";
+import {
+  useCandidates,
+  CATEGORY_TABS,
+  TIER_TABS,
+  type Candidate,
+  type CategoryTab,
+  type Tier,
+} from "../pumpfantasy/candidates";
 import { fetchAttestation } from "../pumpfantasy/attestation";
 import { enterTournament } from "../pumpfantasy/actions";
 import { tournamentPda } from "../pumpfantasy/pdas";
-import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
+import { PICKS_PER_ENTRY } from "../pumpfantasy/config";
 import { formatSol } from "../pumpfantasy/format";
 import { TokenIcon } from "../components/TokenIcon";
 import { ModeBadges } from "../components/ModeBadge";
@@ -60,42 +67,55 @@ export function DraftScreen() {
     });
   }, [candidates, categoryTab, search]);
 
-  const [picked, setPicked] = useState<Candidate[]>([]);
+  // Exactly one pick per tier — never more than 5 entries, never two in the
+  // same tier. Replaces the old "any 5 coins under budget" model: a
+  // portfolio must have one Degen + one Gambler + one Contender + one
+  // Veteran + one BlueChip, no stacking (see candidates.ts's TIER_TABS
+  // comment; enforced again server-side, not just here).
+  const [picked, setPicked] = useState<Partial<Record<Tier, Candidate>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const spentFp = useMemo(() => picked.reduce((sum, c) => sum + c.fpCost, 0), [picked]);
-  const remainingFp = MAX_BUDGET_FP - spentFp;
+  const pickedList = useMemo(() => Object.values(picked) as Candidate[], [picked]);
+  const spentFp = useMemo(() => pickedList.reduce((sum, c) => sum + c.fpCost, 0), [pickedList]);
 
   // Single mode + already entered: show the portfolio you actually built,
   // not just a summary line — resolve the stored raw-mint picks back to
-  // their Candidate entries so the same icon/symbol slots render.
+  // their Candidate entries, slotted by tier, so the same icon/symbol slots
+  // render in the same fixed tier order.
   const viewingExistingSingleEntry = !isMultiple && !!myEntry;
-  const displayedSlots: (Candidate | undefined)[] = viewingExistingSingleEntry
-    ? myEntry!.picks.map((pick) => candidatesByMint.get(pick.toBase58()))
-    : Array.from({ length: PICKS_PER_ENTRY }, (_, i) => picked[i]);
+  const existingPicksByTier = useMemo(() => {
+    if (!viewingExistingSingleEntry) return null;
+    const m: Partial<Record<Tier, Candidate>> = {};
+    for (const pick of myEntry!.picks) {
+      const c = candidatesByMint.get(pick.toBase58());
+      if (c) m[c.tier as Tier] = c;
+    }
+    return m;
+  }, [viewingExistingSingleEntry, myEntry, candidatesByMint]);
+
+  const displayedSlots: (Candidate | undefined)[] = TIER_TABS.map(
+    (tier) => (viewingExistingSingleEntry ? existingPicksByTier?.[tier] : picked[tier]),
+  );
 
   const togglePick = (candidate: Candidate) => {
     setError(null);
-    const already = picked.find((p) => p.mint === candidate.mint);
-    if (already) {
-      setPicked(picked.filter((p) => p.mint !== candidate.mint));
-      return;
-    }
-    if (picked.length >= PICKS_PER_ENTRY) {
-      setError(`Only ${PICKS_PER_ENTRY} picks allowed — remove one first.`);
-      return;
-    }
-    if (candidate.fpCost > remainingFp) {
-      setError("Not enough FP budget left for this coin.");
-      return;
-    }
-    setPicked([...picked, candidate]);
+    const tier = candidate.tier as Tier;
+    if (!(TIER_TABS as readonly string[]).includes(tier)) return; // defensive — every real candidate has one of the 5 tiers
+    setPicked((prev) => {
+      const already = prev[tier];
+      if (already?.mint === candidate.mint) {
+        const next = { ...prev };
+        delete next[tier];
+        return next;
+      }
+      return { ...prev, [tier]: candidate }; // picking a new coin in an already-filled tier replaces it
+    });
   };
 
   const entriesClosed = !!tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs);
   const blockedBySingleEntry = viewingExistingSingleEntry;
-  const canSubmit = picked.length === PICKS_PER_ENTRY && !submitting && !entriesClosed && !blockedBySingleEntry;
+  const canSubmit = pickedList.length === PICKS_PER_ENTRY && !submitting && !entriesClosed && !blockedBySingleEntry;
 
   const onSubmit = async () => {
     setError(null);
@@ -106,10 +126,10 @@ export function DraftScreen() {
         const account = await connect();
         player = account.publicKey;
       }
-      const attestation = await fetchAttestation(picked.map((p) => p.mint));
+      const attestation = await fetchAttestation(TIER_TABS.map((tier) => picked[tier]!.mint));
       const entryIndex = isMultiple ? myEntries?.length ?? 0 : 0;
       await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex);
-      setPicked([]); // clear the drafted picks so Multiple mode can start the next entry right away
+      setPicked({}); // clear the drafted picks so Multiple mode can start the next entry right away
       await queryClient.invalidateQueries({ queryKey: ["entry"] });
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
       await queryClient.invalidateQueries({ queryKey: ["tournament"] });
@@ -167,30 +187,40 @@ export function DraftScreen() {
       ) : (
         <>
           <View style={styles.budgetBar}>
-            <Text style={styles.budgetLabel}>{viewingExistingSingleEntry ? "Your portfolio" : "Budget left"}</Text>
+            <Text style={styles.budgetLabel}>
+              {viewingExistingSingleEntry ? "Your portfolio" : "One pick per category"}
+            </Text>
             {!viewingExistingSingleEntry ? (
-              <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.negative } : undefined]}>
-                {remainingFp} / {MAX_BUDGET_FP} FP
+              <Text style={styles.budgetValue}>
+                {pickedList.length} / {PICKS_PER_ENTRY} · {spentFp} FP
               </Text>
             ) : null}
           </View>
 
           <View style={styles.slotsRow}>
-            {displayedSlots.map((c, i) => (
-              <View key={i} style={styles.slot}>
-                {c ? (
-                  <>
-                    <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={22} />
-                    <Text style={styles.slotMint} numberOfLines={1}>
-                      {c.symbol}
-                    </Text>
-                    <Text style={styles.slotFp}>{c.fpCost} FP</Text>
-                  </>
-                ) : (
-                  <FontAwesome6 name="plus" size={14} color={C.disabled} />
-                )}
-              </View>
-            ))}
+            {TIER_TABS.map((tier, i) => {
+              const c = displayedSlots[i];
+              return (
+                <View key={tier} style={styles.slot}>
+                  {c ? (
+                    <>
+                      <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={22} />
+                      <Text style={styles.slotMint} numberOfLines={1}>
+                        {c.symbol}
+                      </Text>
+                      <Text style={styles.slotFp}>{c.fpCost} FP</Text>
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesome6 name="plus" size={14} color={C.disabled} />
+                      <Text style={styles.slotTierLabel} numberOfLines={1}>
+                        {tier}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              );
+            })}
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -210,12 +240,7 @@ export function DraftScreen() {
             </View>
           ) : (
             <>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.categoryScroll}
-                contentContainerStyle={styles.categoryRow}
-              >
+              <View style={styles.categoryRow}>
                 {CATEGORY_TABS.map((cat) => (
                   <TouchableRipple
                     key={cat}
@@ -224,12 +249,15 @@ export function DraftScreen() {
                   >
                     <Text
                       style={[styles.categoryPillText, categoryTab === cat ? styles.categoryPillTextActive : undefined]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.75}
                     >
                       {cat}
                     </Text>
                   </TouchableRipple>
                 ))}
-              </ScrollView>
+              </View>
               <Searchbar
                 placeholder="Search coin name or symbol"
                 value={search}
@@ -253,7 +281,7 @@ export function DraftScreen() {
               )
             }
             renderItem={({ item }) => {
-              const isPicked = !!picked.find((p) => p.mint === item.mint);
+              const isPicked = picked[item.tier as Tier]?.mint === item.mint;
               return (
                 <TouchableRipple
                   style={[styles.assetRow, isPicked ? styles.assetRowPicked : undefined]}
@@ -404,6 +432,7 @@ const styles = StyleSheet.create({
   },
   slotMint: { fontSize: 10, color: C.textPrimary, fontWeight: "600" },
   slotFp: { fontSize: 10, color: C.accent, fontWeight: "700" },
+  slotTierLabel: { fontSize: 9, color: C.textSecondary, fontWeight: "600", marginTop: 3 },
   error: { color: C.negative, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
   alreadyIn: {
     marginHorizontal: 16,
@@ -419,18 +448,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#fff0f0",
   },
-  categoryScroll: { marginTop: 12 },
-  categoryRow: { paddingHorizontal: 16, gap: 8 },
+  // Fixed single row, all 6 tabs evenly split across the full width — not a
+  // horizontally-scrolling pill list (that let each pill stretch to fill
+  // the row's height instead of sizing to its text, confirmed live
+  // 2026-09-18: a flex-row ScrollView content container defaults every
+  // child to align-items:stretch on its cross axis unless told otherwise).
+  categoryRow: { flexDirection: "row", gap: 4, paddingHorizontal: 16, marginTop: 12 },
   categoryPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    flex: 1,
+    height: 30,
+    paddingHorizontal: 2,
     borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: C.card,
     borderWidth: 1,
     borderColor: C.cardBorder,
   },
   categoryPillActive: { backgroundColor: C.accent, borderColor: C.accent },
-  categoryPillText: { color: C.textSecondary, fontWeight: "700", fontSize: 12 },
+  categoryPillText: { color: C.textSecondary, fontWeight: "700", fontSize: 11 },
   categoryPillTextActive: { color: C.accentTextOn },
   searchbar: {
     marginHorizontal: 16,

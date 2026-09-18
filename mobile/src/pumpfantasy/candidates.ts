@@ -22,6 +22,14 @@ export interface Candidate {
 export const CATEGORY_TABS = ["All", "Degen", "Gambler", "Contender", "Veteran", "BlueChip"] as const;
 export type CategoryTab = (typeof CATEGORY_TABS)[number];
 
+// The 5 real tiers a portfolio is built from — every entry needs exactly
+// one pick per tier (no stacking 5 BlueChips), enforced again server-side
+// in worker/src/attestation.ts's signAttestation before it'll sign
+// anything. Kept separate from CATEGORY_TABS since that one also has the
+// browse-only "All" tab.
+export const TIER_TABS = ["Degen", "Gambler", "Contender", "Veteran", "BlueChip"] as const;
+export type Tier = (typeof TIER_TABS)[number];
+
 export function useCandidates() {
   return useQuery({
     queryKey: ["candidates"],
