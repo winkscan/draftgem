@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, Linking, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -229,11 +229,13 @@ export function DraftScreen() {
                 ))}
               </View>
               <Searchbar
-                placeholder="Search coin name or symbol"
+                placeholder="Search by name, symbol, or contract address"
                 value={search}
                 onChangeText={setSearch}
                 style={styles.searchbar}
                 inputStyle={styles.searchbarInput}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
             </>
           )}
@@ -260,8 +262,17 @@ export function DraftScreen() {
                   <View style={styles.assetRowInner}>
                     <View style={styles.assetRowLeft}>
                       <TokenIcon mint={item.mint} icon={item.icon} symbol={item.symbol} size={28} />
-                      <View>
-                        <Text style={styles.assetSymbol}>{item.symbol}</Text>
+                      <View style={{ flexShrink: 1 }}>
+                        <View style={styles.assetSymbolRow}>
+                          <Text style={styles.assetSymbol}>{item.symbol}</Text>
+                          <TouchableRipple
+                            style={styles.chartButton}
+                            borderless
+                            onPress={() => Linking.openURL(`https://jup.ag/tokens/${item.mint}`)}
+                          >
+                            <FontAwesome6 name="chart-line" size={11} color={C.textSecondary} />
+                          </TouchableRipple>
+                        </View>
                         <Text style={styles.assetName} numberOfLines={1}>
                           {item.name}
                         </Text>
@@ -475,7 +486,9 @@ const styles = StyleSheet.create({
   assetRowPicked: { borderColor: C.accent, backgroundColor: "#fff0f1" },
   assetRowInner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   assetRowLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  assetSymbolRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   assetSymbol: { color: C.textPrimary, fontWeight: "700", fontSize: 14 },
+  chartButton: { padding: 4, borderRadius: 999 },
   assetName: { color: C.textSecondary, fontSize: 11, maxWidth: 160 },
   assetFp: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
   assetTier: { color: C.textSecondary, fontSize: 10, marginTop: 2 },
