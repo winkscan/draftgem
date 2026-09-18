@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "PumpFantasy",
+    "slug": "pumpfantasy",
+    "scheme": "pumpfantasy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.pumpfantasy.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#2b2c86",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "owner": "drbelkin",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a4885204-8881-4b9f-b5cf-9ff93808c4ce"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a4885204-8881-4b9f-b5cf-9ff93808c4ce"
+    }
+  }
+}
