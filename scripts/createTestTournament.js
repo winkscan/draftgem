@@ -1,8 +1,15 @@
-// One-off devnet setup script: creates a real 10-minute tournament with a
-// 7-coin asset universe (same fp_cost/start_price values as the Rust
-// integration test, for easy cross-checking) so the mobile app has
-// something real to enter against. Run with the local Solana CLI keypair
-// (already the program's upgrade authority) as the tournament authority.
+// One-off devnet setup script: creates a real 10-minute tournament so the
+// mobile app has something real to enter against. Run with the local
+// Solana CLI keypair (already the program's upgrade authority) as the
+// tournament authority.
+//
+// No asset pre-registration here anymore — under the lazy-registration
+// architecture (see register_asset_price.rs) players draft from the
+// Worker's full /candidates pool, and start/end prices for whatever mints
+// they actually picked get registered automatically by the Worker's cron
+// (or immediately via `curl <worker-url>/sync`) once this tournament's
+// start_ts/end_ts pass. This script's only job is the create_tournament
+// call itself.
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -38,23 +45,6 @@ const DURATION_SECONDS = 10 * 60; // 10 minutes, per the "easy to test" request
 // doesn't affect that.
 const START_DELAY_SECONDS = 10 * 60;
 
-// Real mainnet mint addresses (not random keypairs) so Jupiter's Token API
-// / DexScreener can actually resolve real names+icons for them in the app —
-// the program never validates the mint account itself, so a mainnet
-// address is a perfectly fine opaque reference even while this program
-// lives on devnet. Spread from old/blue-chip (cheap FP) to
-// new/volatile-feeling (expensive FP), previewing the age-tier pricing
-// idea even though real age-based pricing isn't wired up yet.
-const ASSETS = [
-  { label: "SOL", fpCost: 100, startPrice: 20_000_000, mint: "So11111111111111111111111111111111111111112" },
-  { label: "USDC", fpCost: 200, startPrice: 1_000_000, mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
-  { label: "JUP", fpCost: 400, startPrice: 1_000_000, mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" },
-  { label: "PYTH", fpCost: 600, startPrice: 500_000, mint: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3" },
-  { label: "RENDER", fpCost: 800, startPrice: 800_000, mint: "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof" },
-  { label: "WIF", fpCost: 1200, startPrice: 2_000_000, mint: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm" },
-  { label: "BONK", fpCost: 1500, startPrice: 100_000, mint: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" },
-];
-
 function u64le(value) {
   const buf = Buffer.alloc(8);
   buf.writeBigUInt64LE(BigInt(value));
@@ -66,12 +56,6 @@ function tournamentPda(programId, id) {
 }
 function vaultPda(programId, tournament) {
   return PublicKey.findProgramAddressSync([Buffer.from("vault"), tournament.toBuffer()], programId)[0];
-}
-function assetPda(programId, tournament, mint) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("asset"), tournament.toBuffer(), mint.toBuffer()],
-    programId,
-  )[0];
 }
 
 async function main() {
@@ -116,26 +100,11 @@ async function main() {
     .rpc();
   console.log(`create_tournament: ${createSig}`);
 
-  const createdAssets = [];
-  for (const a of ASSETS) {
-    const mint = new PublicKey(a.mint);
-    const asset = assetPda(programId, tournament, mint);
-    const sig = await program.methods
-      .addAsset(mint, a.fpCost, new anchor.BN(a.startPrice))
-      .accountsStrict({
-        authority: authority.publicKey,
-        tournament,
-        asset,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc();
-    createdAssets.push({ ...a, mint: mint.toBase58(), asset: asset.toBase58() });
-    console.log(`add_asset ${a.label.padEnd(16)} fp=${String(a.fpCost).padEnd(5)} mint=${mint.toBase58()}  (${sig})`);
-  }
-
-  console.log("\nDone. Asset universe:");
-  console.table(createdAssets.map(({ label, fpCost, startPrice, mint }) => ({ label, fpCost, startPrice, mint })));
   console.log(`\nOpen the app and pull to refresh Lobby — tournament #${TOURNAMENT_ID} should appear.`);
+  console.log(
+    `Start/end prices for whatever mints get picked register automatically via the Worker cron ` +
+      `(or run \`curl <worker-url>/sync\` right after start_ts/end_ts to force it for testing).`,
+  );
 }
 
 main().catch((err) => {
