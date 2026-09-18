@@ -22,13 +22,17 @@ custom-panic = []
 
 [dependencies]
 anchor-lang = "1.1.2"
+solana-sdk-ids = "3.1.0"
+solana-instructions-sysvar = "3.0.1"
 
 [dev-dependencies]
-litesvm = "0.10.0"
+litesvm = { version = "0.10.0", features = ["precompiles"] }
 solana-message = "3.0.1"
 solana-transaction = "3.0.2"
 solana-signer = "3.0.0"
 solana-keypair = "3.0.1"
+ed25519-dalek = "2.1.1"
+serde_json = "1.0"
 
 
 [lints.rust]

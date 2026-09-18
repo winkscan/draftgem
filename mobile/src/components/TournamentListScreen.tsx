@@ -69,19 +69,25 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
         else if (phase === "live") label = `Ends in ${formatCountdown(Number(t.endTs), now)}`;
         else label = t.status === "finalized" ? "Finalized" : "Awaiting results";
 
-        // Nothing left to "enter" — the chip becomes a plain "View" instead
-        // of the red entry-fee CTA. Single mode: true the moment you're in,
-        // any phase (there's only ever one entry). Multiple mode: only once
-        // entries have actually closed (phase !== "upcoming") — while still
-        // upcoming you can keep adding more portfolios, so the entry CTA
-        // stays live even after your first entry.
+        // Live and Results are always "View" — entries are closed the
+        // moment a round leaves "upcoming", full stop, whether or not you
+        // ever entered it (a tournament you never joined must not offer a
+        // red "Entry" CTA once it's no longer joinable). Within "upcoming"
+        // the entry-fee CTA stays live mode-permitting: Single mode swaps
+        // to View the moment you're in (only one entry ever possible);
+        // Multiple mode keeps offering Entry so more portfolios can be
+        // added right up to the close.
         const alreadyIn = !!enteredTournaments?.has(item.publicKey.toBase58());
-        const showView = alreadyIn && (t.entryMode === "single" || phase !== "upcoming");
+        const showView = phase !== "upcoming" || (t.entryMode === "single" && alreadyIn);
 
         return (
           <TouchableRipple
             style={styles.card}
-            onPress={() => navigation.navigate("Draft", { tournamentId: t.id.toString() })}
+            onPress={() =>
+              phase === "upcoming"
+                ? navigation.navigate("Draft", { tournamentId: t.id.toString() })
+                : navigation.navigate("Leaderboard", { tournamentId: t.id.toString() })
+            }
           >
             <View>
               <View style={styles.cardTop}>

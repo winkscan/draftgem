@@ -20,7 +20,10 @@ const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL — cheap for repeated test e
 // is a later product decision, this is just so the app always has all
 // three badge cases to look at. Guaranteed stacks on top of either mode
 // (it's an independent flag), not a fourth mode.
-const runsSoFar = Number(TOURNAMENT_ID / 60_000n) % 3; // rough 3-way rotation
+// Keyed off the millisecond id itself, not the current minute — repeated
+// manual runs within the same minute previously always landed on the same
+// mode (confirmed live, 2026-09-18).
+const runsSoFar = Number(TOURNAMENT_ID % 3n);
 const ENTRY_MODE = runsSoFar === 1 ? { multiple: {} } : { single: {} };
 const GUARANTEED_AMOUNT_LAMPORTS = runsSoFar === 2 ? 500_000_000 : 0; // 0.5 SOL example
 const DURATION_SECONDS = 10 * 60; // 10 minutes, per the "easy to test" request

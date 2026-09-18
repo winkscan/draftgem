@@ -21,8 +21,10 @@ pub struct SettleEntry<'info> {
         constraint = entry.tournament == tournament.key() @ PumpFantasyError::AssetMismatch,
     )]
     pub entry: Account<'info, Entry>,
-    // remaining_accounts: the same PICKS_PER_ENTRY TournamentAsset accounts
-    // recorded in entry.picks, in the same order.
+    // remaining_accounts: the PICKS_PER_ENTRY AssetPrice PDAs for
+    // entry.picks' mints, in the same order — derived from (tournament,
+    // mint), not stored directly on the entry (picks are raw mints now,
+    // see enter_tournament.rs).
 }
 
 pub fn handle_settle_entry(ctx: Context<SettleEntry>) -> Result<()> {
@@ -32,16 +34,16 @@ pub fn handle_settle_entry(ctx: Context<SettleEntry>) -> Result<()> {
         PumpFantasyError::AssetNotInEntry
     );
 
+    let tournament_key = ctx.accounts.tournament.key();
     let mut total_bps: i64 = 0;
 
     for (i, asset_ai) in ctx.remaining_accounts.iter().enumerate() {
-        require_keys_eq!(
-            asset_ai.key(),
-            ctx.accounts.entry.picks[i],
-            PumpFantasyError::AssetNotInEntry
-        );
+        let mint = ctx.accounts.entry.picks[i];
+        let (expected_asset, _) =
+            Pubkey::find_program_address(&[ASSET_SEED, tournament_key.as_ref(), mint.as_ref()], ctx.program_id);
+        require_keys_eq!(asset_ai.key(), expected_asset, PumpFantasyError::AssetNotInEntry);
 
-        let asset: Account<TournamentAsset> = Account::try_from(asset_ai)?;
+        let asset: Account<AssetPrice> = Account::try_from(asset_ai)?;
         require!(asset.resolved, PumpFantasyError::AssetNotResolved);
 
         let start = asset.start_price_micros as i64;

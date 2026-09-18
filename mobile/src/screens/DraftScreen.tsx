@@ -1,30 +1,22 @@
 import { useMemo, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Button, Text, TouchableRipple } from "react-native-paper";
+import { FlatList, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Button, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useConnection } from "../utils/ConnectionProvider";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
-import {
-  useTournament,
-  useTournamentAssets,
-  useMyEntry,
-  useMyEntries,
-  TournamentAssetAccount,
-  EntryAccount,
-} from "../pumpfantasy/hooks";
+import { useTournament, useMyEntry, useMyEntries, EntryAccount } from "../pumpfantasy/hooks";
+import { useCandidates, CATEGORY_TABS, type Candidate, type CategoryTab } from "../pumpfantasy/candidates";
+import { fetchAttestation } from "../pumpfantasy/attestation";
 import { enterTournament } from "../pumpfantasy/actions";
 import { tournamentPda } from "../pumpfantasy/pdas";
 import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
-import { ellipsify, formatSol } from "../pumpfantasy/format";
-import { useTokenInfos } from "../pumpfantasy/tokenInfo";
+import { formatSol } from "../pumpfantasy/format";
 import { TokenIcon } from "../components/TokenIcon";
 import { ModeBadges } from "../components/ModeBadge";
 import { PF_COLORS as C } from "../theme";
-
-type AssetRow = { publicKey: import("@solana/web3.js").PublicKey; account: TournamentAssetAccount };
 
 export function DraftScreen() {
   const route = useRoute();
@@ -39,7 +31,7 @@ export function DraftScreen() {
   const tournamentPubkey = useMemo(() => tournamentPda(id)[0], [tournamentId]);
 
   const { data: tournament } = useTournament(id);
-  const { data: assets, isLoading: assetsLoading } = useTournamentAssets(tournament ? tournamentPubkey : null);
+  const { data: candidates, isLoading: candidatesLoading } = useCandidates();
   // Both hooks are called unconditionally (rules of hooks) — only the one
   // matching this tournament's entryMode is actually used below.
   const { data: myEntry } = useMyEntry(tournament ? tournamentPubkey : null, selectedAccount?.publicKey ?? null);
@@ -47,41 +39,58 @@ export function DraftScreen() {
 
   const isMultiple = tournament?.entryMode === "multiple";
   const [tab, setTab] = useState<"draft" | "mine">("draft");
+  const [categoryTab, setCategoryTab] = useState<CategoryTab>("All");
+  const [search, setSearch] = useState("");
 
-  const mints = useMemo(() => (assets ?? []).map((a) => a.account.mint.toBase58()), [assets]);
-  const { data: tokenInfos } = useTokenInfos(mints);
+  // The full pool, so any raw mint an entry stored (this tournament's or an
+  // old one's) can still resolve to a symbol/icon/tier for display — not
+  // just the ones currently visible under the active category/search.
+  const candidatesByMint = useMemo(() => {
+    const m = new Map<string, Candidate>();
+    for (const c of candidates ?? []) m.set(c.mint, c);
+    return m;
+  }, [candidates]);
 
-  const [picked, setPicked] = useState<AssetRow[]>([]);
+  const filteredCandidates = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (candidates ?? []).filter((c) => {
+      if (categoryTab !== "All" && c.tier !== categoryTab) return false;
+      if (!q) return true;
+      return c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.mint.toLowerCase().includes(q);
+    });
+  }, [candidates, categoryTab, search]);
+
+  const [picked, setPicked] = useState<Candidate[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const spentFp = useMemo(() => picked.reduce((sum, a) => sum + a.account.fpCost, 0), [picked]);
+  const spentFp = useMemo(() => picked.reduce((sum, c) => sum + c.fpCost, 0), [picked]);
   const remainingFp = MAX_BUDGET_FP - spentFp;
 
   // Single mode + already entered: show the portfolio you actually built,
-  // not just a summary line — resolve the stored pick pubkeys back to
-  // their TournamentAsset rows so the same icon/symbol slots render.
+  // not just a summary line — resolve the stored raw-mint picks back to
+  // their Candidate entries so the same icon/symbol slots render.
   const viewingExistingSingleEntry = !isMultiple && !!myEntry;
-  const displayedSlots: (AssetRow | undefined)[] = viewingExistingSingleEntry
-    ? myEntry!.picks.map((pick) => (assets ?? []).find((a) => a.publicKey.equals(pick)))
+  const displayedSlots: (Candidate | undefined)[] = viewingExistingSingleEntry
+    ? myEntry!.picks.map((pick) => candidatesByMint.get(pick.toBase58()))
     : Array.from({ length: PICKS_PER_ENTRY }, (_, i) => picked[i]);
 
-  const togglePick = (row: AssetRow) => {
+  const togglePick = (candidate: Candidate) => {
     setError(null);
-    const already = picked.find((p) => p.publicKey.equals(row.publicKey));
+    const already = picked.find((p) => p.mint === candidate.mint);
     if (already) {
-      setPicked(picked.filter((p) => !p.publicKey.equals(row.publicKey)));
+      setPicked(picked.filter((p) => p.mint !== candidate.mint));
       return;
     }
     if (picked.length >= PICKS_PER_ENTRY) {
       setError(`Only ${PICKS_PER_ENTRY} picks allowed — remove one first.`);
       return;
     }
-    if (row.account.fpCost > remainingFp) {
+    if (candidate.fpCost > remainingFp) {
       setError("Not enough FP budget left for this coin.");
       return;
     }
-    setPicked([...picked, row]);
+    setPicked([...picked, candidate]);
   };
 
   const entriesClosed = !!tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs);
@@ -97,15 +106,9 @@ export function DraftScreen() {
         const account = await connect();
         player = account.publicKey;
       }
+      const attestation = await fetchAttestation(picked.map((p) => p.mint));
       const entryIndex = isMultiple ? myEntries?.length ?? 0 : 0;
-      await enterTournament(
-        connection,
-        player,
-        signAndSendTransaction,
-        id,
-        picked.map((p) => p.publicKey),
-        entryIndex,
-      );
+      await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex);
       setPicked([]); // clear the drafted picks so Multiple mode can start the next entry right away
       await queryClient.invalidateQueries({ queryKey: ["entry"] });
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
@@ -117,7 +120,7 @@ export function DraftScreen() {
     }
   };
 
-  if (!tournament || assetsLoading) {
+  if (!tournament || candidatesLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={C.accent} />
@@ -156,7 +159,11 @@ export function DraftScreen() {
       ) : null}
 
       {isMultiple && (tab === "mine" || entriesClosed) ? (
-        <MyEntriesList entries={myEntries ?? []} assets={assets ?? []} tokenInfos={tokenInfos} />
+        <MyEntriesList
+          entries={myEntries ?? []}
+          candidatesByMint={candidatesByMint}
+          entriesClosed={entriesClosed}
+        />
       ) : (
         <>
           <View style={styles.budgetBar}>
@@ -169,29 +176,21 @@ export function DraftScreen() {
           </View>
 
           <View style={styles.slotsRow}>
-            {displayedSlots.map((row, i) => {
-              const info = row ? tokenInfos?.[row.account.mint.toBase58()] : undefined;
-              return (
-                <View key={i} style={styles.slot}>
-                  {row ? (
-                    <>
-                      <TokenIcon
-                        mint={row.account.mint.toBase58()}
-                        icon={info?.icon}
-                        symbol={info?.symbol ?? ellipsify(row.account.mint, 2)}
-                        size={22}
-                      />
-                      <Text style={styles.slotMint} numberOfLines={1}>
-                        {info?.symbol ?? ellipsify(row.account.mint, 3)}
-                      </Text>
-                      <Text style={styles.slotFp}>{row.account.fpCost} FP</Text>
-                    </>
-                  ) : (
-                    <FontAwesome6 name="plus" size={14} color={C.disabled} />
-                  )}
-                </View>
-              );
-            })}
+            {displayedSlots.map((c, i) => (
+              <View key={i} style={styles.slot}>
+                {c ? (
+                  <>
+                    <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={22} />
+                    <Text style={styles.slotMint} numberOfLines={1}>
+                      {c.symbol}
+                    </Text>
+                    <Text style={styles.slotFp}>{c.fpCost} FP</Text>
+                  </>
+                ) : (
+                  <FontAwesome6 name="plus" size={14} color={C.disabled} />
+                )}
+              </View>
+            ))}
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -209,36 +208,73 @@ export function DraftScreen() {
               <Text style={{ color: C.negative, fontWeight: "700" }}>Entries are closed</Text>
               <Text style={{ color: C.textSecondary, fontSize: 12 }}>This tournament's round already started.</Text>
             </View>
-          ) : null}
+          ) : (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScroll}
+                contentContainerStyle={styles.categoryRow}
+              >
+                {CATEGORY_TABS.map((cat) => (
+                  <TouchableRipple
+                    key={cat}
+                    style={[styles.categoryPill, categoryTab === cat ? styles.categoryPillActive : undefined]}
+                    onPress={() => setCategoryTab(cat)}
+                  >
+                    <Text
+                      style={[styles.categoryPillText, categoryTab === cat ? styles.categoryPillTextActive : undefined]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableRipple>
+                ))}
+              </ScrollView>
+              <Searchbar
+                placeholder="Search coin name or symbol"
+                value={search}
+                onChangeText={setSearch}
+                style={styles.searchbar}
+                inputStyle={styles.searchbarInput}
+              />
+            </>
+          )}
 
           <FlatList
             style={styles.list}
             contentContainerStyle={{ padding: 16, gap: 10 }}
-            data={assets ?? []}
-            keyExtractor={(row) => row.publicKey.toBase58()}
+            data={blockedBySingleEntry || entriesClosed ? [] : filteredCandidates}
+            keyExtractor={(c) => c.mint}
+            ListEmptyComponent={
+              blockedBySingleEntry || entriesClosed ? null : (
+                <View style={styles.center}>
+                  <Text style={{ color: C.textSecondary }}>No coins match this filter.</Text>
+                </View>
+              )
+            }
             renderItem={({ item }) => {
-              const isPicked = !!picked.find((p) => p.publicKey.equals(item.publicKey));
-              const mint = item.account.mint.toBase58();
-              const info = tokenInfos?.[mint];
+              const isPicked = !!picked.find((p) => p.mint === item.mint);
               return (
                 <TouchableRipple
                   style={[styles.assetRow, isPicked ? styles.assetRowPicked : undefined]}
                   onPress={() => togglePick(item)}
-                  disabled={blockedBySingleEntry || entriesClosed}
                 >
                   <View style={styles.assetRowInner}>
                     <View style={styles.assetRowLeft}>
-                      <TokenIcon mint={mint} icon={info?.icon} symbol={info?.symbol ?? ellipsify(mint, 2)} size={28} />
+                      <TokenIcon mint={item.mint} icon={item.icon} symbol={item.symbol} size={28} />
                       <View>
-                        <Text style={styles.assetSymbol}>{info?.symbol ?? ellipsify(mint, 5)}</Text>
+                        <Text style={styles.assetSymbol}>{item.symbol}</Text>
                         <Text style={styles.assetName} numberOfLines={1}>
-                          {info?.name ?? "Loading…"}
+                          {item.name}
                         </Text>
                       </View>
                     </View>
-                    <Text style={[styles.assetFp, isPicked ? { color: C.accent } : undefined]}>
-                      {item.account.fpCost} FP
-                    </Text>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={[styles.assetFp, isPicked ? { color: C.accent } : undefined]}>
+                        {item.fpCost} FP
+                      </Text>
+                      <Text style={styles.assetTier}>{item.tier}</Text>
+                    </View>
                   </View>
                 </TouchableRipple>
               );
@@ -271,17 +307,21 @@ export function DraftScreen() {
 
 function MyEntriesList({
   entries,
-  assets,
-  tokenInfos,
+  candidatesByMint,
+  entriesClosed,
 }: {
   entries: { publicKey: import("@solana/web3.js").PublicKey; account: EntryAccount }[];
-  assets: AssetRow[];
-  tokenInfos: Record<string, import("../pumpfantasy/tokenInfo").TokenInfo> | undefined;
+  candidatesByMint: Map<string, Candidate>;
+  entriesClosed: boolean;
 }) {
   if (entries.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: C.textSecondary }}>No entries yet — build one on the "New Entry" tab.</Text>
+        <Text style={{ color: C.textSecondary }}>
+          {entriesClosed
+            ? "You didn't enter this tournament."
+            : 'No entries yet — build one on the "New Entry" tab.'}
+        </Text>
       </View>
     );
   }
@@ -292,7 +332,7 @@ function MyEntriesList({
       data={entries}
       keyExtractor={(row) => row.publicKey.toBase58()}
       renderItem={({ item }) => {
-        const picks = item.account.picks.map((pick) => assets.find((a) => a.publicKey.equals(pick)));
+        const picks = item.account.picks.map((pick) => candidatesByMint.get(pick.toBase58()));
         return (
           <View style={styles.entryCard}>
             <Text style={{ color: C.textPrimary, fontWeight: "700" }}>Portfolio #{item.account.entryIndex + 1}</Text>
@@ -301,28 +341,20 @@ function MyEntriesList({
               {item.account.settled ? `Score ${item.account.scoreBps / 100}%` : "Awaiting results"}
             </Text>
             <View style={styles.entrySlotsRow}>
-              {picks.map((row, i) => {
-                const info = row ? tokenInfos?.[row.account.mint.toBase58()] : undefined;
-                return (
-                  <View key={i} style={styles.entrySlot}>
-                    {row ? (
-                      <>
-                        <TokenIcon
-                          mint={row.account.mint.toBase58()}
-                          icon={info?.icon}
-                          symbol={info?.symbol ?? ellipsify(row.account.mint, 2)}
-                          size={20}
-                        />
-                        <Text style={styles.slotMint} numberOfLines={1}>
-                          {info?.symbol ?? ellipsify(row.account.mint, 3)}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.slotMint}>?</Text>
-                    )}
-                  </View>
-                );
-              })}
+              {picks.map((c, i) => (
+                <View key={i} style={styles.entrySlot}>
+                  {c ? (
+                    <>
+                      <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={20} />
+                      <Text style={styles.slotMint} numberOfLines={1}>
+                        {c.symbol}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.slotMint}>?</Text>
+                  )}
+                </View>
+              ))}
             </View>
           </View>
         );
@@ -387,6 +419,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#fff0f0",
   },
+  categoryScroll: { marginTop: 12 },
+  categoryRow: { paddingHorizontal: 16, gap: 8 },
+  categoryPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+  },
+  categoryPillActive: { backgroundColor: C.accent, borderColor: C.accent },
+  categoryPillText: { color: C.textSecondary, fontWeight: "700", fontSize: 12 },
+  categoryPillTextActive: { color: C.accentTextOn },
+  searchbar: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  searchbarInput: { fontSize: 13, minHeight: 0 },
   entryCard: {
     backgroundColor: C.card,
     borderRadius: 12,
@@ -418,6 +473,7 @@ const styles = StyleSheet.create({
   assetSymbol: { color: C.textPrimary, fontWeight: "700", fontSize: 14 },
   assetName: { color: C.textSecondary, fontSize: 11, maxWidth: 160 },
   assetFp: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
+  assetTier: { color: C.textSecondary, fontSize: 10, marginTop: 2 },
   footer: {
     padding: 16,
     borderTopWidth: 1,

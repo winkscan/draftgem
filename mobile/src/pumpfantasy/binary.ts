@@ -80,6 +80,18 @@ export class BinaryWriter {
     return this;
   }
 
+  writePubkey(pubkey: PublicKey): this {
+    this.chunks.push(pubkey.toBuffer());
+    return this;
+  }
+
+  writeU16(value: number): this {
+    const b = Buffer.alloc(2);
+    b.writeUInt16LE(value);
+    this.chunks.push(b);
+    return this;
+  }
+
   writeU64(value: bigint | number): this {
     const b = Buffer.alloc(8);
     b.writeBigUInt64LE(BigInt(value));

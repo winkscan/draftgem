@@ -26,3 +26,14 @@ pub const TOURNAMENT_SEED: &[u8] = b"tournament";
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const ASSET_SEED: &[u8] = b"asset";
 pub const ENTRY_SEED: &[u8] = b"entry";
+
+/// Dedicated backend keypair (Cloudflare Worker secret, never in the repo)
+/// whose Ed25519 signature `enter_tournament` requires on a short-lived
+/// attestation of each pick's fp_cost — there is no free, reliable way for
+/// the program itself to independently know a coin's age/tier at entry
+/// time, so a trusted off-chain signer attests it instead (same pattern as
+/// SwapKings' `join_guild` founder-wallet attestation). The math itself
+/// (budget sum ≤ MAX_BUDGET_FP) still happens on-chain and can't be faked
+/// once the attestation is in the transaction — this only replaces "where
+/// did fp_cost come from", not "is the budget actually enforced".
+pub const ATTESTATION_SIGNER: Pubkey = pubkey!("BFKxn8Et3r2fjHDt5DhMHZBzpKeXT6gKNATnF87MkSC4");

@@ -8,6 +8,11 @@ import { PublicKey } from "@solana/web3.js";
 export const RPC_ENDPOINT = "https://api.devnet.solana.com";
 export const CLUSTER = "devnet" as const;
 
+// The same Cloudflare Worker that auto-creates tournaments also serves the
+// full off-chain candidate pool (`/candidates`) and signs pick attestations
+// (`/attest`) — see worker/src/index.ts.
+export const WORKER_URL = "https://pumpfantasy-cron.swapkings.workers.dev";
+
 export const PROGRAM_ID = new PublicKey(idl.address);
 
 // Mirrors constants::MAX_BUDGET_FP / RAKE_BPS / SCORE_FLOOR_BPS in the Rust
@@ -17,3 +22,4 @@ export const PICKS_PER_ENTRY = 5;
 export const RAKE_BPS = 500;
 export const SCORE_FLOOR_BPS = -10_000;
 export const PRICE_SCALE = 1_000_000;
+export const BPS_DENOMINATOR = 10_000;

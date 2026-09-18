@@ -35,17 +35,28 @@ pub mod pumpfantasy {
         )
     }
 
-    pub fn add_asset(
-        ctx: Context<AddAsset>,
+    pub fn register_asset_price(
+        ctx: Context<RegisterAssetPrice>,
         mint: Pubkey,
-        fp_cost: u32,
         start_price_micros: u64,
     ) -> Result<()> {
-        instructions::add_asset::handle_add_asset(ctx, mint, fp_cost, start_price_micros)
+        instructions::register_asset_price::handle_register_asset_price(ctx, mint, start_price_micros)
     }
 
-    pub fn enter_tournament(ctx: Context<EnterTournament>, entry_index: u16) -> Result<()> {
-        instructions::enter_tournament::handle_enter_tournament(ctx, entry_index)
+    pub fn enter_tournament(
+        ctx: Context<EnterTournament>,
+        entry_index: u16,
+        picks: [Pubkey; PICKS_PER_ENTRY],
+        fp_costs: [u32; PICKS_PER_ENTRY],
+        attestation_expiry: i64,
+    ) -> Result<()> {
+        instructions::enter_tournament::handle_enter_tournament(
+            ctx,
+            entry_index,
+            picks,
+            fp_costs,
+            attestation_expiry,
+        )
     }
 
     pub fn submit_result(ctx: Context<SubmitResult>, end_price_micros: u64) -> Result<()> {

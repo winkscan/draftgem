@@ -5,17 +5,21 @@ use crate::constants::PICKS_PER_ENTRY;
 #[account]
 #[derive(InitSpace)]
 pub struct Tournament {
-    /// Backend/admin key allowed to add assets and submit price results.
-    /// This is the trust boundary: there is no free, reliable on-chain
-    /// price feed for freshly-launched Solana coins, so final prices are
-    /// attested by our own backend the same way SwapKings attests
-    /// pump.fun founder wallets — the score math itself still happens
-    /// on-chain and can't be faked once a price is submitted.
+    /// Backend/admin key allowed to register post-start asset prices and
+    /// finalize the tournament. This is the trust boundary: there is no
+    /// free, reliable on-chain price feed for freshly-launched Solana
+    /// coins, so prices are attested by our own backend the same way
+    /// SwapKings attests pump.fun founder wallets — the score math itself
+    /// still happens on-chain and can't be faked once a price is submitted.
     pub authority: Pubkey,
     pub id: u64,
     pub entry_fee_lamports: u64,
     pub start_ts: i64,
     pub end_ts: i64,
+    /// Number of distinct picked mints that have had a start price
+    /// registered via `register_asset_price` — set lazily, after
+    /// `start_ts`, only for mints someone actually picked (see that
+    /// instruction's own comment), not a pre-registered catalog.
     pub asset_count: u16,
     pub entry_count: u32,
     pub settled_count: u32,
@@ -54,14 +58,17 @@ pub enum EntryMode {
     Multiple,
 }
 
+/// One shared start/end price per (tournament, mint) — deliberately NOT
+/// per-entry. Every player who picked this mint, whenever during the entry
+/// window they actually clicked "enter", scores from the exact same
+/// reference price, captured once at (or after) `start_ts`. Registered
+/// lazily by `register_asset_price`, not pre-created for every candidate a
+/// player might browse — see that instruction's comment for why.
 #[account]
 #[derive(InitSpace)]
-pub struct TournamentAsset {
+pub struct AssetPrice {
     pub tournament: Pubkey,
     pub mint: Pubkey,
-    /// Fantasy-point cost, derived off-chain from the coin's age (younger =
-    /// pricier, since it can swing much harder — see design notes).
-    pub fp_cost: u32,
     pub start_price_micros: u64,
     pub end_price_micros: u64,
     pub resolved: bool,
@@ -78,10 +85,20 @@ pub struct Entry {
     /// mode. Part of this account's own PDA seeds, also stored here so
     /// clients can display/sort a player's entries without re-deriving it.
     pub entry_index: u16,
+    /// Raw mint addresses the player picked — NOT references to a
+    /// pre-registered on-chain asset account (there isn't one at pick
+    /// time; see `enter_tournament`'s Ed25519-attestation comment for why
+    /// that's no longer needed).
     pub picks: [Pubkey; PICKS_PER_ENTRY],
     pub fp_spent: u32,
     pub score_bps: i32,
     pub settled: bool,
     pub claimed: bool,
+    /// Unix timestamp this entry was created — the tiebreaker when two
+    /// entries land on the exact same score_bps: the earlier `created_at`
+    /// ranks higher, since drafting first (with less information about
+    /// what everyone else is doing) is the harder feat. Purely a ranking
+    /// input; doesn't affect anyone's score itself.
+    pub created_at: i64,
     pub bump: u8,
 }

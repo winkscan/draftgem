@@ -8,3 +8,4 @@ test-ledger
 .surfpool
 mobile/PumpFantasy-preview.apk
 *.apk
+attestation-signer.json

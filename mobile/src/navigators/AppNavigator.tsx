@@ -2,12 +2,13 @@ import { NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
-import { DraftScreen } from "../screens";
+import { DraftScreen, LeaderboardScreen } from "../screens";
 import { PF_COLORS as C } from "../theme";
 
 export type RootStackParamList = {
   HomeStack: undefined;
   Draft: { tournamentId: string };
+  Leaderboard: { tournamentId: string };
 };
 
 declare global {
@@ -26,6 +27,15 @@ const AppStack = () => (
       component={DraftScreen}
       options={{
         title: "Build Your Portfolio",
+        headerStyle: { backgroundColor: C.header },
+        headerTintColor: C.textOnHeader,
+      }}
+    />
+    <Stack.Screen
+      name="Leaderboard"
+      component={LeaderboardScreen}
+      options={{
+        title: "Live Standings",
         headerStyle: { backgroundColor: C.header },
         headerTintColor: C.textOnHeader,
       }}

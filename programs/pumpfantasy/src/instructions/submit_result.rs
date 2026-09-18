@@ -17,7 +17,7 @@ pub struct SubmitResult<'info> {
         mut,
         constraint = asset.tournament == tournament.key() @ PumpFantasyError::AssetMismatch,
     )]
-    pub asset: Account<'info, TournamentAsset>,
+    pub asset: Account<'info, AssetPrice>,
 }
 
 pub fn handle_submit_result(ctx: Context<SubmitResult>, end_price_micros: u64) -> Result<()> {

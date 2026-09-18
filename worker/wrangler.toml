@@ -1,0 +1,11 @@
+name = "pumpfantasy-cron"
+main = "src/index.ts"
+compatibility_date = "2026-09-18"
+compatibility_flags = ["nodejs_compat"]
+
+# Cadence kept ≤ ROUND_DURATION_SECONDS (src/index.ts) so a tournament is
+# always somewhere in its Live phase — see tournamentPhase.ts's math on the
+# mobile side for why cadence > round length leaves Live empty part of the
+# time.
+[triggers]
+crons = ["*/5 * * * *"]

@@ -38,4 +38,10 @@ pub enum PumpFantasyError {
     InvalidWinnersCount,
     #[msg("This tournament only allows a single entry per wallet")]
     SingleEntryOnly,
+    #[msg("Missing or invalid fp_cost attestation for this entry's picks")]
+    MissingAttestation,
+    #[msg("Attestation has expired — request a fresh one and retry")]
+    AttestationExpired,
+    #[msg("Asset prices can only be registered once the entry window has closed")]
+    TooEarlyToRegisterPrice,
 }

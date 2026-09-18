@@ -6,7 +6,7 @@ import { BinaryReader } from "./binary";
 // "accounts" section — see binary.ts for why these are hardcoded instead of
 // computed at runtime via Anchor's coder.
 export const TOURNAMENT_DISCRIMINATOR = Buffer.from([175, 139, 119, 242, 115, 194, 57, 92]);
-export const TOURNAMENT_ASSET_DISCRIMINATOR = Buffer.from([52, 102, 230, 140, 17, 232, 148, 75]);
+export const ASSET_PRICE_DISCRIMINATOR = Buffer.from([197, 106, 216, 207, 155, 172, 40, 245]);
 export const ENTRY_DISCRIMINATOR = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
 
 export type TournamentStatus = "open" | "finalized";
@@ -56,22 +56,25 @@ export function decodeTournament(data: Buffer): TournamentAccount {
   };
 }
 
-export interface TournamentAssetAccount {
+// One shared start/end price per (tournament, mint) — no fpCost here
+// anymore. Budget is no longer enforced by looking up a pre-registered
+// on-chain asset; it's attested off-chain per-pick and verified on-chain at
+// `enter_tournament` time (see actions.ts's enterTournament). This account
+// only ever answers "what did this mint do between start and end".
+export interface AssetPriceAccount {
   tournament: PublicKey;
   mint: PublicKey;
-  fpCost: number;
   startPriceMicros: bigint;
   endPriceMicros: bigint;
   resolved: boolean;
   bump: number;
 }
 
-export function decodeTournamentAsset(data: Buffer): TournamentAssetAccount {
+export function decodeAssetPrice(data: Buffer): AssetPriceAccount {
   const r = new BinaryReader(data).skipDiscriminator();
   return {
     tournament: r.readPubkey(),
     mint: r.readPubkey(),
-    fpCost: r.readU32(),
     startPriceMicros: r.readU64(),
     endPriceMicros: r.readU64(),
     resolved: r.readBool(),
@@ -83,11 +86,15 @@ export interface EntryAccount {
   tournament: PublicKey;
   player: PublicKey;
   entryIndex: number;
+  // Raw mint addresses — NOT references to a pre-registered asset account.
   picks: PublicKey[];
   fpSpent: number;
   scoreBps: number;
   settled: boolean;
   claimed: boolean;
+  // Tiebreaker when two entries land on the exact same scoreBps: the
+  // earlier createdAt ranks higher (see state.rs's own comment).
+  createdAt: bigint;
   bump: number;
 }
 
@@ -107,6 +114,7 @@ export function decodeEntry(data: Buffer): EntryAccount {
     scoreBps: r.readI32(),
     settled: r.readBool(),
     claimed: r.readBool(),
+    createdAt: r.readI64(),
     bump: r.readU8(),
   };
 }
