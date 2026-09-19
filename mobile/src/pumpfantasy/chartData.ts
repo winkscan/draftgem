@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { Candidate } from "./candidates";
 
 // Price history + "About" info for the in-app chart modal — all free,
 // keyless public APIs, fetched straight from the device (same as
@@ -57,19 +58,56 @@ function socialLabel(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-export function useTokenAbout(mint: string | null) {
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Description sources, in order, first hit wins: GeckoTerminal (~half of
+// coins, mostly newer ones), then CoinGecko's contract lookup (established
+// coins + some launchpad tokens; free but rate-limited, so it's only asked
+// when GeckoTerminal came up empty and a 429 just means "no description").
+// Measured 2026-09-19 on 15 sampled coins: GeckoTerminal 7, +CoinGecko a few
+// more; DexScreener's API has no description text at all.
+async function fetchDescription(mint: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/info`);
+    if (r.ok) {
+      const d = (await r.json())?.data?.attributes?.description;
+      if (typeof d === "string" && d.trim()) return d.trim();
+    }
+  } catch {}
+  try {
+    const r = await fetch(
+      `https://api.coingecko.com/api/v3/coins/solana/contract/${mint}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`,
+    );
+    if (r.ok) {
+      const d = (await r.json())?.description?.en;
+      if (typeof d === "string") {
+        const clean = stripHtml(d);
+        if (clean) return clean;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+export function useTokenAbout(candidate: Candidate | null, enabled: boolean) {
+  const mint = candidate?.mint ?? null;
   return useQuery({
     queryKey: ["token-about", mint],
     queryFn: async (): Promise<TokenAbout> => {
-      const [gecko, dex] = await Promise.allSettled([
-        fetch(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/info`).then((r) =>
-          r.ok ? r.json() : null,
-        ),
-        fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${mint}`).then((r) => (r.ok ? r.json() : null)),
+      const [description, dex] = await Promise.all([
+        fetchDescription(mint!),
+        fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${mint}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
-
-      const description: string | null =
-        (gecko.status === "fulfilled" && gecko.value?.data?.attributes?.description?.trim()) || null;
 
       const links: TokenLink[] = [];
       const seen = new Set<string>();
@@ -79,23 +117,22 @@ export function useTokenAbout(mint: string | null) {
         links.push({ label, url });
       };
 
-      if (dex.status === "fulfilled" && Array.isArray(dex.value)) {
-        const info = dex.value.find((p: any) => p?.info)?.info;
+      // DexScreener first (the user's preferred source), then what Jupiter
+      // already gave us in /candidates for whatever DexScreener lacks.
+      if (Array.isArray(dex)) {
+        const info = dex.find((p: any) => p?.info)?.info;
         for (const w of info?.websites ?? []) add(w.label || "Website", w.url);
         for (const s of info?.socials ?? []) add(socialLabel(s.type ?? "Link"), s.url);
       }
-      // GeckoTerminal fills in when DexScreener has no profile for the token
-      if (links.length === 0 && gecko.status === "fulfilled") {
-        const a = gecko.value?.data?.attributes;
-        for (const w of a?.websites ?? []) add("Website", w);
-        if (a?.twitter_handle) add("X / Twitter", `https://twitter.com/${a.twitter_handle}`);
-        if (a?.telegram_handle) add("Telegram", `https://t.me/${a.telegram_handle}`);
-        add("Discord", a?.discord_url);
+      if (links.length === 0) {
+        add("Website", candidate?.website);
+        add("X / Twitter", candidate?.twitter);
+        add("Telegram", candidate?.telegram);
       }
 
       return { description, links };
     },
-    enabled: !!mint,
-    staleTime: 10 * 60_000,
+    enabled: !!mint && enabled,
+    staleTime: 24 * 60 * 60_000,
   });
 }

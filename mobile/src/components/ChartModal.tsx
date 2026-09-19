@@ -20,7 +20,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
 
   const { data: pool, isLoading: poolLoading } = usePoolAddress(mint);
   const { data: points, isLoading: seriesLoading, isError } = usePriceSeries(pool, range);
-  const { data: about, isLoading: aboutLoading } = useTokenAbout(tab === "about" ? mint : null);
+  const { data: about, isLoading: aboutLoading } = useTokenAbout(candidate, tab === "about");
 
   const first = points?.[0]?.price;
   const last = points?.[points.length - 1]?.price;
@@ -108,7 +108,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
               {aboutLoading ? (
                 <ActivityIndicator color={C.accent} style={{ marginVertical: 12 }} />
               ) : (
-                <Text style={styles.description}>{about?.description ?? "No description available for this coin."}</Text>
+                <Text style={styles.description}>{about?.description ?? "No project description is published for this coin (checked GeckoTerminal and CoinGecko)."}</Text>
               )}
             </View>
 

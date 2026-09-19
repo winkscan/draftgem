@@ -17,6 +17,9 @@ export interface Candidate {
   ageDays: number;
   liquidityUsd: number;
   marketCapUsd: number;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
 }
 
 export const CATEGORY_TABS = ["All", "Degen", "Gambler", "Contender", "Veteran", "BlueChip"] as const;

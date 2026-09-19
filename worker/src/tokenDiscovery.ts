@@ -51,6 +51,11 @@ export interface DiscoveredAsset {
   ageDays: number;
   liquidityUsd: number;
   marketCapUsd: number;
+  // Project links as listed on Jupiter — free with the same payload, used as
+  // a fallback for the About tab when DexScreener has no profile.
+  website?: string;
+  twitter?: string;
+  telegram?: string;
 }
 
 interface JupiterToken {
@@ -61,6 +66,9 @@ interface JupiterToken {
   mcap?: number;
   liquidity?: number;
   usdPrice?: number;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
   firstPool?: { createdAt?: string };
 }
 
@@ -151,6 +159,9 @@ function toDiscovered(t: JupiterToken, ageDays: number): DiscoveredAsset | null 
     ageDays,
     liquidityUsd: t.liquidity ?? 0,
     marketCapUsd: t.mcap ?? 0,
+    website: t.website || undefined,
+    twitter: t.twitter || undefined,
+    telegram: t.telegram || undefined,
   };
 }
 
