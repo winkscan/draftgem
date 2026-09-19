@@ -1,5 +1,5 @@
 import nacl from "tweetnacl";
-import { tierForAgeDays, ageDaysFromCreatedAt } from "./tokenDiscovery";
+import { tierForMarketCap } from "./tokenDiscovery";
 
 // Signs a short-lived attestation of each picked mint's real fp_cost (age
 // tier), so `enter_tournament` can verify the budget on-chain without ever
@@ -13,7 +13,7 @@ const ATTESTATION_TTL_SECONDS = 120; // generous enough to cover picking + confi
 interface JupiterToken {
   id: string;
   usdPrice?: number;
-  firstPool?: { createdAt?: string };
+  mcap?: number;
 }
 
 async function lookupMints(mints: string[]): Promise<Map<string, JupiterToken>> {
@@ -36,14 +36,23 @@ export class UnknownMintError extends Error {
   }
 }
 
+// A coin's tier follows its live market cap, so a pick near a boundary can
+// cost more at /attest than the Draft list showed. Say so plainly here instead
+// of letting the transaction die on-chain with a generic BudgetExceeded.
+const MAX_BUDGET_FP = 4_000; // constants::MAX_BUDGET_FP in the Rust program
+export class BudgetExceededError extends Error {
+  constructor(total: number) {
+    super(`Portfolio costs ${total} FP (max ${MAX_BUDGET_FP}). Swap a pick — a coin's category can also shift with its live market cap.`);
+  }
+}
+
 /** Real fp_cost for each requested mint, computed fresh — never trusts a client-supplied value. */
 export async function computeFpCosts(mints: string[]): Promise<AttestedPick[]> {
   const byMint = await lookupMints(mints);
   return mints.map((mint) => {
     const token = byMint.get(mint);
-    const createdAt = token?.firstPool?.createdAt;
-    if (!token || !createdAt) throw new UnknownMintError(mint);
-    const tier = tierForAgeDays(ageDaysFromCreatedAt(createdAt));
+    if (!token || !token.mcap) throw new UnknownMintError(mint);
+    const tier = tierForMarketCap(token.mcap);
     return { mint, fpCost: tier.fpCost, tier: tier.name };
   });
 }
@@ -111,6 +120,8 @@ export interface Attestation {
 export async function signAttestation(mints: string[], attestationSecretKey: Uint8Array): Promise<Attestation> {
   if (mints.length !== 5) throw new Error("Exactly 5 mints required");
   const picks = await computeFpCosts(mints);
+  const totalFp = picks.reduce((sum, p) => sum + p.fpCost, 0);
+  if (totalFp > MAX_BUDGET_FP) throw new BudgetExceededError(totalFp);
   const expiry = Math.floor(Date.now() / 1000) + ATTESTATION_TTL_SECONDS;
   const message = buildAttestationMessage(picks, expiry);
   const signature = nacl.sign.detached(message, attestationSecretKey);

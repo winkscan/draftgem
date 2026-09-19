@@ -15,19 +15,24 @@
 
 export interface TierDef {
   name: string;
-  maxAgeDays: number;
+  minMarketCapUsd: number;
   fpCost: number;
 }
 
-// Names + FP cost picked so a "one pick per tier" portfolio (the natural
-// balanced draft) comes in under the 4,000 FP budget with room to spare
-// for real decisions (e.g. trade a Veteran pick for a second Contender).
+// Tiers by MARKET CAP, highest first (user's call 2026-09-19, Blue Chip from
+// $500M). They used to be by coin age, but that put 802 of 1032 coins —
+// median cap $714K — into "BlueChip", which traders expect to mean
+// billion-dollar assets. Smaller cap = more volatile = more FP, same as the
+// old younger = pricier logic, so the FP costs are unchanged. A coin's tier
+// (and therefore fp_cost) follows its live market cap, so it can shift
+// between the moment the Draft list was fetched and /attest — the attested
+// value is the one that counts (see attestation.ts).
 export const TIERS: TierDef[] = [
-  { name: "Degen", maxAgeDays: 1, fpCost: 1600 },
-  { name: "Gambler", maxAgeDays: 7, fpCost: 1000 },
-  { name: "Contender", maxAgeDays: 30, fpCost: 650 },
-  { name: "Veteran", maxAgeDays: 180, fpCost: 300 },
-  { name: "BlueChip", maxAgeDays: Infinity, fpCost: 100 },
+  { name: "BlueChip", minMarketCapUsd: 500_000_000, fpCost: 100 },
+  { name: "Veteran", minMarketCapUsd: 100_000_000, fpCost: 300 },
+  { name: "Contender", minMarketCapUsd: 10_000_000, fpCost: 650 },
+  { name: "Gambler", minMarketCapUsd: 1_000_000, fpCost: 1000 },
+  { name: "Degen", minMarketCapUsd: 0, fpCost: 1600 },
 ];
 
 // User's explicit anti-scam floor, 2026-09-18: "не меньше 100к маркет
@@ -121,8 +126,8 @@ function isStablecoin(t: JupiterToken): boolean {
   return price >= STABLE_PEG_LOW && price <= STABLE_PEG_HIGH;
 }
 
-export function tierForAgeDays(ageDays: number): TierDef {
-  return TIERS.find((t) => ageDays <= t.maxAgeDays) ?? TIERS[TIERS.length - 1];
+export function tierForMarketCap(marketCapUsd: number): TierDef {
+  return TIERS.find((t) => marketCapUsd >= t.minMarketCapUsd) ?? TIERS[TIERS.length - 1];
 }
 
 export function ageDaysFromCreatedAt(createdAt: string): number {
@@ -145,7 +150,7 @@ async function fetchAllCandidates(): Promise<JupiterToken[]> {
 }
 
 function toDiscovered(t: JupiterToken, ageDays: number): DiscoveredAsset | null {
-  const tier = tierForAgeDays(ageDays);
+  const tier = tierForMarketCap(t.mcap ?? 0);
   const priceUsd = t.usdPrice ?? 0;
   if (Math.round(priceUsd * PRICE_SCALE) <= 0) return null; // too cheap to represent at this fixed-point scale
   return {
