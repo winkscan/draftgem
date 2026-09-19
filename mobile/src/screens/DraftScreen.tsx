@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FlatList, Linking, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
 import { formatSol } from "../pumpfantasy/format";
 import { TokenIcon } from "../components/TokenIcon";
 import { ModeBadges } from "../components/ModeBadge";
+import { ChartModal } from "../components/ChartModal";
 import { PF_COLORS as C } from "../theme";
 
 export function DraftScreen() {
@@ -63,6 +64,7 @@ export function DraftScreen() {
   const [picked, setPicked] = useState<Candidate[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chartCandidate, setChartCandidate] = useState<Candidate | null>(null);
 
   const spentFp = useMemo(() => picked.reduce((sum, c) => sum + c.fpCost, 0), [picked]);
   const remainingFp = MAX_BUDGET_FP - spentFp;
@@ -268,7 +270,7 @@ export function DraftScreen() {
                           <TouchableRipple
                             style={styles.chartButton}
                             borderless
-                            onPress={() => Linking.openURL(`https://jup.ag/tokens/${item.mint}`)}
+                            onPress={() => setChartCandidate(item)}
                           >
                             <FontAwesome6 name="chart-line" size={11} color={C.textSecondary} />
                           </TouchableRipple>
@@ -310,6 +312,12 @@ export function DraftScreen() {
           </View>
         </>
       )}
+
+      <ChartModal
+        mint={chartCandidate?.mint ?? null}
+        symbol={chartCandidate?.symbol ?? ""}
+        onClose={() => setChartCandidate(null)}
+      />
     </View>
   );
 }
