@@ -313,11 +313,7 @@ export function DraftScreen() {
         </>
       )}
 
-      <ChartModal
-        mint={chartCandidate?.mint ?? null}
-        symbol={chartCandidate?.symbol ?? ""}
-        onClose={() => setChartCandidate(null)}
-      />
+      <ChartModal candidate={chartCandidate} onClose={() => setChartCandidate(null)} />
     </View>
   );
 }
