@@ -82,4 +82,12 @@ pub mod pumpfantasy {
     pub fn claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
         instructions::claim_prize::handle_claim_prize(ctx)
     }
+
+    pub fn cancel_tournament(ctx: Context<CancelTournament>) -> Result<()> {
+        instructions::cancel_tournament::handle_cancel_tournament(ctx)
+    }
+
+    pub fn refund_entry(ctx: Context<RefundEntry>) -> Result<()> {
+        instructions::refund_entry::handle_refund_entry(ctx)
+    }
 }

@@ -45,23 +45,33 @@ export function computePortfolioScore(
 }
 
 /**
- * Projected prize for a 1-based rank. Mirrors finalize_tournament/claim_prize:
- * the top half of entrants split the pool (minus the 5% rake) equally. Once
- * a tournament is finalized on-chain, its real winners_count/distributed
- * pool are used. Ranking itself is off-chain, so this is a projection until
- * then — and note nothing calls settle/finalize/claim automatically yet.
+ * Prize per entry, given every entry's score sorted best-first (null = not
+ * scored yet). Mirrors finalize_tournament/claim_prize: the top half of
+ * entrants win, and EVERY score at or above the cut-off score wins an equal
+ * share of the pool minus the 5% rake — so a tie at the cut-off widens the
+ * winner set instead of splitting hairs (the program pays by threshold, not
+ * by rank). Once the tournament is finalized on-chain (the Worker does this
+ * automatically after the round), its real threshold/winners are used and
+ * this stops being a projection.
  */
-export function projectedPrizeLamports(
-  tournament: Pick<TournamentAccount, "status" | "prizePoolLamports" | "winnersCount" | "distributedPoolLamports">,
-  rank: number,
-  entryCount: number,
-): bigint {
+export function projectPrizes(
+  tournament: Pick<
+    TournamentAccount,
+    "status" | "prizePoolLamports" | "winnersCount" | "distributedPoolLamports" | "thresholdScoreBps"
+  >,
+  sortedScores: (number | null)[],
+): bigint[] {
+  if (tournament.status === "cancelled") return sortedScores.map(() => 0n); // nobody wins; fees are refunded
   if (tournament.status === "finalized") {
-    if (tournament.winnersCount === 0 || rank > tournament.winnersCount) return 0n;
-    return tournament.distributedPoolLamports / BigInt(tournament.winnersCount);
+    if (tournament.winnersCount === 0) return sortedScores.map(() => 0n);
+    const share = tournament.distributedPoolLamports / BigInt(tournament.winnersCount);
+    return sortedScores.map((s) => (s != null && s >= tournament.thresholdScoreBps ? share : 0n));
   }
-  const winners = Math.max(1, Math.ceil(entryCount / 2));
-  if (rank > winners) return 0n;
+  const target = Math.max(1, Math.ceil(sortedScores.length / 2));
+  const threshold = sortedScores[target - 1];
+  if (threshold == null) return sortedScores.map(() => 0n); // cut-off entry isn't scored yet
+  const winners = sortedScores.filter((s) => s != null && s >= threshold).length;
   const distributable = (tournament.prizePoolLamports * BigInt(BPS_DENOMINATOR - RAKE_BPS)) / BigInt(BPS_DENOMINATOR);
-  return distributable / BigInt(winners);
+  const share = distributable / BigInt(winners);
+  return sortedScores.map((s) => (s != null && s >= threshold ? share : 0n));
 }

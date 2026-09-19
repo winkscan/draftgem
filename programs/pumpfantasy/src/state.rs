@@ -50,6 +50,11 @@ pub struct Tournament {
 pub enum TournamentStatus {
     Open,
     Finalized,
+    /// Called off because some entries could never be settled (a coin's price
+    /// couldn't be recorded). Every entry gets its fee back via `refund_entry`;
+    /// nothing is paid out. Appended last so existing on-chain tournaments
+    /// keep decoding (Open = 0, Finalized = 1).
+    Cancelled,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]

@@ -8,7 +8,7 @@ import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
 import { useAuthorization } from "../utils/useAuthorization";
 import { tournamentPda } from "../pumpfantasy/pdas";
 import { useLivePrices } from "../pumpfantasy/livePrices";
-import { computePortfolioScore, projectedPrizeLamports, type PickScore } from "../pumpfantasy/liveScore";
+import { computePortfolioScore, projectPrizes, type PickScore } from "../pumpfantasy/liveScore";
 import { bpsToPercentLabel, ellipsify, formatSol } from "../pumpfantasy/format";
 import { getTournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { ModeBadges } from "../components/ModeBadge";
@@ -26,6 +26,7 @@ interface Row {
   scoreBps: number | null;
   picks: PickScore[];
   prizeLamports: bigint;
+  claimed: boolean;
   isMine: boolean;
 }
 
@@ -87,6 +88,10 @@ export function LeaderboardScreen() {
       if (b.scoreBps !== a.scoreBps) return b.scoreBps - a.scoreBps;
       return Number(a.entry.account.createdAt - b.entry.account.createdAt);
     });
+    const prizes = projectPrizes(
+      tournament,
+      scored.map((s) => s.scoreBps),
+    );
     return scored.map((s, i) => ({
       key: s.entry.publicKey.toBase58(),
       rank: i + 1,
@@ -95,7 +100,8 @@ export function LeaderboardScreen() {
       createdAt: s.entry.account.createdAt,
       scoreBps: s.scoreBps,
       picks: s.picks,
-      prizeLamports: projectedPrizeLamports(tournament, i + 1, scored.length),
+      prizeLamports: prizes[i],
+      claimed: s.entry.account.claimed,
       isMine: !!selectedAccount && s.entry.account.player.equals(selectedAccount.publicKey),
     }));
   }, [entries, assetsByMint, livePricesMicros, tournament, selectedAccount]);
@@ -180,7 +186,13 @@ export function LeaderboardScreen() {
         </View>
       ) : null}
 
-      {waitingForPrices && phase !== "upcoming" ? (
+      {tournament.status === "cancelled" ? (
+        <Text style={styles.notice}>
+          This tournament was cancelled because its results could not be finalized. Every entry fee was refunded (✓).
+        </Text>
+      ) : null}
+
+      {waitingForPrices && phase !== "upcoming" && tournament.status !== "cancelled" ? (
         <Text style={styles.notice}>
           {phase === "live"
             ? "Waiting for the tournament's start prices to be recorded…"
@@ -222,6 +234,7 @@ export function LeaderboardScreen() {
               </Text>
               <Text style={[styles.cell, { flex: 1 }, r.isMine ? styles.bold : undefined]}>
                 {r.prizeLamports > 0n ? formatSol(r.prizeLamports, 3) : "-"}
+                {r.claimed ? " ✓" : ""}
               </Text>
               <View style={{ width: 44, alignItems: "center" }}>
                 {r.isMine ? null : (
@@ -272,7 +285,7 @@ export function LeaderboardScreen() {
       ) : null}
 
       <Text style={styles.footnote}>
-        Prize is a projection: the top half of players split the pool minus the 5% fee. Ties go to whoever entered first.
+        The top half of players split the pool minus a 5% fee; a tie at the cut-off wins too. ✓ = paid out to the wallet.
       </Text>
     </ScrollView>
   );

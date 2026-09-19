@@ -22,6 +22,11 @@ pub const PRICE_SCALE: u64 = 1_000_000;
 
 pub const BPS_DENOMINATOR: i64 = 10_000;
 
+/// How long after end_ts a tournament with unsettleable entries must wait
+/// before the authority may cancel it (and entries get refunded) — long
+/// enough that a slow price backfill has had every chance to fix it first.
+pub const CANCEL_GRACE_SECONDS: i64 = 3_600;
+
 pub const TOURNAMENT_SEED: &[u8] = b"tournament";
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const ASSET_SEED: &[u8] = b"asset";

@@ -44,4 +44,10 @@ pub enum PumpFantasyError {
     AttestationExpired,
     #[msg("Asset prices can only be registered once the entry window has closed")]
     TooEarlyToRegisterPrice,
+    #[msg("A tournament can only be cancelled a while after it ended")]
+    TooEarlyToCancel,
+    #[msg("Every entry is already settled - finalize instead of cancelling")]
+    NothingToCancel,
+    #[msg("Tournament has not been cancelled")]
+    NotCancelled,
 }

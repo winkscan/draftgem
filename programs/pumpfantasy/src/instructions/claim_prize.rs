@@ -51,7 +51,20 @@ pub fn handle_claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
         PumpFantasyError::NotAWinner
     );
 
-    let payout = tournament.distributed_pool_lamports / tournament.winners_count as u64;
+    let mut payout = tournament.distributed_pool_lamports / tournament.winners_count as u64;
+
+    // A system account (the vault) may not be left holding more than 0 but
+    // less than the rent-exempt minimum, or the transfer fails. Normally the
+    // 5% rake covers that, but with a single entry (or a tiny pool) it doesn't
+    // — the winner's own claim would then be impossible and their prize stuck
+    // forever. When this payout would strand such a sliver, pay it out too
+    // (only ever happens on the last claim: earlier ones leave other winners'
+    // shares in the vault).
+    let vault_lamports = ctx.accounts.vault.to_account_info().lamports();
+    let rent_minimum = Rent::get()?.minimum_balance(0);
+    if vault_lamports > payout && vault_lamports - payout < rent_minimum {
+        payout = vault_lamports;
+    }
 
     let tournament_key = tournament.key();
     let vault_seeds: &[&[u8]] = &[VAULT_SEED, tournament_key.as_ref(), &[tournament.vault_bump]];

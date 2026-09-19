@@ -9,7 +9,7 @@ export const TOURNAMENT_DISCRIMINATOR = Buffer.from([175, 139, 119, 242, 115, 19
 export const ASSET_PRICE_DISCRIMINATOR = Buffer.from([197, 106, 216, 207, 155, 172, 40, 245]);
 export const ENTRY_DISCRIMINATOR = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
 
-export type TournamentStatus = "open" | "finalized";
+export type TournamentStatus = "open" | "finalized" | "cancelled";
 export type EntryMode = "single" | "multiple";
 
 export interface TournamentAccount {
@@ -45,7 +45,7 @@ export function decodeTournament(data: Buffer): TournamentAccount {
     entryCount: r.readU32(),
     settledCount: r.readU32(),
     prizePoolLamports: r.readU64(),
-    status: r.readEnumTag() === 0 ? "open" : "finalized",
+    status: (["open", "finalized", "cancelled"] as const)[r.readEnumTag()] ?? "open",
     winnersCount: r.readU32(),
     thresholdScoreBps: r.readI32(),
     distributedPoolLamports: r.readU64(),

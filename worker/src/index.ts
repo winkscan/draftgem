@@ -2,7 +2,9 @@ import { Connection, Keypair, PublicKey, SystemProgram, Transaction, Transaction
 import { getAllCandidates } from "./tokenDiscovery";
 import { signAttestation, UnknownMintError, BudgetExceededError } from "./attestation";
 import { loadUnderlyingMarketCaps } from "./bridgedAssets";
-import { syncPrices, TICK_MS, ROUND_SECONDS } from "./syncPrices";
+import { findCandidates, syncPrices, TICK_MS, ROUND_SECONDS } from "./syncPrices";
+import { settleTournaments } from "./settlement";
+import { loadStates, saveStates } from "./tournamentState";
 import type { Env } from "./env";
 
 // Standalone Cron Trigger that creates a fresh PumpFantasy tournament on a
@@ -134,6 +136,32 @@ async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promis
   return `${id} (${sig})`;
 }
 
+// One pass over the recent tournaments: record start/end prices from history,
+// then (same tick, same candidate list, sequential because settlement needs the
+// end prices just written) settle, finalize and pay out. Progress flags live in
+// KV so finished work is never re-read from the chain.
+async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<string> {
+  const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
+  const loaded = await loadStates(env);
+  const lines: string[] = [];
+  try {
+    const candidates = await findCandidates(connection, loaded.states, opts);
+    try {
+      lines.push(`Prices: ${await syncPrices(env, connection, candidates, loaded.states)}`);
+    } catch (err) {
+      lines.push(`Prices failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    try {
+      lines.push(`Settlement: ${await settleTournaments(env, connection, candidates, loaded.states)}`);
+    } catch (err) {
+      lines.push(`Settlement failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } finally {
+    await saveStates(env, loaded);
+  }
+  return lines.join("\n");
+}
+
 function corsHeaders(): HeadersInit {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -159,9 +187,9 @@ export default {
     );
     ctx.waitUntil(loadUnderlyingMarketCaps(env).catch((err) => console.error("Market-cap refresh failed:", err)));
     ctx.waitUntil(
-      syncPrices(env)
-        .then((result) => console.log(`Synced prices: ${result}`))
-        .catch((err) => console.error("Price sync failed:", err)),
+      runMaintenance(env, {})
+        .then((result) => console.log(result))
+        .catch((err) => console.error("Maintenance failed:", err)),
     );
   },
 
@@ -203,14 +231,16 @@ export default {
       }
     }
 
-    // Manual trigger for testing (`curl <worker-url>/sync`) — not the real
-    // schedule, just lets us verify without waiting for the next cron tick.
-    if (req.method === "GET" && url.pathname === "/sync") {
+    // Manual run of the same maintenance pass the cron does (`curl <worker-url>/sync`);
+    // `?full=1` scans every tournament (repair path for non-tick-aligned ones).
+    if (req.method === "GET" && (url.pathname === "/sync" || url.pathname === "/settle")) {
       try {
-        const result = await syncPrices(env, { full: url.searchParams.get("full") === "1" });
-        return new Response(`${result}\n`, { status: 200, headers: corsHeaders() });
+        const result = await runMaintenance(env, { full: url.searchParams.get("full") === "1" });
+        return new Response(`${result}
+`, { status: 200, headers: corsHeaders() });
       } catch (err) {
-        return new Response(`Failed: ${err instanceof Error ? err.message : String(err)}\n`, {
+        return new Response(`Failed: ${err instanceof Error ? err.message : String(err)}
+`, {
           status: 500,
           headers: corsHeaders(),
         });

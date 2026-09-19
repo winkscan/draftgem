@@ -67,7 +67,9 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
         let label: string;
         if (phase === "upcoming") label = `Starts in ${formatCountdown(Number(t.startTs), now)}`;
         else if (phase === "live") label = `Ends in ${formatCountdown(Number(t.endTs), now)}`;
-        else label = t.status === "finalized" ? "Finalized" : "Awaiting results";
+        else if (t.status === "finalized") label = "Paid out";
+        else if (t.status === "cancelled") label = "Cancelled · refunded";
+        else label = "Awaiting results";
 
         // Live and Results are always "View" — entries are closed the
         // moment a round leaves "upcoming", full stop, whether or not you

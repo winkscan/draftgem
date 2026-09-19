@@ -8,21 +8,20 @@
   },
   "instructions": [
     {
-      "name": "add_asset",
+      "name": "cancel_tournament",
       "discriminator": [
-        81,
-        53,
-        134,
+        249,
+        227,
+        133,
+        5,
+        9,
         142,
-        243,
-        73,
-        42,
-        179
+        29,
+        122
       ],
       "accounts": [
         {
           "name": "authority",
-          "writable": true,
           "signer": true,
           "relations": [
             "tournament"
@@ -55,52 +54,9 @@
               }
             ]
           }
-        },
-        {
-          "name": "asset",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  115,
-                  115,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tournament"
-              },
-              {
-                "kind": "arg",
-                "path": "mint"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         }
       ],
-      "args": [
-        {
-          "name": "mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "fp_cost",
-          "type": "u32"
-        },
-        {
-          "name": "start_price_micros",
-          "type": "u64"
-        }
-      ]
+      "args": []
     },
     {
       "name": "claim_prize",
@@ -280,6 +236,18 @@
         {
           "name": "end_ts",
           "type": "i64"
+        },
+        {
+          "name": "entry_mode",
+          "type": {
+            "defined": {
+              "name": "EntryMode"
+            }
+          }
+        },
+        {
+          "name": "guaranteed_amount_lamports",
+          "type": "u64"
         }
       ]
     },
@@ -373,16 +341,55 @@
               {
                 "kind": "account",
                 "path": "player"
+              },
+              {
+                "kind": "arg",
+                "path": "entry_index"
               }
             ]
           }
+        },
+        {
+          "name": "instructions_sysvar",
+          "docs": [
+            "ed25519_program attestation instruction — pinned to the real",
+            "Instructions sysvar address, never any other account."
+          ],
+          "address": "Sysvar1nstructions1111111111111111111111111"
         },
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "entry_index",
+          "type": "u16"
+        },
+        {
+          "name": "picks",
+          "type": {
+            "array": [
+              "pubkey",
+              5
+            ]
+          }
+        },
+        {
+          "name": "fp_costs",
+          "type": {
+            "array": [
+              "u32",
+              5
+            ]
+          }
+        },
+        {
+          "name": "attestation_expiry",
+          "type": "i64"
+        }
+      ]
     },
     {
       "name": "finalize_tournament",
@@ -441,6 +448,182 @@
         {
           "name": "threshold_score_bps",
           "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "refund_entry",
+      "discriminator": [
+        214,
+        5,
+        136,
+        23,
+        253,
+        7,
+        230,
+        81
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless, like `claim_prize`: anyone can trigger the refund, but",
+            "the destination is locked to `entry.player` below."
+          ],
+          "signer": true
+        },
+        {
+          "name": "tournament",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true
+        },
+        {
+          "name": "player",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "register_asset_price",
+      "discriminator": [
+        43,
+        245,
+        161,
+        178,
+        99,
+        48,
+        249,
+        125
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  115,
+                  115,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "start_price_micros",
+          "type": "u64"
         }
       ]
     },
@@ -563,6 +746,19 @@
   ],
   "accounts": [
     {
+      "name": "AssetPrice",
+      "discriminator": [
+        197,
+        106,
+        216,
+        207,
+        155,
+        172,
+        40,
+        245
+      ]
+    },
+    {
       "name": "Entry",
       "discriminator": [
         63,
@@ -586,19 +782,6 @@
         194,
         57,
         92
-      ]
-    },
-    {
-      "name": "TournamentAsset",
-      "discriminator": [
-        52,
-        102,
-        230,
-        140,
-        17,
-        232,
-        148,
-        75
       ]
     }
   ],
@@ -687,9 +870,84 @@
       "code": 6016,
       "name": "InvalidWinnersCount",
       "msg": "Winners count must be greater than zero"
+    },
+    {
+      "code": 6017,
+      "name": "SingleEntryOnly",
+      "msg": "This tournament only allows a single entry per wallet"
+    },
+    {
+      "code": 6018,
+      "name": "MissingAttestation",
+      "msg": "Missing or invalid fp_cost attestation for this entry's picks"
+    },
+    {
+      "code": 6019,
+      "name": "AttestationExpired",
+      "msg": "Attestation has expired — request a fresh one and retry"
+    },
+    {
+      "code": 6020,
+      "name": "TooEarlyToRegisterPrice",
+      "msg": "Asset prices can only be registered once the entry window has closed"
+    },
+    {
+      "code": 6021,
+      "name": "TooEarlyToCancel",
+      "msg": "A tournament can only be cancelled a while after it ended"
+    },
+    {
+      "code": 6022,
+      "name": "NothingToCancel",
+      "msg": "Every entry is already settled - finalize instead of cancelling"
+    },
+    {
+      "code": 6023,
+      "name": "NotCancelled",
+      "msg": "Tournament has not been cancelled"
     }
   ],
   "types": [
+    {
+      "name": "AssetPrice",
+      "docs": [
+        "One shared start/end price per (tournament, mint) — deliberately NOT",
+        "per-entry. Every player who picked this mint, whenever during the entry",
+        "window they actually clicked \"enter\", scores from the exact same",
+        "reference price, captured once at (or after) `start_ts`. Registered",
+        "lazily by `register_asset_price`, not pre-created for every candidate a",
+        "player might browse — see that instruction's comment for why."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tournament",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "start_price_micros",
+            "type": "u64"
+          },
+          {
+            "name": "end_price_micros",
+            "type": "u64"
+          },
+          {
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
     {
       "name": "Entry",
       "type": {
@@ -704,7 +962,23 @@
             "type": "pubkey"
           },
           {
+            "name": "entry_index",
+            "docs": [
+              "Which of this player's entries in this tournament this is — 0 for",
+              "every Single-mode entry (there's only ever one), 0..N for Multiple",
+              "mode. Part of this account's own PDA seeds, also stored here so",
+              "clients can display/sort a player's entries without re-deriving it."
+            ],
+            "type": "u16"
+          },
+          {
             "name": "picks",
+            "docs": [
+              "Raw mint addresses the player picked — NOT references to a",
+              "pre-registered on-chain asset account (there isn't one at pick",
+              "time; see `enter_tournament`'s Ed25519-attestation comment for why",
+              "that's no longer needed)."
+            ],
             "type": {
               "array": [
                 "pubkey",
@@ -729,8 +1003,33 @@
             "type": "bool"
           },
           {
+            "name": "created_at",
+            "docs": [
+              "Unix timestamp this entry was created — the tiebreaker when two",
+              "entries land on the exact same score_bps: the earlier `created_at`",
+              "ranks higher, since drafting first (with less information about",
+              "what everyone else is doing) is the harder feat. Purely a ranking",
+              "input; doesn't affect anyone's score itself."
+            ],
+            "type": "i64"
+          },
+          {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EntryMode",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Single"
+          },
+          {
+            "name": "Multiple"
           }
         ]
       }
@@ -743,12 +1042,12 @@
           {
             "name": "authority",
             "docs": [
-              "Backend/admin key allowed to add assets and submit price results.",
-              "This is the trust boundary: there is no free, reliable on-chain",
-              "price feed for freshly-launched Solana coins, so final prices are",
-              "attested by our own backend the same way SwapKings attests",
-              "pump.fun founder wallets — the score math itself still happens",
-              "on-chain and can't be faked once a price is submitted."
+              "Backend/admin key allowed to register post-start asset prices and",
+              "finalize the tournament. This is the trust boundary: there is no",
+              "free, reliable on-chain price feed for freshly-launched Solana",
+              "coins, so prices are attested by our own backend the same way",
+              "SwapKings attests pump.fun founder wallets — the score math itself",
+              "still happens on-chain and can't be faked once a price is submitted."
             ],
             "type": "pubkey"
           },
@@ -770,6 +1069,12 @@
           },
           {
             "name": "asset_count",
+            "docs": [
+              "Number of distinct picked mints that have had a start price",
+              "registered via `register_asset_price` — set lazily, after",
+              "`start_ts`, only for mints someone actually picked (see that",
+              "instruction's own comment), not a pre-registered catalog."
+            ],
             "type": "u16"
           },
           {
@@ -808,48 +1113,35 @@
             "type": "u64"
           },
           {
+            "name": "entry_mode",
+            "docs": [
+              "Single: one entry per wallet, enforced on-chain (see",
+              "`enter_tournament`'s explicit check — PDA uniqueness alone only",
+              "blocks a *second* entry at the same index, not a first entry at a",
+              "non-zero index). Multiple: a wallet may hold any number of entries,",
+              "each its own portfolio, competing independently (including against",
+              "its own other entries)."
+            ],
+            "type": {
+              "defined": {
+                "name": "EntryMode"
+              }
+            }
+          },
+          {
+            "name": "guaranteed_amount_lamports",
+            "docs": [
+              "0 = not a guaranteed-prize tournament. Nonzero = the house has",
+              "committed to a payout pool of at least this many lamports regardless",
+              "of how many entries actually land — just the flag/amount for now,",
+              "display-only (the \"G\" badge); the actual house top-up instruction",
+              "(fund the vault up to this floor before finalize) isn't built yet."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "vault_bump",
             "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "TournamentAsset",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "tournament",
-            "type": "pubkey"
-          },
-          {
-            "name": "mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "fp_cost",
-            "docs": [
-              "Fantasy-point cost, derived off-chain from the coin's age (younger =",
-              "pricier, since it can swing much harder — see design notes)."
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "start_price_micros",
-            "type": "u64"
-          },
-          {
-            "name": "end_price_micros",
-            "type": "u64"
-          },
-          {
-            "name": "resolved",
-            "type": "bool"
           },
           {
             "name": "bump",
@@ -868,6 +1160,9 @@
           },
           {
             "name": "Finalized"
+          },
+          {
+            "name": "Cancelled"
           }
         ]
       }
