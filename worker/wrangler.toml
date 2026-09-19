@@ -9,3 +9,10 @@ compatibility_flags = ["nodejs_compat"]
 # time.
 [triggers]
 crons = ["*/5 * * * *"]
+
+# Holds the last good cross-chain market caps for wrapped coins (see
+# src/bridgedAssets.ts) — CoinGecko rate-limits Workers' shared egress IP and
+# the Cache API doesn't persist on workers.dev, so this is the cache.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "1cd9f6bb2a714eb9b1684ce929cab7e2"

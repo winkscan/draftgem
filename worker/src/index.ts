@@ -1,6 +1,7 @@
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getAllCandidates } from "./tokenDiscovery";
 import { signAttestation, UnknownMintError, BudgetExceededError } from "./attestation";
+import { loadUnderlyingMarketCaps } from "./bridgedAssets";
 import { syncPrices, TICK_MS, ROUND_SECONDS } from "./syncPrices";
 import type { Env } from "./env";
 
@@ -156,6 +157,7 @@ export default {
         .then((result) => console.log(`Created tournament ${result}`))
         .catch((err) => console.error("Tournament creation failed:", err)),
     );
+    ctx.waitUntil(loadUnderlyingMarketCaps(env).catch((err) => console.error("Market-cap refresh failed:", err)));
     ctx.waitUntil(
       syncPrices(env)
         .then((result) => console.log(`Synced prices: ${result}`))
@@ -174,7 +176,7 @@ export default {
     // browses/searches (All/Degen/Gambler/Contender/Veteran/BlueChip tabs).
     if (req.method === "GET" && url.pathname === "/candidates") {
       try {
-        const candidates = await getAllCandidates();
+        const candidates = await getAllCandidates(env);
         return json({ candidates });
       } catch (err) {
         return json({ error: err instanceof Error ? err.message : String(err) }, 500);
@@ -191,7 +193,7 @@ export default {
           return json({ error: "Body must be { mints: [5 base58 strings] }" }, 400);
         }
         const attestationSecretKey = loadAttestationSecretKey(env.ATTESTATION_SIGNER_SECRET_KEY);
-        const attestation = await signAttestation(body.mints as string[], attestationSecretKey);
+        const attestation = await signAttestation(body.mints as string[], attestationSecretKey, env);
         return json(attestation);
       } catch (err) {
         if (err instanceof UnknownMintError || err instanceof BudgetExceededError) {

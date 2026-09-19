@@ -18,4 +18,6 @@ export interface Env {
   // the public half is baked into the on-chain program as
   // constants::ATTESTATION_SIGNER.
   ATTESTATION_SIGNER_SECRET_KEY: string;
+  // KV namespace (wrangler.toml [[kv_namespaces]]) — see bridgedAssets.ts.
+  CACHE: KVNamespace;
 }

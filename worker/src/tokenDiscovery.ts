@@ -13,6 +13,9 @@
 // call looks up only the specific mints being attested. Jupiter's
 // lite-api tier is free/keyless either way.
 
+import type { Env } from "./env";
+import { effectiveMarketCap, loadUnderlyingMarketCaps } from "./bridgedAssets";
+
 export interface TierDef {
   name: string;
   minMarketCapUsd: number;
@@ -149,8 +152,8 @@ async function fetchAllCandidates(): Promise<JupiterToken[]> {
   return [...byMint.values()];
 }
 
-function toDiscovered(t: JupiterToken, ageDays: number): DiscoveredAsset | null {
-  const tier = tierForMarketCap(t.mcap ?? 0);
+function toDiscovered(t: JupiterToken, ageDays: number, marketCapUsd: number): DiscoveredAsset | null {
+  const tier = tierForMarketCap(marketCapUsd);
   const priceUsd = t.usdPrice ?? 0;
   if (Math.round(priceUsd * PRICE_SCALE) <= 0) return null; // too cheap to represent at this fixed-point scale
   return {
@@ -163,7 +166,7 @@ function toDiscovered(t: JupiterToken, ageDays: number): DiscoveredAsset | null 
     priceUsd,
     ageDays,
     liquidityUsd: t.liquidity ?? 0,
-    marketCapUsd: t.mcap ?? 0,
+    marketCapUsd,
     website: t.website || undefined,
     twitter: t.twitter || undefined,
     telegram: t.telegram || undefined,
@@ -178,16 +181,17 @@ function toDiscovered(t: JupiterToken, ageDays: number): DiscoveredAsset | null 
  * Worker's `/candidates` HTTP endpoint) — nothing here is tournament-
  * specific or pre-registered on-chain.
  */
-export async function getAllCandidates(): Promise<DiscoveredAsset[]> {
-  const candidates = await fetchAllCandidates();
+export async function getAllCandidates(env: Env): Promise<DiscoveredAsset[]> {
+  const [candidates, underlying] = await Promise.all([fetchAllCandidates(), loadUnderlyingMarketCaps(env)]);
   const out: DiscoveredAsset[] = [];
   for (const token of candidates) {
     const createdAt = token.firstPool?.createdAt;
     if (!createdAt) continue;
     if ((token.liquidity ?? 0) < MIN_LIQUIDITY_USD) continue;
-    if ((token.mcap ?? 0) < MIN_MARKET_CAP_USD) continue;
+    const marketCapUsd = effectiveMarketCap(token.id, token.mcap ?? 0, underlying);
+    if (marketCapUsd < MIN_MARKET_CAP_USD) continue;
     if (isStablecoin(token)) continue;
-    const discovered = toDiscovered(token, ageDaysFromCreatedAt(createdAt));
+    const discovered = toDiscovered(token, ageDaysFromCreatedAt(createdAt), marketCapUsd);
     if (discovered) out.push(discovered);
   }
   return out;

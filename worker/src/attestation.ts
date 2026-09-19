@@ -1,5 +1,7 @@
 import nacl from "tweetnacl";
+import type { Env } from "./env";
 import { tierForMarketCap } from "./tokenDiscovery";
+import { effectiveMarketCap, loadUnderlyingMarketCaps } from "./bridgedAssets";
 
 // Signs a short-lived attestation of each picked mint's real fp_cost (age
 // tier), so `enter_tournament` can verify the budget on-chain without ever
@@ -47,12 +49,12 @@ export class BudgetExceededError extends Error {
 }
 
 /** Real fp_cost for each requested mint, computed fresh — never trusts a client-supplied value. */
-export async function computeFpCosts(mints: string[]): Promise<AttestedPick[]> {
-  const byMint = await lookupMints(mints);
+export async function computeFpCosts(mints: string[], env: Env): Promise<AttestedPick[]> {
+  const [byMint, underlying] = await Promise.all([lookupMints(mints), loadUnderlyingMarketCaps(env)]);
   return mints.map((mint) => {
     const token = byMint.get(mint);
     if (!token || !token.mcap) throw new UnknownMintError(mint);
-    const tier = tierForMarketCap(token.mcap);
+    const tier = tierForMarketCap(effectiveMarketCap(mint, token.mcap, underlying));
     return { mint, fpCost: tier.fpCost, tier: tier.name };
   });
 }
@@ -117,9 +119,9 @@ export interface Attestation {
 }
 
 /** `attestationSecretKey` is the raw 64-byte Ed25519 secret key (same format as a Solana CLI keypair file). */
-export async function signAttestation(mints: string[], attestationSecretKey: Uint8Array): Promise<Attestation> {
+export async function signAttestation(mints: string[], attestationSecretKey: Uint8Array, env: Env): Promise<Attestation> {
   if (mints.length !== 5) throw new Error("Exactly 5 mints required");
-  const picks = await computeFpCosts(mints);
+  const picks = await computeFpCosts(mints, env);
   const totalFp = picks.reduce((sum, p) => sum + p.fpCost, 0);
   if (totalFp > MAX_BUDGET_FP) throw new BudgetExceededError(totalFp);
   const expiry = Math.floor(Date.now() / 1000) + ATTESTATION_TTL_SECONDS;
