@@ -1,7 +1,7 @@
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getAllCandidates } from "./tokenDiscovery";
 import { signAttestation, UnknownMintError } from "./attestation";
-import { syncPrices } from "./syncPrices";
+import { syncPrices, TICK_MS, ROUND_SECONDS } from "./syncPrices";
 import type { Env } from "./env";
 
 // Standalone Cron Trigger that creates a fresh PumpFantasy tournament on a
@@ -25,8 +25,8 @@ const PROGRAM_ID = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu")
 // is blocked") — confirmed live. Helius devnet doesn't.
 
 const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL
-const ROUND_DURATION_SECONDS = 10 * 60;
-const ENTRY_WINDOW_SECONDS = 10 * 60; // keep ≤ the cron's own interval's complement — see wrangler.toml
+const ROUND_DURATION_SECONDS = ROUND_SECONDS;
+const ENTRY_WINDOW_SECONDS = ROUND_SECONDS; // syncPrices.ts derives tournament ids from this — change both together
 
 // idl/pumpfantasy.json → instructions[].find(i => i.name === "...").discriminator
 const CREATE_TOURNAMENT_DISCRIMINATOR = Uint8Array.from([158, 137, 233, 231, 73, 132, 191, 68]);
@@ -68,8 +68,10 @@ function loadAttestationSecretKey(secret: string): Uint8Array {
 // polling fallback that can run for tens of seconds — a bounded
 // getSignatureStatuses loop is cheaper and enough for a cron job.
 async function waitForConfirmation(connection: Connection, sig: string): Promise<void> {
-  for (let attempt = 0; attempt < 8; attempt++) {
-    await new Promise((r) => setTimeout(r, 1200));
+  // Every poll is a billed Helius call (this runs every tick) — 2s spacing
+  // usually needs a single check instead of the 2-3 a 1.2s spacing did.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await new Promise((r) => setTimeout(r, 2000));
     const { value } = await connection.getSignatureStatuses([sig]);
     const status = value[0];
     if (status?.err) throw new Error(`Transaction ${sig} failed: ${JSON.stringify(status.err)}`);
@@ -78,22 +80,25 @@ async function waitForConfirmation(connection: Connection, sig: string): Promise
   throw new Error(`Transaction ${sig} did not confirm within the wait budget`);
 }
 
-async function createTournament(env: Env): Promise<string> {
+// `id` is a millisecond timestamp. Cron ticks pass their own scheduled time
+// (aligned to TICK_MS), so syncPrices can recompute every recent tournament's
+// address from the clock instead of listing them (see syncPrices.ts); manual
+// triggers pass Date.now() and are found only by `/sync?full=1`. start/end
+// derive from the id, not "now", so the two stay in lockstep.
+async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promise<string> {
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
   const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
 
-  const id = BigInt(Date.now());
-  const now = Math.floor(Date.now() / 1000);
-  const startTs = now + ENTRY_WINDOW_SECONDS;
+  const startTs = Number(id / 1000n) + ENTRY_WINDOW_SECONDS;
   const endTs = startTs + ROUND_DURATION_SECONDS;
 
   // Rotate entry mode / guaranteed amount for variety, same as the manual
   // test script — a real product decision on which types to actually run
   // is still open (see project memory), this just keeps all badge states
-  // exercised automatically. Keyed off the millisecond id itself (not the
-  // current minute) so repeated manual/testing triggers within the same
-  // minute still get different modes, not the same one every time.
-  const cycle = Number(id % 3n);
+  // exercised automatically. Seeded per call (cron: the tick number; manual:
+  // the ms id) so repeated manual triggers within the same minute still get
+  // different modes.
+  const cycle = Number(cycleSeed % 3n);
   const entryModeTag = cycle === 1 ? 1 : 0; // 0 = Single, 1 = Multiple
   const guaranteedAmountLamports = cycle === 2 ? 500_000_000 : 0;
 
@@ -144,9 +149,10 @@ function json(body: unknown, status = 200): Response {
 }
 
 export default {
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    const tick = BigInt(Math.floor(event.scheduledTime / TICK_MS));
     ctx.waitUntil(
-      createTournament(env)
+      createTournament(env, tick * BigInt(TICK_MS), tick)
         .then((result) => console.log(`Created tournament ${result}`))
         .catch((err) => console.error("Tournament creation failed:", err)),
     );
@@ -197,7 +203,7 @@ export default {
     // schedule, just lets us verify without waiting for the next cron tick.
     if (req.method === "GET" && url.pathname === "/sync") {
       try {
-        const result = await syncPrices(env);
+        const result = await syncPrices(env, { full: url.searchParams.get("full") === "1" });
         return new Response(`${result}\n`, { status: 200, headers: corsHeaders() });
       } catch (err) {
         return new Response(`Failed: ${err instanceof Error ? err.message : String(err)}\n`, {
@@ -207,16 +213,23 @@ export default {
       }
     }
 
-    // Manual trigger for testing (`curl <worker-url>`) — not the real
-    // schedule, just lets us verify without waiting for the next cron tick.
-    try {
-      const result = await createTournament(env);
-      return new Response(`Created tournament ${result}\n`, { status: 200, headers: corsHeaders() });
-    } catch (err) {
-      return new Response(`Failed: ${err instanceof Error ? err.message : String(err)}\n`, {
-        status: 500,
-        headers: corsHeaders(),
-      });
+    // Manual trigger for testing (`curl <worker-url>/create`). Its own path,
+    // not a catch-all: this URL is public, and any stray request (crawler,
+    // favicon fetch) that used to land here created a tournament and spent
+    // Helius credits + SOL.
+    if (req.method === "GET" && url.pathname === "/create") {
+      try {
+        const id = BigInt(Date.now());
+        const result = await createTournament(env, id, id);
+        return new Response(`Created tournament ${result}\n`, { status: 200, headers: corsHeaders() });
+      } catch (err) {
+        return new Response(`Failed: ${err instanceof Error ? err.message : String(err)}\n`, {
+          status: 500,
+          headers: corsHeaders(),
+        });
+      }
     }
+
+    return new Response("Not found\n", { status: 404, headers: corsHeaders() });
   },
 };
