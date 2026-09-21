@@ -152,12 +152,18 @@ export function useAuthorization() {
     },
     [authorization]
   );
+  // Forget the wallet locally without talking to the wallet app — the fallback
+  // for signing out when the wallet can't be reached to deauthorize properly.
+  const clearAuthorization = useCallback(async () => {
+    await setAuthorization(null);
+  }, []);
   return useMemo(
     () => ({
       accounts: authorization?.accounts ?? null,
       authorizeSession,
       authorizeSessionWithSignIn,
       deauthorizeSession,
+      clearAuthorization,
       selectedAccount: authorization?.selectedAccount ?? null,
       isLoading,
     }),

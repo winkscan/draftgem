@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Text, TouchableRipple, ActivityIndicator } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -7,17 +8,17 @@ import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useConnection } from "../../utils/ConnectionProvider";
 import { ellipsify, formatSol } from "../../pumpfantasy/format";
 import { UpdateBadge } from "./UpdateBadge";
+import { WalletMenu, type Anchor, type WalletMenuItem } from "./WalletMenu";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
 import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { PF_COLORS as C } from "../../theme";
 
 // Matches the reference mockup's header: short address + SOL balance pill on
-// the right, tapping it connects when there's no wallet yet. No dropdown
-// menu (Explorer/Network/Disconnect) for this first pass — single-cluster
-// app, nothing to switch to yet; add one back if that changes.
+// the right: tapping it connects when there's no wallet yet, and opens a small
+// dropdown (just "Sign out" for now) once connected.
 export function TopBar({ phase }: { phase?: TournamentPhase }) {
-  const { selectedAccount } = useAuthorization();
-  const { connect } = useMobileWallet();
+  const { selectedAccount, clearAuthorization } = useAuthorization();
+  const { connect, disconnect } = useMobileWallet();
   const { connection } = useConnection();
 
   const { data: balanceLamports, isFetching } = useQuery({
@@ -26,6 +27,23 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
     enabled: !!selectedAccount,
     refetchInterval: 15_000,
   });
+
+  // Dropdown under the wallet pill; add entries here to grow it.
+  const pillRef = useRef<View>(null);
+  const [menuAnchor, setMenuAnchor] = useState<Anchor | null>(null);
+  const openMenu = () =>
+    pillRef.current?.measureInWindow((x, y, width, height) => setMenuAnchor({ x, y, width, height }));
+
+  const signOut = async () => {
+    setMenuAnchor(null);
+    try {
+      await disconnect();
+    } catch {
+      // Wallet app unreachable or cancelled the request: still forget it here.
+      await clearAuthorization();
+    }
+  };
+  const menuItems: WalletMenuItem[] = [{ key: "sign-out", label: "Sign out", icon: "right-from-bracket", onPress: signOut }];
 
   return (
     <View>
@@ -39,30 +57,33 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
           </View>
           <View style={styles.right}>
             <UpdateBadge />
-            <TouchableRipple style={styles.pill} onPress={selectedAccount ? undefined : connect} borderless>
-              {selectedAccount ? (
-                <View style={styles.pillContent}>
-                  <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
-                  <View style={styles.divider} />
-                  {isFetching && balanceLamports == null ? (
-                    <ActivityIndicator size={10} color={C.textOnHeader} />
-                  ) : (
-                    <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
-                  )}
-                  <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
-                </View>
-              ) : (
-                <View style={styles.pillContent}>
-                  <Text style={styles.balance}>Connect</Text>
-                  <FontAwesome6 name="wallet" size={12} color={C.textOnHeader} />
-                </View>
-              )}
-            </TouchableRipple>
+            <View ref={pillRef} collapsable={false}>
+              <TouchableRipple style={styles.pill} onPress={selectedAccount ? openMenu : connect} borderless>
+                {selectedAccount ? (
+                  <View style={styles.pillContent}>
+                    <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
+                    <View style={styles.divider} />
+                    {isFetching && balanceLamports == null ? (
+                      <ActivityIndicator size={10} color={C.textOnHeader} />
+                    ) : (
+                      <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
+                    )}
+                    <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
+                  </View>
+                ) : (
+                  <View style={styles.pillContent}>
+                    <Text style={styles.balance}>Connect</Text>
+                    <FontAwesome6 name="wallet" size={12} color={C.textOnHeader} />
+                  </View>
+                )}
+              </TouchableRipple>
+            </View>
           </View>
         </View>
         {phase ? <TournamentFilterTabs /> : null}
       </View>
       {phase ? <TournamentFilterSelects phase={phase} /> : null}
+      <WalletMenu anchor={menuAnchor} items={menuItems} onClose={() => setMenuAnchor(null)} />
     </View>
   );
 }
