@@ -14,7 +14,7 @@ export function ModeBadges({ tournament }: { tournament: Pick<TournamentAccount,
       </View>
       {tournament.guaranteedAmountLamports > 0n ? (
         <View style={[styles.circle, styles.guaranteed]}>
-          <Text style={styles.letter}>G</Text>
+          <Text style={[styles.letter, styles.letterOnGreen]}>G</Text>
         </View>
       ) : null}
     </View>
@@ -30,8 +30,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  single: { backgroundColor: C.header },
+  single: { backgroundColor: C.glassStrong },
   multiple: { backgroundColor: C.accent },
-  guaranteed: { backgroundColor: C.positive },
-  letter: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  guaranteed: { backgroundColor: C.accent2 },
+  letter: { color: C.textPrimary, fontSize: 10, fontWeight: "800" },
+  letterOnGreen: { color: C.accent2TextOn },
 });

@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.cardBorder,
   },
-  tabActive: { backgroundColor: C.header, borderColor: C.header },
+  tabActive: { backgroundColor: C.accent, borderColor: C.accent },
   tabText: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
   tabTextActive: { color: C.textOnHeader },
   body: { padding: 16, gap: 12 },
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: "#e4e4f6",
+    backgroundColor: C.accent2Tint,
   },
-  linkText: { color: C.header, fontWeight: "700", fontSize: 12 },
+  linkText: { color: C.accent2, fontWeight: "700", fontSize: 12 },
 });

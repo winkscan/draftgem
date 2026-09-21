@@ -50,7 +50,7 @@ export interface NavigationProps {
 export const AppNavigator = ({ navTheme }: NavigationProps) => {
   return (
     <NavigationContainer theme={navTheme}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <AppStack />
     </NavigationContainer>
   );

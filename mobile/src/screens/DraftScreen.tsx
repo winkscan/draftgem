@@ -171,7 +171,7 @@ export function DraftScreen() {
           <View style={styles.budgetBar}>
             <Text style={styles.budgetLabel}>{viewingExistingSingleEntry ? "Your portfolio" : "Budget left"}</Text>
             {!viewingExistingSingleEntry ? (
-              <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.negative } : undefined]}>
+              <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
                 {remainingFp} / {MAX_BUDGET_FP} FP
               </Text>
             ) : null}
@@ -207,7 +207,7 @@ export function DraftScreen() {
             </View>
           ) : entriesClosed ? (
             <View style={styles.closedBanner}>
-              <Text style={{ color: C.negative, fontWeight: "700" }}>Entries are closed</Text>
+              <Text style={{ color: C.textPrimary, fontWeight: "700" }}>Entries are closed</Text>
               <Text style={{ color: C.textSecondary, fontSize: 12 }}>This tournament's round already started.</Text>
             </View>
           ) : (
@@ -281,7 +281,7 @@ export function DraftScreen() {
                       </View>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
-                      <Text style={[styles.assetFp, isPicked ? { color: C.accent } : undefined]}>
+                      <Text style={[styles.assetFp, isPicked ? { color: C.accentText } : undefined]}>
                         {item.fpCost} FP
                       </Text>
                       <Text style={styles.assetTier}>
@@ -419,21 +419,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   slotMint: { fontSize: 10, color: C.textPrimary, fontWeight: "600" },
-  slotFp: { fontSize: 10, color: C.accent, fontWeight: "700" },
-  error: { color: C.negative, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
+  slotFp: { fontSize: 10, color: C.accentText, fontWeight: "700" },
+  error: { color: C.error, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
   alreadyIn: {
     marginHorizontal: 16,
     marginTop: 10,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#e9f9ef",
+    backgroundColor: C.accent2Tint,
   },
   closedBanner: {
     marginHorizontal: 16,
     marginTop: 10,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#fff0f0",
+    backgroundColor: C.glass,
   },
   // Fixed single row, all 6 tabs evenly split across the full width — not a
   // horizontally-scrolling pill list (that let each pill stretch to fill
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     borderColor: C.cardBorder,
     padding: 14,
   },
-  assetRowPicked: { borderColor: C.accent, backgroundColor: "#fff0f1" },
+  assetRowPicked: { borderColor: C.accent, backgroundColor: C.accentTint },
   assetRowInner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   assetRowLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
   assetSymbolRow: { flexDirection: "row", alignItems: "center", gap: 4 },

@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   rowLast: { borderBottomWidth: 0 },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   catName: { color: C.textPrimary, fontWeight: "800", fontSize: 14 },
-  catMeta: { color: C.accent, fontWeight: "700", fontSize: 12 },
+  catMeta: { color: C.accentText, fontWeight: "700", fontSize: 12 },
   catBlurb: { color: C.textSecondary, fontSize: 12, marginTop: 2 },
 });

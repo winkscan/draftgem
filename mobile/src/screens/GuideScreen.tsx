@@ -29,7 +29,7 @@ export function GuideScreen() {
               <View style={styles.headerInner}>
                 <View style={styles.headerLeft}>
                   <View style={styles.iconWrap}>
-                    <FontAwesome6 name={topic.icon} size={13} color={C.header} />
+                    <FontAwesome6 name={topic.icon} size={13} color={C.accentText} />
                   </View>
                   <Text style={styles.title}>{topic.title}</Text>
                 </View>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#e4e4f6",
+    backgroundColor: C.accentTint,
     alignItems: "center",
     justifyContent: "center",
   },

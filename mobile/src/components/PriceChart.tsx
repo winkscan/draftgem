@@ -130,7 +130,7 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
           {a != null ? (
             <>
               <Line x1={geo.xs[a]} x2={geo.xs[a]} y1={PAD_T} y2={geo.bottom} stroke={C.textSecondary} strokeWidth={1} strokeDasharray="3,3" />
-              <Circle cx={geo.xs[a]} cy={geo.ys[a]} r={5} fill={color} stroke="#fff" strokeWidth={2} />
+              <Circle cx={geo.xs[a]} cy={geo.ys[a]} r={5} fill={color} stroke={C.textPrimary} strokeWidth={2} />
             </>
           ) : null}
         </Svg>
@@ -160,10 +160,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 6,
     width: TOOLTIP_W,
-    backgroundColor: "#0b1024",
-    borderRadius: 6,
+    backgroundColor: "#221f2e",
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  tooltipText: { color: "#fff", fontSize: 11 },
+  tooltipText: { color: C.textPrimary, fontSize: 11 },
 });

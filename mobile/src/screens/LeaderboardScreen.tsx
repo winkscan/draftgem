@@ -187,9 +187,9 @@ export function LeaderboardScreen() {
                 <FontAwesome6 name="circle-check" size={13} color={C.positive} />
                 <Text style={styles.payoutPillText}>Paid out · View payout on Solscan</Text>
                 {openingPayout === mine.key ? (
-                  <ActivityIndicator size={12} color={C.header} />
+                  <ActivityIndicator size={12} color={C.accent2} />
                 ) : (
-                  <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.header} />
+                  <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
                 )}
               </View>
             </TouchableRipple>
@@ -285,9 +285,9 @@ export function LeaderboardScreen() {
                 {r.claimed && r.prizeLamports > 0n ? (
                   <TouchableRipple borderless style={styles.payoutIcon} onPress={() => openPayout(r.key)}>
                     {openingPayout === r.key ? (
-                      <ActivityIndicator size={11} color={C.header} />
+                      <ActivityIndicator size={11} color={C.accent2} />
                     ) : (
-                      <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.header} />
+                      <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
                     )}
                   </TouchableRipple>
                 ) : null}
@@ -405,8 +405,8 @@ const styles = StyleSheet.create({
   panel: { marginHorizontal: 16, marginTop: 4, marginBottom: 8 },
   panelHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 },
   metaLabel: { color: C.textPrimary, fontWeight: "700", fontSize: 13 },
-  metaValue: { color: C.header, fontWeight: "400" },
-  scorePill: { backgroundColor: C.header, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
+  metaValue: { color: C.accentText, fontWeight: "400" },
+  scorePill: { backgroundColor: C.accent, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
   scorePillText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   cards: { flexDirection: "row", gap: 6 },
   card: {
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   dotHit: { padding: 6, borderRadius: 999 },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.cardBorder },
   dotActive: { backgroundColor: C.accent },
-  compareWrap: { backgroundColor: "#e9eaf3", paddingTop: 14, marginTop: 4, marginBottom: 8 },
+  compareWrap: { backgroundColor: C.glass, paddingTop: 14, marginTop: 4, marginBottom: 8 },
 
   notice: { color: C.textSecondary, fontSize: 12, textAlign: "center", padding: 12 },
 
@@ -448,8 +448,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     minHeight: 46,
   },
-  rowMine: { backgroundColor: "#fff", borderColor: C.cardBorder },
-  rowCompared: { borderColor: C.header },
+  rowMine: { backgroundColor: C.accentTint, borderColor: C.accent },
+  rowCompared: { borderColor: C.accent2 },
   cell: { color: C.textSecondary, fontSize: 13 },
   prizeCell: { flexDirection: "row", alignItems: "center", gap: 4 },
   payoutIcon: { padding: 5, borderRadius: 999 },
@@ -457,29 +457,29 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 999,
-    backgroundColor: "#e9f9ef",
+    backgroundColor: C.accent2Tint,
     alignSelf: "flex-start",
   },
   payoutPillInner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   payoutPillText: { color: C.textPrimary, fontWeight: "700", fontSize: 12 },
   bold: { color: C.textPrimary, fontWeight: "800" },
-  up: { color: C.header },
+  up: { color: C.positive },
   down: { color: C.negative },
   pending: { color: C.textSecondary },
   compareBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#8f95ad",
+    backgroundColor: C.glassStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  compareBtnActive: { backgroundColor: C.header },
+  compareBtnActive: { backgroundColor: C.accent },
 
   pager: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 16 },
   pagerArrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   pagerNum: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  pagerNumActive: { backgroundColor: "#16172b" },
+  pagerNumActive: { backgroundColor: C.accent },
   pagerNumText: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
   footnote: { color: C.textSecondary, fontSize: 11, textAlign: "center", paddingHorizontal: 24, marginTop: 16 },
 });

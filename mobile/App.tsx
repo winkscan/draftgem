@@ -3,7 +3,7 @@ import "./src/polyfills";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DefaultTheme as NavigationDefaultTheme } from "@react-navigation/native";
+import { DarkTheme as NavigationDarkTheme } from "@react-navigation/native";
 import { PaperProvider, adaptNavigationTheme } from "react-native-paper";
 
 import { ConnectionProvider } from "./src/utils/ConnectionProvider";
@@ -13,8 +13,8 @@ import { pumpFantasyTheme, PF_COLORS } from "./src/theme";
 
 const queryClient = new QueryClient();
 
-const { LightTheme: NavTheme } = adaptNavigationTheme({
-  reactNavigationLight: NavigationDefaultTheme,
+const { DarkTheme: NavTheme } = adaptNavigationTheme({
+  reactNavigationDark: NavigationDarkTheme,
 });
 const combinedNavTheme = {
   ...NavTheme,
