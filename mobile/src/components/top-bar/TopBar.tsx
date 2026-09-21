@@ -68,18 +68,9 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
 }
 
 const styles = StyleSheet.create({
-  // Full-width raised panel: the filter tabs + chips live inside it, the
-  // selects hang just below. The shadow is violet — a black one is invisible
-  // on the black canvas — and zIndex/elevation keep it above the selects row.
-  panel: {
-    backgroundColor: C.card,
-    zIndex: 1,
-    elevation: 14,
-    shadowColor: C.accent,
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-  },
+  // Full-width panel in the border colour, so it sits visibly above the black
+  // page; the filter tabs + chips live inside it, the selects hang just below.
+  panel: { backgroundColor: C.headerPanel },
   bar: {
     flexDirection: "row",
     alignItems: "center",
@@ -92,7 +83,7 @@ const styles = StyleSheet.create({
   title: { color: C.textOnHeader, fontWeight: "700" },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
   pill: {
-    backgroundColor: C.headerElevated,
+    backgroundColor: C.glassStrong,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,

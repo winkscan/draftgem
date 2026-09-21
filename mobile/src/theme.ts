@@ -17,6 +17,9 @@ export const PF_COLORS = {
   // top bar / navigation chrome
   header: "#000000",
   headerElevated: "#16141D",
+  // Tab-screen header panel: the card-border lavender (0.12) flattened onto the
+  // black canvas, so the panel reads as raised above the page without a shadow.
+  headerPanel: "#1c1b1e",
   textOnHeader: "#ffffff",
   textOnHeaderMuted: "rgba(255,255,255,0.7)",
 
