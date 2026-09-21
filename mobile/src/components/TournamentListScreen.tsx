@@ -8,6 +8,8 @@ import { useAuthorization } from "../utils/useAuthorization";
 import { formatSol, formatCountdown } from "../pumpfantasy/format";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { ModeBadges } from "./ModeBadge";
+import { useTournamentFilters } from "./TournamentFiltersContext";
+import { applyTournamentFilters, isDefaultFilters } from "../pumpfantasy/tournamentFilters";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
 
@@ -30,7 +32,9 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
     return () => clearInterval(id);
   }, []);
 
-  const filtered = useMemo(
+  const { filters, reset } = useTournamentFilters();
+
+  const inPhase = useMemo(
     () =>
       (tournaments ?? []).filter((row) => {
         if (getTournamentPhase(row.account, now) !== phase) return false;
@@ -40,6 +44,11 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
         return phase === "upcoming" || row.account.entryCount > 0;
       }),
     [tournaments, phase, now],
+  );
+  // The header's filters (scope / payout / sort / entry type) on top of the phase.
+  const filtered = useMemo(
+    () => applyTournamentFilters(inPhase, filters, phase, enteredTournaments),
+    [inPhase, filters, phase, enteredTournaments],
   );
 
   const onRefresh = useCallback(async () => {
@@ -73,7 +82,22 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
       }
       ListEmptyComponent={
         <View style={styles.center}>
-          <Text style={{ color: C.textSecondary }}>{emptyText}</Text>
+          {inPhase.length > 0 || !isDefaultFilters(filters) ? (
+            <>
+              <Text style={styles.emptyText}>
+                {filters.scope === "mine" && !selectedAccount
+                  ? "Connect your wallet to see the tournaments you entered."
+                  : "No tournaments match these filters."}
+              </Text>
+              {!isDefaultFilters(filters) ? (
+                <TouchableRipple style={styles.resetButton} borderless onPress={reset}>
+                  <Text style={styles.resetText}>Reset filters</Text>
+                </TouchableRipple>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.emptyText}>{emptyText}</Text>
+          )}
         </View>
       }
       renderItem={({ item }) => {
@@ -138,6 +162,16 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+  emptyText: { color: C.textSecondary, textAlign: "center" },
+  resetButton: {
+    marginTop: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.accent,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  resetText: { color: C.accentText, fontWeight: "700", fontSize: 13 },
   list: { flex: 1, backgroundColor: C.bg },
   listContent: { padding: 16, gap: 12, flexGrow: 1 },
   card: {

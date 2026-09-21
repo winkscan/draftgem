@@ -7,13 +7,15 @@ import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useConnection } from "../../utils/ConnectionProvider";
 import { ellipsify, formatSol } from "../../pumpfantasy/format";
 import { UpdateBadge } from "./UpdateBadge";
+import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
+import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { PF_COLORS as C } from "../../theme";
 
 // Matches the reference mockup's header: short address + SOL balance pill on
 // the right, tapping it connects when there's no wallet yet. No dropdown
 // menu (Explorer/Network/Disconnect) for this first pass — single-cluster
 // app, nothing to switch to yet; add one back if that changes.
-export function TopBar() {
+export function TopBar({ phase }: { phase?: TournamentPhase }) {
   const { selectedAccount } = useAuthorization();
   const { connect } = useMobileWallet();
   const { connection } = useConnection();
@@ -26,45 +28,60 @@ export function TopBar() {
   });
 
   return (
-    <View style={styles.bar}>
-      <View style={styles.left}>
-        <FontAwesome6 name="chart-line" size={16} color={C.textOnHeader} />
-        <Text variant="titleMedium" style={styles.title}>
-          DraftJam
-        </Text>
-      </View>
-      <View style={styles.right}>
-        <UpdateBadge />
-        <TouchableRipple style={styles.pill} onPress={selectedAccount ? undefined : connect} borderless>
-          {selectedAccount ? (
-            <View style={styles.pillContent}>
-              <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
-              <View style={styles.divider} />
-              {isFetching && balanceLamports == null ? (
-                <ActivityIndicator size={10} color={C.textOnHeader} />
+    <View>
+      <View style={styles.panel}>
+        <View style={styles.bar}>
+          <View style={styles.left}>
+            <FontAwesome6 name="chart-line" size={16} color={C.textOnHeader} />
+            <Text variant="titleMedium" style={styles.title}>
+              DraftJam
+            </Text>
+          </View>
+          <View style={styles.right}>
+            <UpdateBadge />
+            <TouchableRipple style={styles.pill} onPress={selectedAccount ? undefined : connect} borderless>
+              {selectedAccount ? (
+                <View style={styles.pillContent}>
+                  <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
+                  <View style={styles.divider} />
+                  {isFetching && balanceLamports == null ? (
+                    <ActivityIndicator size={10} color={C.textOnHeader} />
+                  ) : (
+                    <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
+                  )}
+                  <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
+                </View>
               ) : (
-                <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
+                <View style={styles.pillContent}>
+                  <Text style={styles.balance}>Connect</Text>
+                  <FontAwesome6 name="wallet" size={12} color={C.textOnHeader} />
+                </View>
               )}
-              <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
-            </View>
-          ) : (
-            <View style={styles.pillContent}>
-              <Text style={styles.balance}>Connect</Text>
-              <FontAwesome6 name="wallet" size={12} color={C.textOnHeader} />
-            </View>
-          )}
-        </TouchableRipple>
+            </TouchableRipple>
+          </View>
+        </View>
+        {phase ? <TournamentFilterTabs /> : null}
       </View>
+      {phase ? <TournamentFilterSelects phase={phase} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Raised panel with rounded bottom corners (per the reference mockup); the
+  // filter tabs + chips live inside it, the selects hang just below.
+  panel: {
+    backgroundColor: C.card,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: C.cardBorder,
+  },
   bar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: C.header,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
