@@ -22,12 +22,22 @@ pub struct FinalizeTournament<'info> {
 /// and checkable against every entry's on-chain `score_bps`, and the
 /// payout math (`claim_prize`) is a fixed formula nobody, including the
 /// authority, can move after this call.
+///
+/// `fee_bps` is the total cut taken off the pool before the winners split it:
+/// the platform rake alone (RAKE_BPS), or rake + the creator cut for a
+/// player-made tournament (RAKE_BPS + CREATOR_FEE_BPS). Nothing else is allowed.
 pub fn handle_finalize_tournament(
     ctx: Context<FinalizeTournament>,
     winners_count: u32,
     threshold_score_bps: i32,
+    fee_bps: u16,
 ) -> Result<()> {
     let tournament = &mut ctx.accounts.tournament;
+
+    require!(
+        fee_bps == RAKE_BPS || fee_bps == RAKE_BPS + CREATOR_FEE_BPS,
+        PumpFantasyError::InvalidFee
+    );
 
     require!(
         tournament.status == TournamentStatus::Open,
@@ -40,7 +50,7 @@ pub fn handle_finalize_tournament(
     require!(winners_count > 0, PumpFantasyError::InvalidWinnersCount);
 
     let distributed = (tournament.prize_pool_lamports as u128)
-        * (BPS_DENOMINATOR as u128 - RAKE_BPS as u128)
+        * (BPS_DENOMINATOR as u128 - fee_bps as u128)
         / BPS_DENOMINATOR as u128;
 
     tournament.winners_count = winners_count;

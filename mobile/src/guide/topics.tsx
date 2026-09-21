@@ -80,8 +80,80 @@ function CoinCategories() {
   );
 }
 
+const SPLIT_ROWS = [
+  { who: "Winners", value: "90%", note: "Shared by the players who finish in the prize places." },
+  { who: "You, the creator", value: "5%", note: "Paid straight to your wallet once the tournament pays out." },
+  { who: "Platform", value: "5%", note: "Keeps DraftJam running." },
+];
+
+const STRUCTURES = [
+  { name: "Top 1", blurb: "Winner takes all — only the best portfolio is paid." },
+  { name: "Top 3", blurb: "The three best portfolios split the prize equally." },
+  { name: "30%", blurb: "The top 30% of players split the prize equally." },
+  { name: "50%", blurb: "The top half of players split the prize equally." },
+  { name: "PvP", blurb: "A duel: exactly two players, winner takes all." },
+];
+
+function CreateYourOwn() {
+  return (
+    <View>
+      <Paragraph>
+        Tap the green + to run your own tournament: pick the rules, name it, and share the link with your friends.
+      </Paragraph>
+
+      <Heading>Public or private</Heading>
+      <Paragraph>
+        A public tournament is listed in the Lobby for everyone. A private one is hidden from the lists — only people you
+        send the link to can find and join it. That makes private tournaments the way to play just with your friends.
+      </Paragraph>
+
+      <Heading>What you earn</Heading>
+      <Paragraph>
+        Creating costs a small one-time fee (currently 0.005 SOL). In return you earn 5% of the prize pool of every
+        tournament you create, on top of the platform's own 5%. Winners share the remaining 90%.
+      </Paragraph>
+      <View style={styles.table}>
+        {SPLIT_ROWS.map((r, i) => (
+          <View key={r.who} style={[styles.row, i === SPLIT_ROWS.length - 1 ? styles.rowLast : undefined]}>
+            <View style={styles.rowTop}>
+              <Text style={styles.catName}>{r.who}</Text>
+              <Text style={styles.catMeta}>{r.value}</Text>
+            </View>
+            <Text style={styles.catBlurb}>{r.note}</Text>
+          </View>
+        ))}
+      </View>
+      <Paragraph>
+        The pool is all the entry fees together, so you earn more the more people join. If nobody enters, there is
+        nothing to pay out. In the tournaments the app creates itself, winners share 95% and the platform keeps 5%.
+      </Paragraph>
+
+      <Heading>Prize structures</Heading>
+      <View style={styles.table}>
+        {STRUCTURES.map((s, i) => (
+          <View key={s.name} style={[styles.row, i === STRUCTURES.length - 1 ? styles.rowLast : undefined]}>
+            <Text style={styles.catName}>{s.name}</Text>
+            <Text style={styles.catBlurb}>{s.blurb}</Text>
+          </View>
+        ))}
+      </View>
+      <Paragraph>
+        Players with exactly the same score at the cut-off all win. A PvP duel is single-entry and closes as soon as two
+        players are in.
+      </Paragraph>
+
+      <Heading>Sharing</Heading>
+      <Paragraph>
+        When the tournament is created you get a link. Tap it to copy, or use Share link to send it. Anyone who opens it
+        lands right on your tournament.
+      </Paragraph>
+    </View>
+  );
+}
+
 export const GUIDE_TOPICS: GuideTopic[] = [
   { id: "coin-categories", title: "Coin categories", icon: "layer-group", body: <CoinCategories /> },
+  { id: "create-tournament", title: "Create your own tournament", icon: "circle-plus", body: <CreateYourOwn /> },
 ];
 
 const styles = StyleSheet.create({

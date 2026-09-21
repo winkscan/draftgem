@@ -54,6 +54,7 @@ export function LeaderboardScreen() {
   // Player-made tournaments can pay Top 1 / Top 3 / 30%; everything else pays the top half.
   const { data: tournamentMeta } = useTournamentMeta();
   const payout: PayoutChoice = tournamentMeta?.[tournamentId]?.payout ?? "p50";
+  const creatorFeeBps = tournamentMeta?.[tournamentId]?.creatorFeeBps ?? 0;
 
   const [page, setPage] = useState(0);
   const [myIndex, setMyIndex] = useState(0);
@@ -127,6 +128,7 @@ export function LeaderboardScreen() {
       tournament,
       scored.map((s) => s.scoreBps),
       payout,
+      creatorFeeBps,
     );
     return scored.map((s, i) => ({
       key: s.entry.publicKey.toBase58(),
@@ -140,7 +142,7 @@ export function LeaderboardScreen() {
       claimed: s.entry.account.claimed,
       isMine: !!selectedAccount && s.entry.account.player.equals(selectedAccount.publicKey),
     }));
-  }, [entries, assetsByMint, livePricesMicros, tournament, selectedAccount, payout]);
+  }, [entries, assetsByMint, livePricesMicros, tournament, selectedAccount, payout, creatorFeeBps]);
 
   if (!tournament || entriesLoading) {
     return (
@@ -346,7 +348,7 @@ export function LeaderboardScreen() {
       ) : null}
 
       <Text style={styles.footnote}>
-        {PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, minus a 5% fee; a tie at the cut-off wins too. Tap the link icon next to a paid prize to see the payout on Solscan.
+        {PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, after a {creatorFeeBps > 0 ? "10% cut (5% platform, 5% the creator)" : "5% fee"}; a tie at the cut-off wins too. Tap the link icon next to a paid prize to see the payout on Solscan.
       </Text>
     </ScrollView>
   );

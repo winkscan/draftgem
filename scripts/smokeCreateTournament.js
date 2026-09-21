@@ -64,10 +64,24 @@ function check(label, ok, extra = "") {
 }
 
 (async () => {
-  const payer = Keypair.fromSecretKey(
+  const local = Keypair.fromSecretKey(
     Uint8Array.from(JSON.parse(fs.readFileSync(path.join(os.homedir(), ".config/solana/id.json"), "utf8"))),
   );
   const conn = new Connection("https://api.devnet.solana.com", "confirmed");
+  // FRESH_CREATOR=1: create the tournament as a brand-new wallet (funded from the local one), so its
+  // balance shows exactly what the creator's cut pays — the local wallet is also our treasury.
+  let payer = local;
+  if (process.env.FRESH_CREATOR) {
+    payer = Keypair.generate();
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+    const fund = new Transaction({ feePayer: local.publicKey, blockhash, lastValidBlockHeight }).add(
+      SystemProgram.transfer({ fromPubkey: local.publicKey, toPubkey: payer.publicKey, lamports: 30_000_000 }),
+    );
+    fund.sign(local);
+    const fsig = await conn.sendRawTransaction(fund.serialize());
+    await conn.confirmTransaction({ signature: fsig, blockhash, lastValidBlockHeight }, "confirmed");
+    console.log("fresh creator wallet:", payer.publicKey.toBase58());
+  }
 
   const info = await (await fetch(`${WORKER}/create-info`)).json();
   console.log("create-info:", info);

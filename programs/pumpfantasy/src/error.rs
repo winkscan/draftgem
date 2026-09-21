@@ -50,4 +50,10 @@ pub enum PumpFantasyError {
     NothingToCancel,
     #[msg("Tournament has not been cancelled")]
     NotCancelled,
+    #[msg("Fee must be the platform rake, or the rake plus the creator cut")]
+    InvalidFee,
+    #[msg("There are no fees to withdraw (yet, or any more)")]
+    NothingToWithdraw,
+    #[msg("The creator share is larger than this tournament's creator cut")]
+    CreatorShareTooLarge,
 }

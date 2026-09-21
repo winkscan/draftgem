@@ -77,6 +77,8 @@ export function projectPrizes(
   >,
   sortedScores: (number | null)[],
   payout: PayoutChoice = "p50",
+  /** Extra cut for the tournament's creator, in bps, on top of the platform rake (player-made tournaments). */
+  creatorFeeBps = 0,
 ): bigint[] {
   if (tournament.status === "cancelled") return sortedScores.map(() => 0n); // nobody wins; fees are refunded
   if (tournament.status === "finalized") {
@@ -88,7 +90,7 @@ export function projectPrizes(
   const threshold = sortedScores[target - 1];
   if (threshold == null) return sortedScores.map(() => 0n); // cut-off entry isn't scored yet
   const winners = sortedScores.filter((s) => s != null && s >= threshold).length;
-  const distributable = (tournament.prizePoolLamports * BigInt(BPS_DENOMINATOR - RAKE_BPS)) / BigInt(BPS_DENOMINATOR);
+  const distributable = (tournament.prizePoolLamports * BigInt(BPS_DENOMINATOR - RAKE_BPS - creatorFeeBps)) / BigInt(BPS_DENOMINATOR);
   const share = distributable / BigInt(winners);
   return sortedScores.map((s) => (s != null && s >= threshold ? share : 0n));
 }

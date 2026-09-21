@@ -277,7 +277,7 @@ fn test_single_entry_can_claim_despite_vault_rent_minimum() {
 
     let finalize = Instruction::new_with_bytes(
         t.program_id,
-        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 1000 }.data(),
+        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 1000, fee_bps: pumpfantasy::RAKE_BPS }.data(),
         pumpfantasy::accounts::FinalizeTournament { authority: t.authority.pubkey(), tournament: t.tournament }
             .to_account_metas(None),
     );
@@ -344,4 +344,156 @@ fn test_cancel_and_refund_when_tournament_cannot_settle() {
     assert!(send(&mut t.svm, &t.authority, vec![again]).is_err(), "double refund must fail");
     let claim = t.claim_ix(entry_a, a.pubkey());
     assert!(send(&mut t.svm, &t.authority, vec![claim]).is_err(), "no prize on a cancelled tournament");
+}
+
+// ---------------------------------------------------------------------------
+// Fees: the platform rake and the creator cut of player-made tournaments.
+// ---------------------------------------------------------------------------
+
+impl Mini {
+    fn settle_ix(&self, entry: Pubkey) -> Instruction {
+        let mut metas = pumpfantasy::accounts::SettleEntry {
+            cranker: self.authority.pubkey(),
+            tournament: self.tournament,
+            entry,
+        }
+        .to_account_metas(None);
+        for mint in &self.mints {
+            metas.push(AccountMeta::new_readonly(asset_pda(&self.program_id, &self.tournament, mint), false));
+        }
+        Instruction::new_with_bytes(self.program_id, &pumpfantasy::instruction::SettleEntry {}.data(), metas)
+    }
+
+    fn finalize_ix(&self, winners_count: u32, threshold_score_bps: i32, fee_bps: u16) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::FinalizeTournament { winners_count, threshold_score_bps, fee_bps }.data(),
+            pumpfantasy::accounts::FinalizeTournament { authority: self.authority.pubkey(), tournament: self.tournament }
+                .to_account_metas(None),
+        )
+    }
+
+    fn withdraw_fees_ix(&self, signer: &Keypair, creator: Pubkey, creator_lamports: u64) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::WithdrawFees { creator_lamports }.data(),
+            pumpfantasy::accounts::WithdrawFees {
+                authority: signer.pubkey(),
+                tournament: self.tournament,
+                vault: self.vault,
+                creator,
+                system_program: anchor_lang::solana_program::system_program::ID,
+            }
+            .to_account_metas(None),
+        )
+    }
+
+    /// Two players enter the same portfolio (so they tie and both win), prices resolve,
+    /// both are settled and the tournament is finalized with `fee_bps`.
+    fn two_tied_winners(&mut self, fee_bps: u16) -> ((Keypair, Pubkey), (Keypair, Pubkey)) {
+        let (a, b) = (Keypair::new(), Keypair::new());
+        for kp in [&a, &b] {
+            self.svm.airdrop(&kp.pubkey(), 1_000_000_000).unwrap();
+        }
+        let entry_a = self.enter(&a);
+        let entry_b = self.enter(&b);
+        self.register_and_resolve(1_100_000);
+        for entry in [entry_a, entry_b] {
+            let ix = self.settle_ix(entry);
+            send(&mut self.svm, &self.authority, vec![ix]).expect("settle failed");
+        }
+        let ix = self.finalize_ix(2, 1000, fee_bps);
+        send(&mut self.svm, &self.authority, vec![ix]).expect("finalize failed");
+        ((a, entry_a), (b, entry_b))
+    }
+}
+
+/// A player-made tournament: finalized at rake + creator cut (10%), winners get
+/// 90%, and withdraw_fees pays the creator exactly 5% and the platform the rest of
+/// the fees, while leaving the vault able to pay every winner in full.
+#[test]
+fn test_creator_tournament_splits_pool_90_5_5() {
+    let mut t = mini_tournament(100_000_000); // 0.1 SOL each, pool 0.2 SOL
+    let ((a, entry_a), (b, entry_b)) = t.two_tied_winners(pumpfantasy::RAKE_BPS + pumpfantasy::CREATOR_FEE_BPS);
+    let creator = Keypair::new();
+    let rent_minimum = t.svm.minimum_balance_for_rent_exemption(0);
+
+    // Winners' pot is 90% of 0.2 SOL.
+    let (bal_a, bal_b) = (t.svm.get_balance(&a.pubkey()).unwrap(), t.svm.get_balance(&b.pubkey()).unwrap());
+    let claim_a = t.claim_ix(entry_a, a.pubkey());
+    send(&mut t.svm, &t.authority, vec![claim_a]).expect("claim A");
+    assert_eq!(t.svm.get_balance(&a.pubkey()).unwrap() - bal_a, 90_000_000, "each winner gets half of 90%");
+
+    // Fees: creator 5% of the pool = 10,000,000; platform gets the other fees minus the vault's rent reserve.
+    let auth_before = t.svm.get_balance(&t.authority.pubkey()).unwrap();
+    let withdraw = t.withdraw_fees_ix(&t.authority, creator.pubkey(), 10_000_000);
+    send(&mut t.svm, &t.authority, vec![withdraw]).expect("withdraw_fees");
+    assert_eq!(t.svm.get_balance(&creator.pubkey()).unwrap(), 10_000_000, "creator gets exactly 5% of the pool");
+    let platform_gain = t.svm.get_balance(&t.authority.pubkey()).unwrap() + 5_000 - auth_before; // + the tx fee
+    assert_eq!(platform_gain, 20_000_000 - 10_000_000 - rent_minimum, "platform gets the rest of the fees, minus the reserve");
+
+    // B can still claim in full after the fees left, and the vault ends at exactly the rent minimum.
+    let claim_b = t.claim_ix(entry_b, b.pubkey());
+    send(&mut t.svm, &t.authority, vec![claim_b]).expect("claim B after withdraw");
+    assert_eq!(t.svm.get_balance(&b.pubkey()).unwrap() - bal_b, 90_000_000, "B is paid in full despite the withdrawal");
+    assert_eq!(t.svm.get_balance(&t.vault).unwrap_or(0), rent_minimum, "only the rent reserve is left");
+
+    // Nothing more to take, ever.
+    t.svm.expire_blockhash();
+    let again = t.withdraw_fees_ix(&t.authority, creator.pubkey(), 0);
+    assert!(send(&mut t.svm, &t.authority, vec![again]).is_err(), "a second withdrawal finds nothing");
+}
+
+/// Guard rails: the creator can't be overpaid, an ordinary tournament has no creator cut,
+/// only the authority may withdraw, only after finalizing, and only two fee levels exist.
+#[test]
+fn test_withdraw_fees_guard_rails() {
+    let creator = Keypair::new();
+
+    // Ordinary (5%) tournament: no creator cut at all, the platform takes the whole rake.
+    let mut t = mini_tournament(100_000_000);
+    let early = t.withdraw_fees_ix(&t.authority, creator.pubkey(), 0);
+    assert!(send(&mut t.svm, &t.authority, vec![early]).is_err(), "nothing to withdraw before finalizing");
+    let _ = t.two_tied_winners(pumpfantasy::RAKE_BPS);
+    t.svm.expire_blockhash();
+    let overpay = t.withdraw_fees_ix(&t.authority, creator.pubkey(), 1);
+    assert!(send(&mut t.svm, &t.authority, vec![overpay]).is_err(), "no creator cut on a 5% tournament");
+    let stranger = Keypair::new();
+    t.svm.airdrop(&stranger.pubkey(), 1_000_000_000).unwrap();
+    let forged = t.withdraw_fees_ix(&stranger, creator.pubkey(), 0);
+    assert!(send(&mut t.svm, &stranger, vec![forged]).is_err(), "only the authority may withdraw");
+    let rent_minimum = t.svm.minimum_balance_for_rent_exemption(0);
+    let before = t.svm.get_balance(&t.authority.pubkey()).unwrap();
+    let ok = t.withdraw_fees_ix(&t.authority, creator.pubkey(), 0);
+    send(&mut t.svm, &t.authority, vec![ok]).expect("platform withdrawal");
+    assert_eq!(
+        t.svm.get_balance(&t.authority.pubkey()).unwrap() + 5_000 - before,
+        10_000_000 - rent_minimum,
+        "the whole 5% rake, minus the reserve"
+    );
+
+    // Player-made tournament: the creator can't take more than their 5%.
+    let mut t2 = mini_tournament(100_000_000);
+    let _ = t2.two_tied_winners(pumpfantasy::RAKE_BPS + pumpfantasy::CREATOR_FEE_BPS);
+    t2.svm.expire_blockhash();
+    let greedy = t2.withdraw_fees_ix(&t2.authority, creator.pubkey(), 10_000_001);
+    assert!(send(&mut t2.svm, &t2.authority, vec![greedy]).is_err(), "creator share above 5% must fail");
+
+    // Only the two legal fee levels can be used to finalize.
+    let mut t3 = mini_tournament(100_000_000);
+    let (a, b) = (Keypair::new(), Keypair::new());
+    for kp in [&a, &b] {
+        t3.svm.airdrop(&kp.pubkey(), 1_000_000_000).unwrap();
+    }
+    let (ea, eb) = (t3.enter(&a), t3.enter(&b));
+    t3.register_and_resolve(1_100_000);
+    for e in [ea, eb] {
+        let ix = t3.settle_ix(e);
+        send(&mut t3.svm, &t3.authority, vec![ix]).unwrap();
+    }
+    let bad = t3.finalize_ix(2, 1000, 2_000);
+    assert!(send(&mut t3.svm, &t3.authority, vec![bad]).is_err(), "a 20% fee must be rejected");
+    t3.svm.expire_blockhash();
+    let bad_low = t3.finalize_ix(2, 1000, 0);
+    assert!(send(&mut t3.svm, &t3.authority, vec![bad_low]).is_err(), "a 0% fee must be rejected");
 }

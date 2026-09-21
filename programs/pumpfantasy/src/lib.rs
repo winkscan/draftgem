@@ -71,11 +71,13 @@ pub mod pumpfantasy {
         ctx: Context<FinalizeTournament>,
         winners_count: u32,
         threshold_score_bps: i32,
+        fee_bps: u16,
     ) -> Result<()> {
         instructions::finalize_tournament::handle_finalize_tournament(
             ctx,
             winners_count,
             threshold_score_bps,
+            fee_bps,
         )
     }
 
@@ -89,5 +91,9 @@ pub mod pumpfantasy {
 
     pub fn refund_entry(ctx: Context<RefundEntry>) -> Result<()> {
         instructions::refund_entry::handle_refund_entry(ctx)
+    }
+
+    pub fn withdraw_fees(ctx: Context<WithdrawFees>, creator_lamports: u64) -> Result<()> {
+        instructions::withdraw_fees::handle_withdraw_fees(ctx, creator_lamports)
     }
 }

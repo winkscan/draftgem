@@ -11,6 +11,11 @@ pub const MAX_BUDGET_FP: u32 = 4_000;
 #[constant]
 pub const RAKE_BPS: u16 = 500; // 5%
 
+/// Extra cut, ON TOP of RAKE_BPS, that goes to the player who created the tournament
+/// (tournaments made from the app's "+" screen). Winners then share 90% of the pool.
+#[constant]
+pub const CREATOR_FEE_BPS: u16 = 500; // 5%
+
 /// A single pick can never drag the entry's score below -100%, even if the
 /// coin goes to zero — nobody is wiped out worse than fully on one slot.
 #[constant]

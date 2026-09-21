@@ -32,6 +32,8 @@ export interface CustomMeta {
   visibility: Visibility;
   /** Prize structure; absent on tournaments made before it existed (= top half). */
   payout?: Payout;
+  /** Extra cut of the pool paid to the creator (CREATOR_FEE_BPS); absent on tournaments made before the contract could pay it. */
+  creatorFeeBps?: number;
   creator: string;
   startTs: number;
   endTs: number;
@@ -58,6 +60,8 @@ export const MAX_FEE_LAMPORTS = 5_000_000_000; // 5 SOL (entry fee)
 // tournamentState.ts's 24h flag retention, or a long tournament would lose its progress flags.
 export const ALLOWED_SECONDS = [600, 1800, 3600, 10800, 21600];
 export const PAYOUTS: Payout[] = ["top1", "top3", "p30", "p50", "pvp"];
+/** Mirrors constants::CREATOR_FEE_BPS in the program: the creator's cut, on top of the platform's 5%. */
+export const CREATOR_FEE_BPS = 500;
 export const NAME_MIN = 3;
 export const NAME_MAX = 40;
 const PAYMENT_MAX_AGE_SECONDS = 3600;
@@ -169,19 +173,30 @@ async function loadIndex(env: Env): Promise<CustomMeta[]> {
 }
 
 /** Everything the app needs to label and hide tournaments: id -> {name, visibility, creator}. */
-type PublicMeta = Pick<CustomMeta, "name" | "visibility" | "creator"> & { payout: Payout };
+type PublicMeta = Pick<CustomMeta, "name" | "visibility" | "creator"> & { payout: Payout; creatorFeeBps: number };
 export async function getMetaMap(env: Env): Promise<Record<string, PublicMeta>> {
   const out: Record<string, PublicMeta> = {};
   for (const m of await loadIndex(env)) {
-    out[m.id] = { name: m.name, visibility: m.visibility, creator: m.creator, payout: m.payout ?? "p50" };
+    out[m.id] = { name: m.name, visibility: m.visibility, creator: m.creator, payout: m.payout ?? "p50", creatorFeeBps: m.creatorFeeBps ?? 0 };
   }
   return out;
 }
 
-/** id -> prize structure, for settlement. Tournaments not listed here use the default top half. */
-export async function getPayoutMap(env: Env): Promise<Record<string, Payout>> {
-  const out: Record<string, Payout> = {};
-  for (const m of await loadIndex(env)) if (m.payout) out[m.id] = m.payout;
+/**
+ * What settlement needs to know per player-made tournament: its prize structure and,
+ * when the creator earns the cut, who they are. Tournaments not listed use the default
+ * top half and the plain 5% rake.
+ */
+export interface SettlementInfo {
+  payout: Payout;
+  /** The creator's wallet, only when the creator earns the extra cut. */
+  creator?: string;
+}
+export async function getSettlementInfo(env: Env): Promise<Record<string, SettlementInfo>> {
+  const out: Record<string, SettlementInfo> = {};
+  for (const m of await loadIndex(env)) {
+    out[m.id] = { payout: m.payout ?? "p50", creator: m.creatorFeeBps ? m.creator : undefined };
+  }
   return out;
 }
 
@@ -273,6 +288,7 @@ export async function handleCreateCustom(
     name: req.name,
     visibility: req.visibility,
     payout: req.payout,
+    creatorFeeBps: CREATOR_FEE_BPS,
     creator: req.creator,
     startTs,
     endTs,

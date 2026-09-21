@@ -169,7 +169,8 @@ export function CreateTournamentScreen() {
         <Text style={styles.hint}>
           {created.visibility === "private"
             ? "It's private: it won't appear in the Lobby. Only people with this link can find it."
-            : "It's public: it's listed in the Lobby, and you can also share this link."}
+            : "It's public: it's listed in the Lobby, and you can also share this link."}{" "}
+          You'll receive 5% of the prize pool when it pays out.
         </Text>
 
         <TouchableRipple style={styles.linkBox} borderless onPress={() => copyLink(result.url)}>
@@ -313,7 +314,11 @@ export function CreateTournamentScreen() {
         <SummaryRow icon="flag-checkered" text={`The round lasts ${timeLabel(durationSec)} and ends around ${endsAt}`} />
         <SummaryRow
           icon="trophy"
-          text={`${PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, minus a 5% fee`}
+          text={`${PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")} — 90% of the pool`}
+        />
+        <SummaryRow
+          icon="sack-dollar"
+          text="You earn 5% of the prize pool, paid to your wallet when the tournament pays out. The platform takes 5%."
         />
         <SummaryRow icon="coins" text={`Creating a tournament costs ${createFee}`} last />
       </View>

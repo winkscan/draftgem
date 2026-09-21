@@ -331,7 +331,7 @@ fn test_full_tournament_flow() {
     let threshold_score_bps: i32 = state_b.score_bps; // only B clears it
     let ix = Instruction::new_with_bytes(
         program_id,
-        &pumpfantasy::instruction::FinalizeTournament { winners_count, threshold_score_bps }.data(),
+        &pumpfantasy::instruction::FinalizeTournament { winners_count, threshold_score_bps, fee_bps: pumpfantasy::RAKE_BPS }.data(),
         pumpfantasy::accounts::FinalizeTournament { authority: authority.pubkey(), tournament }
             .to_account_metas(None),
     );

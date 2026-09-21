@@ -1,12 +1,13 @@
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
-import { getPayoutMap } from "./customTournaments";
+import { CREATOR_FEE_BPS, getSettlementInfo, type SettlementInfo } from "./customTournaments";
 import {
   ASSET_SIZE,
   ENTRY_SIZE,
   PROGRAM_ID,
   concatBytes,
+  u64le,
   fetchTournamentScopedAccounts,
   loadAuthority,
   type Candidate,
@@ -30,6 +31,7 @@ const FINALIZE_DISC = Uint8Array.from([205, 30, 149, 11, 108, 122, 120, 11]);
 const CLAIM_DISC = Uint8Array.from([157, 233, 139, 121, 246, 62, 234, 235]);
 const CANCEL_DISC = Uint8Array.from([249, 227, 133, 5, 9, 142, 29, 122]);
 const REFUND_DISC = Uint8Array.from([214, 5, 136, 23, 253, 7, 230, 81]);
+const WITHDRAW_FEES_DISC = Uint8Array.from([198, 212, 171, 109, 144, 215, 174, 89]);
 
 // constants::CANCEL_GRACE_SECONDS — how long after end_ts the program refuses a cancel.
 // Until then, missing prices are just retried (history never expires).
@@ -141,10 +143,22 @@ function settleIx(authority: PublicKey, tournament: PublicKey, entry: EntryRow):
   });
 }
 
-function finalizeIx(authority: PublicKey, tournament: PublicKey, winners: number, thresholdBps: number): TransactionInstruction {
-  const args = Buffer.alloc(8);
+// constants::RAKE_BPS — the platform's cut of every pool.
+const RAKE_BPS = 500;
+
+// finalize_tournament(winners_count, threshold_score_bps, fee_bps): fee_bps is the whole cut
+// taken off the pool — the rake alone, or rake + the creator's cut for a player-made tournament.
+function finalizeIx(
+  authority: PublicKey,
+  tournament: PublicKey,
+  winners: number,
+  thresholdBps: number,
+  feeBps: number,
+): TransactionInstruction {
+  const args = Buffer.alloc(10);
   args.writeUInt32LE(winners, 0);
   args.writeInt32LE(thresholdBps, 4);
+  args.writeUInt16LE(feeBps, 8);
   return new TransactionInstruction({
     programId: PROGRAM_ID,
     keys: [
@@ -153,6 +167,65 @@ function finalizeIx(authority: PublicKey, tournament: PublicKey, winners: number
     ],
     data: concatBytes(FINALIZE_DISC, args),
   });
+}
+
+function withdrawFeesIx(
+  authority: PublicKey,
+  tournament: PublicKey,
+  vault: PublicKey,
+  creator: PublicKey,
+  creatorLamports: bigint,
+): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: true },
+      { pubkey: tournament, isSigner: false, isWritable: true },
+      { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: creator, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: concatBytes(WITHDRAW_FEES_DISC, u64le(creatorLamports)),
+  });
+}
+
+/**
+ * Once every prize is paid, moves what finalize held back out of the vault: the
+ * creator's cut to the creator (player-made tournaments only) and the rest of the
+ * fees to the authority wallet. Reads the tournament fresh (finalize may have just
+ * changed it) and only sends when there is something to take, so it is safe to
+ * call again — a second call finds nothing.
+ */
+async function withdrawFees(
+  connection: Connection,
+  authority: Keypair,
+  tournament: PublicKey,
+  vault: PublicKey,
+  creator: string | undefined,
+): Promise<{ ok: boolean; note: string }> {
+  const info = await connection.getAccountInfo(tournament);
+  if (!info) return { ok: true, note: "" };
+  const v = new DataView(info.data.buffer, info.data.byteOffset, info.data.byteLength);
+  const pool = v.getBigUint64(82, true);
+  const distributed = v.getBigUint64(99, true);
+  const rentMinimum = BigInt(await connection.getMinimumBalanceForRentExemption(0));
+  const totalFees = pool > distributed ? pool - distributed : 0n;
+  const spendable = totalFees > rentMinimum ? totalFees - rentMinimum : 0n;
+  if (spendable === 0n) return { ok: true, note: "" };
+
+  // Mirrors the program: the creator's cap is what the fees hold above the platform's own rake.
+  const platformRake = (pool * BigInt(RAKE_BPS)) / 10_000n;
+  let creatorLamports = 0n;
+  if (creator) {
+    const cap = totalFees > platformRake ? totalFees - platformRake : 0n;
+    creatorLamports = cap < spendable ? cap : spendable;
+  }
+  const creatorKey = creator ? new PublicKey(creator) : authority.publicKey;
+  const failed = await sendAll(connection, authority, [
+    [withdrawFeesIx(authority.publicKey, tournament, vault, creatorKey, creatorLamports)],
+  ]);
+  if (failed > 0) return { ok: false, note: "fee withdrawal failed, retrying" };
+  return { ok: true, note: `fees withdrawn (creator ${creatorLamports} lamports)` };
 }
 
 function claimIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey, entry: EntryRow): TransactionInstruction {
@@ -245,8 +318,9 @@ async function settleAndPay(
   authority: Keypair,
   tournament: PublicKey,
   tdata: Uint8Array,
-  payout: Payout,
+  info: SettlementInfo,
 ): Promise<StepResult> {
+  const { payout, creator } = info;
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const finalized = view.getUint8(90) === TOURNAMENT_FINALIZED;
 
@@ -277,14 +351,20 @@ async function settleAndPay(
 
     if (entries.some((e) => !e.settled)) return { note: "entries still settling", done: false, progressed };
     ({ winners, thresholdBps } = winnersFromScores(entries.map((e) => e.scoreBps), payout));
-    const failed = await sendAll(connection, authority, [[finalizeIx(authority.publicKey, tournament, winners, thresholdBps)]]);
+    const feeBps = creator ? RAKE_BPS + CREATOR_FEE_BPS : RAKE_BPS; // winners share 90% when the creator earns a cut
+    const failed = await sendAll(connection, authority, [[finalizeIx(authority.publicKey, tournament, winners, thresholdBps, feeBps)]]);
     if (failed > 0) return { note: "finalize failed, retrying next tick", done: false, progressed };
     progressed = true;
   }
 
   const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
   const claimable = entries.filter((e) => e.settled && !e.claimed && e.scoreBps >= thresholdBps);
-  if (claimable.length === 0) return { note: `finalized (${winners} winner(s)), all paid`, done: true, progressed };
+  if (claimable.length === 0) {
+    // Every prize is out: now the fees can leave the vault (to the creator and to us).
+    const fees = await withdrawFees(connection, authority, tournament, vault, creator);
+    const note = `finalized (${winners} winner(s)), all paid${fees.note ? `; ${fees.note}` : ""}`;
+    return { note, done: fees.ok, progressed: progressed || fees.note.startsWith("fees withdrawn") };
+  }
 
   const batch = claimable.slice(0, CLAIMS_PER_TX * MAX_TX_PER_STEP);
   const groups = chunk(batch, CLAIMS_PER_TX).map((g) => g.map((e) => claimIx(authority.publicKey, tournament, vault, e)));
@@ -323,7 +403,7 @@ async function processTournament(
   tdata: Uint8Array,
   pricesReady: boolean,
   nowSec: number,
-  payout: Payout,
+  info: SettlementInfo,
 ): Promise<StepResult> {
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const status = view.getUint8(90);
@@ -331,7 +411,7 @@ async function processTournament(
 
   const endTs = Number(view.getBigInt64(64, true));
   const result: StepResult = pricesReady
-    ? await settleAndPay(connection, authority, tournament, tdata, payout)
+    ? await settleAndPay(connection, authority, tournament, tdata, info)
     : { note: "waiting for end prices", done: false, progressed: false };
   if (result.done || result.progressed || status !== TOURNAMENT_OPEN) return result;
 
@@ -360,7 +440,7 @@ export async function settleTournaments(
 ): Promise<string> {
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
   const nowSec = Math.floor(Date.now() / 1000);
-  const payouts = await getPayoutMap(env); // player-made tournaments may not use the default top-half structure
+  const infos = await getSettlementInfo(env); // player-made tournaments: prize structure + creator cut
 
   const notes: string[] = [];
   for (const c of candidates) {
@@ -382,7 +462,7 @@ export async function settleTournaments(
 
     try {
 
-      const r = await processTournament(connection, authority, c.pubkey, c.data, !!st.end, nowSec, payouts[id] ?? "p50");
+      const r = await processTournament(connection, authority, c.pubkey, c.data, !!st.end, nowSec, infos[id] ?? { payout: "p50" });
       notes.push(`${id}: ${r.note}`);
       if (r.done) st.settled = true;
     } catch (err) {

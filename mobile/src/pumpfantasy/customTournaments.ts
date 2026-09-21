@@ -50,6 +50,8 @@ export interface TournamentMeta {
   name: string;
   visibility: Visibility;
   payout: PayoutChoice;
+  /** The creator's extra cut of the pool, in bps (500 = 5%); 0 for tournaments made before creators could earn it. */
+  creatorFeeBps: number;
   creator: string;
 }
 

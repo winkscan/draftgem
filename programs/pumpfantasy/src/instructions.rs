@@ -7,6 +7,7 @@ pub mod refund_entry;
 pub mod register_asset_price;
 pub mod settle_entry;
 pub mod submit_result;
+pub mod withdraw_fees;
 
 pub use cancel_tournament::*;
 pub use claim_prize::*;
@@ -17,3 +18,4 @@ pub use refund_entry::*;
 pub use register_asset_price::*;
 pub use settle_entry::*;
 pub use submit_result::*;
+pub use withdraw_fees::*;
