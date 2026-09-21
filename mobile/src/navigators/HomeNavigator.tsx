@@ -1,8 +1,11 @@
+import { useCallback } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { TopBar } from "../components/top-bar/TopBar";
 import { TournamentFiltersProvider } from "../components/TournamentFiltersContext";
 import type { TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { LobbyScreen, LiveScreen, ResultsScreen, GuideScreen } from "../screens";
+import { useChrome } from "../utils/Chrome";
 import { HomeTabBar } from "./HomeTabBar";
 
 const Tab = createBottomTabNavigator();
@@ -18,6 +21,16 @@ const PHASES: Record<string, TournamentPhase | undefined> = {
 // for v1) — Lobby / Live / Results, plus the Guide knowledge base. The bar
 // itself (with the "+" create button) is HomeTabBar.
 export function HomeNavigator() {
+  // While the tabs are on screen, the status-bar and gesture-bar strips take the header's / tab bar's
+  // colour and the "+" is shown (see utils/Chrome.tsx).
+  const { setHomeFocused } = useChrome();
+  useFocusEffect(
+    useCallback(() => {
+      setHomeFocused(true);
+      return () => setHomeFocused(false);
+    }, [setHomeFocused]),
+  );
+
   return (
     <TournamentFiltersProvider>
       <Tab.Navigator
