@@ -54,16 +54,17 @@ pub fn handle_claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
     let mut payout = tournament.distributed_pool_lamports / tournament.winners_count as u64;
 
     // A system account (the vault) may not be left holding more than 0 but
-    // less than the rent-exempt minimum, or the transfer fails. Normally the
-    // 5% rake covers that, but with a single entry (or a tiny pool) it doesn't
-    // — the winner's own claim would then be impossible and their prize stuck
-    // forever. When this payout would strand such a sliver, pay it out too
-    // (only ever happens on the last claim: earlier ones leave other winners'
-    // shares in the vault).
+    // less than the rent-exempt minimum, or the transfer fails. The 5% rake
+    // normally covers that, but on a small pool (e.g. a single entry at a tiny
+    // fee) it doesn't, and the winner's claim would be impossible — their
+    // prize stuck forever. In that case pay out only what leaves the vault at
+    // the rent-exempt minimum: the house keeps its rake (rounded up to that
+    // minimum) and the winner is never blocked. Can only bite on the last
+    // claim of a tournament; earlier ones leave other winners' shares behind.
     let vault_lamports = ctx.accounts.vault.to_account_info().lamports();
     let rent_minimum = Rent::get()?.minimum_balance(0);
     if vault_lamports > payout && vault_lamports - payout < rent_minimum {
-        payout = vault_lamports;
+        payout = vault_lamports.saturating_sub(rent_minimum);
     }
 
     let tournament_key = tournament.key();

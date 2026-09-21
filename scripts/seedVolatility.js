@@ -11,7 +11,10 @@ const { execFileSync } = require("child_process");
 const WORKER = "https://pumpfantasy-cron.swapkings.workers.dev";
 const PROGRESS = "/tmp/vol-seed.json";
 const MIN_CANDLES = 48;
-const GAP_MS = 2300; // ~26 calls/min, under GeckoTerminal's 30/min
+// GeckoTerminal advertises 30 calls/min but in practice only ~5/min got through
+// (measured 2026-09-21); a steady 11s gap avoids the 429 / 30s-backoff storms.
+const GAP_MS = 11_000;
+const FLUSH_EVERY = 60;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const limitArg = process.argv.indexOf("--limit");
 const LIMIT = limitArg > -1 ? Number(process.argv[limitArg + 1]) : Infinity;
@@ -68,11 +71,18 @@ async function measure(mint) {
       fs.writeFileSync(PROGRESS, JSON.stringify(done));
       console.log(`${i}/${coins.length}  measured this run: ${ok}`);
     }
+    // Publish in batches so the groups fill in for real while this keeps running
+    // (each publish is one KV write; the free tier allows ~1000 a day).
+    if (ok > 0 && ok % FLUSH_EVERY === 0) flushToKv(done);
     await sleep(GAP_MS);
   }
   fs.writeFileSync(PROGRESS, JSON.stringify(done));
+  flushToKv(done);
+})().catch((e) => { console.error("FAILED", e); process.exit(1); });
 
-  // merge into KV (run from worker/ so wrangler finds wrangler.toml)
+// Merge our measurements into the Worker's KV key (run from worker/ so wrangler
+// finds wrangler.toml). Entries the Worker measured more recently win.
+function flushToKv(done) {
   const cwd = path.join(__dirname, "..", "worker");
   let existing = {};
   try {
@@ -84,8 +94,8 @@ async function measure(mint) {
   for (const [mint, e] of Object.entries(existing)) if (!merged[mint] || e.at >= merged[mint].at) merged[mint] = e;
   const out = "/tmp/vol-merged.json";
   fs.writeFileSync(out, JSON.stringify(merged));
-  execFileSync("npx", ["wrangler", "kv", "key", "put", "volatility", "--binding", "CACHE", "--path", out, "--remote"], { cwd, stdio: "inherit" });
+  execFileSync("npx", ["wrangler", "kv", "key", "put", "volatility", "--binding", "CACHE", "--path", out, "--remote"], { cwd, stdio: "ignore" });
   const vals = Object.values(merged).map((e) => e.v).filter((v) => v != null).sort((a, b) => a - b);
   const q = (p) => vals[Math.floor(vals.length * p)]?.toFixed(2);
-  console.log(`DONE: ${vals.length} measured of ${Object.keys(merged).length}. 10-min move percentiles: p10 ${q(0.1)} p25 ${q(0.25)} p50 ${q(0.5)} p75 ${q(0.75)} p90 ${q(0.9)} max ${vals[vals.length - 1]?.toFixed(2)}`);
-})().catch((e) => { console.error("FAILED", e); process.exit(1); });
+  console.log(`PUBLISHED: ${vals.length} measured of ${Object.keys(merged).length}. 10-min move percentiles: p10 ${q(0.1)} p25 ${q(0.25)} p50 ${q(0.5)} p75 ${q(0.75)} p90 ${q(0.9)} max ${vals[vals.length - 1]?.toFixed(2)}`);
+}

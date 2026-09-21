@@ -23,7 +23,14 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   const now = Math.floor(Date.now() / 1000);
 
   const filtered = useMemo(
-    () => (tournaments ?? []).filter((row) => getTournamentPhase(row.account, now) === phase),
+    () =>
+      (tournaments ?? []).filter((row) => {
+        if (getTournamentPhase(row.account, now) !== phase) return false;
+        // Nobody entered: it never really starts, so it doesn't appear in Live
+        // or Results (there's no one to score). It stays visible in the Lobby
+        // while entries are still open.
+        return phase === "upcoming" || row.account.entryCount > 0;
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tournaments, phase],
   );

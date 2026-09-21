@@ -82,9 +82,9 @@ fn vault_pda(program_id: &Pubkey, tournament: &Pubkey) -> Pubkey {
 fn asset_pda(program_id: &Pubkey, tournament: &Pubkey, mint: &Pubkey) -> Pubkey {
     Pubkey::find_program_address(&[pumpfantasy::ASSET_SEED, tournament.as_ref(), mint.as_ref()], program_id).0
 }
-fn entry_pda(program_id: &Pubkey, tournament: &Pubkey, player: &Pubkey) -> Pubkey {
+fn entry_pda(program_id: &Pubkey, tournament: &Pubkey, player: &Pubkey, index: u16) -> Pubkey {
     Pubkey::find_program_address(
-        &[pumpfantasy::ENTRY_SEED, tournament.as_ref(), player.as_ref(), 0u16.to_le_bytes().as_ref()],
+        &[pumpfantasy::ENTRY_SEED, tournament.as_ref(), player.as_ref(), index.to_le_bytes().as_ref()],
         program_id,
     )
     .0
@@ -103,6 +103,10 @@ struct Mini {
 }
 
 fn mini_tournament(fee: u64) -> Mini {
+    mini_tournament_with(fee, pumpfantasy::EntryMode::Single)
+}
+
+fn mini_tournament_with(fee: u64, entry_mode: pumpfantasy::EntryMode) -> Mini {
     let program_id = pumpfantasy::ID;
     let mut svm = LiteSVM::new();
     svm.add_program(program_id, program_bytes()).unwrap();
@@ -119,7 +123,7 @@ fn mini_tournament(fee: u64) -> Mini {
             entry_fee_lamports: fee,
             start_ts,
             end_ts,
-            entry_mode: pumpfantasy::EntryMode::Single,
+            entry_mode,
             guaranteed_amount_lamports: 0,
         }
         .data(),
@@ -144,12 +148,16 @@ impl Mini {
     }
 
     fn enter(&mut self, player: &Keypair) -> Pubkey {
+        self.enter_at(player, 0)
+    }
+
+    fn enter_at(&mut self, player: &Keypair, entry_index: u16) -> Pubkey {
         let signer = load_attestation_signer();
         let expiry = self.svm.get_sysvar::<Clock>().unix_timestamp + 60;
         let picks: [Pubkey; PICKS_PER_ENTRY] = std::array::from_fn(|i| self.mints[i]);
         let fp_costs = [100u32; PICKS_PER_ENTRY];
         let ed = build_ed25519_instruction(&signer, &attestation_message(&picks, &fp_costs, expiry));
-        let entry = entry_pda(&self.program_id, &self.tournament, &player.pubkey());
+        let entry = entry_pda(&self.program_id, &self.tournament, &player.pubkey(), entry_index);
         let metas = pumpfantasy::accounts::EnterTournament {
             player: player.pubkey(),
             tournament: self.tournament,
@@ -161,7 +169,7 @@ impl Mini {
         .to_account_metas(None);
         let ix = Instruction::new_with_bytes(
             self.program_id,
-            &pumpfantasy::instruction::EnterTournament { entry_index: 0, picks, fp_costs, attestation_expiry: expiry }.data(),
+            &pumpfantasy::instruction::EnterTournament { entry_index, picks, fp_costs, attestation_expiry: expiry }.data(),
             metas,
         );
         send(&mut self.svm, player, vec![ed, ix]).expect("entry failed");
@@ -244,7 +252,9 @@ impl Mini {
 
 /// One entry: the 5% rake (500,000 lamports here) is below the vault's
 /// rent-exempt minimum, so a plain 95% payout would leave an illegal sliver
-/// and the winner's claim would fail forever. The claim must pay it all out.
+/// and the winner's claim would fail forever. The claim must instead pay out
+/// what leaves the vault at exactly the rent minimum, so the house keeps its
+/// rake and the winner is not blocked.
 #[test]
 fn test_single_entry_can_claim_despite_vault_rent_minimum() {
     let mut t = mini_tournament(10_000_000); // 0.01 SOL
@@ -277,9 +287,14 @@ fn test_single_entry_can_claim_despite_vault_rent_minimum() {
     let claim = t.claim_ix(entry, player.pubkey());
     send(&mut t.svm, &t.authority, vec![claim]).expect("single-entry claim must succeed");
 
+    let rent_minimum = t.svm.minimum_balance_for_rent_exemption(0);
     let gained = t.svm.get_balance(&player.pubkey()).unwrap() - before;
-    assert!(gained >= 9_500_000, "winner should receive at least the 95% share, got {gained}");
-    assert_eq!(t.svm.get_balance(&t.vault).unwrap_or(0), 0, "vault should be fully drained, not stranded");
+    assert!(gained > 9_000_000, "winner should receive nearly the whole pool, got {gained}");
+    assert_eq!(
+        t.svm.get_balance(&t.vault).unwrap_or(0),
+        rent_minimum,
+        "the house keeps the vault at the rent-exempt minimum, nothing stranded below it"
+    );
 }
 
 /// A coin's prices never get recorded, so entries can never be settled. After
@@ -317,9 +332,11 @@ fn test_cancel_and_refund_when_tournament_cannot_settle() {
     send(&mut t.svm, &t.authority, vec![refund_a]).expect("refund A");
     let refund_b = t.refund_ix(entry_b, b.pubkey());
     send(&mut t.svm, &t.authority, vec![refund_b]).expect("refund B");
-    assert_eq!(t.svm.get_balance(&a.pubkey()).unwrap() - bal_a, t.fee, "A gets exactly the fee back");
-    assert_eq!(t.svm.get_balance(&b.pubkey()).unwrap() - bal_b, t.fee, "B gets exactly the fee back");
+    // The fee comes back AND the entry account's rent (the entry is closed).
+    assert!(t.svm.get_balance(&a.pubkey()).unwrap() - bal_a > t.fee, "A gets the fee plus the entry's rent back");
+    assert!(t.svm.get_balance(&b.pubkey()).unwrap() - bal_b > t.fee, "B gets the fee plus the entry's rent back");
     assert_eq!(t.svm.get_balance(&t.vault).unwrap_or(0), 0, "vault fully returned");
+    assert!(t.svm.get_account(&entry_a).is_none_or(|acc| acc.lamports == 0), "entry account is closed");
 
     // Not twice, and a cancelled tournament pays no prizes.
     t.svm.expire_blockhash();

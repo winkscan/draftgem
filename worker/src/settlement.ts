@@ -273,7 +273,11 @@ async function settleAndPay(
   return { note, done, progressed: progressed || failed < groups.length };
 }
 
-/** A cancelled tournament pays nobody: return every entry's fee, once. */
+/**
+ * A cancelled tournament pays nobody: return every entry's fee (and the
+ * entry account's rent — refund_entry closes it). Refunded entries no longer
+ * exist, so what's left on chain is exactly what's still owed.
+ */
 async function refundAll(connection: Connection, authority: Keypair, tournament: PublicKey): Promise<StepResult> {
   const entries = await readEntries(connection, tournament);
   const owed = entries.filter((e) => !e.claimed);
@@ -339,17 +343,22 @@ export async function settleTournaments(
   for (const c of candidates) {
     const view = new DataView(c.data.buffer, c.data.byteOffset, c.data.byteLength);
     const id = view.getBigUint64(40, true).toString();
-    if (view.getUint32(74, true) === 0) continue; // nobody entered
-    if (nowSec < Number(view.getBigInt64(64, true))) continue; // still running
+    const entryCount = view.getUint32(74, true);
+    if (entryCount === 0) continue; // nobody entered: nothing to settle or refund, and nothing to show
     const st = (states[id] ??= {});
     if (st.settled) continue;
+    const status = view.getUint8(90);
+    const endTs = Number(view.getBigInt64(64, true));
+
+    const cancelled = status === TOURNAMENT_CANCELLED;
+    if (!cancelled && nowSec < endTs) continue; // still running
     // Normally wait for every end price; but a tournament whose prices never
     // arrive must still reach the cancel/refund check once its grace period is over.
-    const endTs = Number(view.getBigInt64(64, true));
     const pastGrace = nowSec >= endTs + CANCEL_GRACE_SECONDS;
-    if (!st.end && !pastGrace && view.getUint8(90) !== TOURNAMENT_CANCELLED) continue;
+    if (!st.end && !pastGrace && !cancelled) continue;
 
     try {
+
       const r = await processTournament(connection, authority, c.pubkey, c.data, !!st.end, nowSec);
       notes.push(`${id}: ${r.note}`);
       if (r.done) st.settled = true;

@@ -21,8 +21,12 @@ pub struct RefundEntry<'info> {
     )]
     pub vault: SystemAccount<'info>,
 
+    // Closed on refund: the account's rent (paid by the player when they
+    // entered) goes back to them along with the fee, and a closed account
+    // can't be refunded twice.
     #[account(
         mut,
+        close = player,
         constraint = entry.tournament == tournament.key() @ PumpFantasyError::AssetMismatch,
         constraint = entry.player == player.key() @ PumpFantasyError::AssetMismatch,
     )]
@@ -35,8 +39,8 @@ pub struct RefundEntry<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Returns one entry's fee from a cancelled tournament's vault. Reuses the
-/// entry's `claimed` flag as "already paid back" so a fee can't be taken twice.
+/// Returns one entry's fee from a cancelled tournament's vault and closes the
+/// entry, handing its rent back too.
 pub fn handle_refund_entry(ctx: Context<RefundEntry>) -> Result<()> {
     let tournament = &ctx.accounts.tournament;
 
@@ -44,6 +48,8 @@ pub fn handle_refund_entry(ctx: Context<RefundEntry>) -> Result<()> {
         tournament.status == TournamentStatus::Cancelled,
         PumpFantasyError::NotCancelled
     );
+    // A tournament that was already paid out can't reach this point (status
+    // would be Finalized), so any still-open entry here is genuinely owed a refund.
     require!(!ctx.accounts.entry.claimed, PumpFantasyError::AlreadyClaimed);
 
     let tournament_key = tournament.key();
@@ -60,7 +66,5 @@ pub fn handle_refund_entry(ctx: Context<RefundEntry>) -> Result<()> {
         &signer_seeds,
     );
     anchor_lang::system_program::transfer(cpi_ctx, tournament.entry_fee_lamports)?;
-
-    ctx.accounts.entry.claimed = true;
     Ok(())
 }
