@@ -46,7 +46,6 @@ export interface TokenLink {
 }
 
 export interface TokenAbout {
-  description: string | null;
   links: TokenLink[];
 }
 
@@ -58,56 +57,16 @@ function socialLabel(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-// Description sources, in order, first hit wins: GeckoTerminal (~half of
-// coins, mostly newer ones), then CoinGecko's contract lookup (established
-// coins + some launchpad tokens; free but rate-limited, so it's only asked
-// when GeckoTerminal came up empty and a 429 just means "no description").
-// Measured 2026-09-19 on 15 sampled coins: GeckoTerminal 7, +CoinGecko a few
-// more; DexScreener's API has no description text at all.
-async function fetchDescription(mint: string): Promise<string | null> {
-  try {
-    const r = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/info`);
-    if (r.ok) {
-      const d = (await r.json())?.data?.attributes?.description;
-      if (typeof d === "string" && d.trim()) return d.trim();
-    }
-  } catch {}
-  try {
-    const r = await fetch(
-      `https://api.coingecko.com/api/v3/coins/solana/contract/${mint}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`,
-    );
-    if (r.ok) {
-      const d = (await r.json())?.description?.en;
-      if (typeof d === "string") {
-        const clean = stripHtml(d);
-        if (clean) return clean;
-      }
-    }
-  } catch {}
-  return null;
-}
-
+// (There used to be a description here too, but it was only available for
+// about half the coins — see git history — so it was dropped.)
 export function useTokenAbout(candidate: Candidate | null, enabled: boolean) {
   const mint = candidate?.mint ?? null;
   return useQuery({
     queryKey: ["token-about", mint],
     queryFn: async (): Promise<TokenAbout> => {
-      const [description, dex] = await Promise.all([
-        fetchDescription(mint!),
-        fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${mint}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-      ]);
+      const dex = await fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${mint}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
 
       const links: TokenLink[] = [];
       const seen = new Set<string>();
@@ -130,7 +89,7 @@ export function useTokenAbout(candidate: Candidate | null, enabled: boolean) {
         add("Telegram", candidate?.telegram);
       }
 
-      return { description, links };
+      return { links };
     },
     enabled: !!mint && enabled,
     staleTime: 24 * 60 * 60_000,

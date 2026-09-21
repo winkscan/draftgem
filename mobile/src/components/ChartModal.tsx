@@ -11,8 +11,8 @@ import { PriceChart } from "./PriceChart";
 import { PF_COLORS as C } from "../theme";
 
 // In-app coin details: a natively drawn price chart (candles from
-// GeckoTerminal's free API, see chartData.ts) and an About tab (description
-// + links + the numbers we already have from /candidates).
+// GeckoTerminal's free API, see chartData.ts) and an About tab (the numbers we
+// already have from /candidates, plus the project's links).
 export function ChartModal({ candidate, onClose }: { candidate: Candidate | null; onClose: () => void }) {
   const [tab, setTab] = useState<"chart" | "about">("chart");
   const [range, setRange] = useState<ChartRange>("24H");
@@ -20,7 +20,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
 
   const { data: pool, isLoading: poolLoading } = usePoolAddress(mint);
   const { data: points, isLoading: seriesLoading, isError } = usePriceSeries(pool, range);
-  const { data: about, isLoading: aboutLoading } = useTokenAbout(candidate, tab === "about");
+  const { data: about } = useTokenAbout(candidate, tab === "about");
 
   const first = points?.[0]?.price;
   const last = points?.[points.length - 1]?.price;
@@ -103,15 +103,6 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.body}>
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              {aboutLoading ? (
-                <ActivityIndicator color={C.accent} style={{ marginVertical: 12 }} />
-              ) : (
-                <Text style={styles.description}>{about?.description ?? "No project description is published for this coin (checked GeckoTerminal and CoinGecko)."}</Text>
-              )}
-            </View>
-
             {candidate ? (
               <View style={styles.card}>
                 <StatRow label="Market cap" value={formatUsdCompact(candidate.marketCapUsd)} />
@@ -215,7 +206,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionTitle: { color: C.textPrimary, fontWeight: "700", fontSize: 14, marginBottom: 8 },
-  description: { color: C.textSecondary, fontSize: 13, lineHeight: 19 },
   statRow: {
     flexDirection: "row",
     justifyContent: "space-between",
