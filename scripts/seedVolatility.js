@@ -60,8 +60,15 @@ async function measure(mint) {
     i++;
     if (done[c.mint]) continue;
     try {
-      const v = await measure(c.mint);
-      if (v === "gave-up") { console.log("rate-limited too long, stopping — rerun to resume"); break; }
+      // GeckoTerminal sometimes blocks for many minutes: wait it out (up to ~1h
+      // per coin) instead of stopping, so one run can finish the whole list.
+      let v = await measure(c.mint);
+      for (let wait = 0; v === "gave-up" && wait < 12; wait++) {
+        console.log(`rate-limited, waiting 5 min (${wait + 1}/12)…`);
+        await sleep(300_000);
+        v = await measure(c.mint);
+      }
+      if (v === "gave-up") { console.log("rate-limited for over an hour, stopping — rerun to resume"); break; }
       done[c.mint] = { v, at: Date.now() };
       if (v != null) ok++;
     } catch (e) {

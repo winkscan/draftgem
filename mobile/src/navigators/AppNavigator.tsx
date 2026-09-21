@@ -35,7 +35,7 @@ const AppStack = () => (
       name="Leaderboard"
       component={LeaderboardScreen}
       options={{
-        title: "Live Standings",
+        title: "Standings", // replaced with "Live Standings" / "Final Standings" once the phase is known
         headerStyle: { backgroundColor: C.header },
         headerTintColor: C.textOnHeader,
       }}

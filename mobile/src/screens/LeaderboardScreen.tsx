@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useLayoutEffect, useMemo, useState } from "react";
+import { Linking, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { PublicKey } from "@solana/web3.js";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { useConnection } from "../utils/ConnectionProvider";
+import { CLUSTER } from "../pumpfantasy/config";
 import { useTournament, useAssetPrices, useTournamentEntries } from "../pumpfantasy/hooks";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
 import { useAuthorization } from "../utils/useAuthorization";
@@ -66,6 +69,34 @@ export function LeaderboardScreen() {
 
   const now = Math.floor(Date.now() / 1000);
   const phase = tournament ? getTournamentPhase(tournament, now) : "upcoming";
+
+  // "Live Standings" only while the round is running; afterwards it's the result.
+  const navigation = useNavigation();
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: phase === "live" ? "Live Standings" : "Final Standings" });
+  }, [navigation, phase]);
+
+  // Payout proof: the claim_prize transaction is the newest successful one that
+  // touched the winning entry's account (enter and settle come before it), so
+  // look that up on demand and open it on Solscan. Falls back to the entry's
+  // account page if the lookup fails.
+  const { connection } = useConnection();
+  const [openingPayout, setOpeningPayout] = useState<string | null>(null);
+  const openPayout = async (entryKey: string) => {
+    setOpeningPayout(entryKey);
+    let url = `https://solscan.io/account/${entryKey}?cluster=${CLUSTER}`;
+    try {
+      const sigs = await connection.getSignaturesForAddress(new PublicKey(entryKey), { limit: 10 });
+      const claim = sigs.find((s) => s.err === null);
+      if (claim) url = `https://solscan.io/tx/${claim.signature}?cluster=${CLUSTER}`;
+    } catch {
+      // keep the account-page fallback
+    } finally {
+      setOpeningPayout(null);
+    }
+    await Linking.openURL(url);
+  };
+
   // Once every asset has its final price there's nothing left to poll.
   const wantsLivePrices = phase !== "upcoming" && (assets ?? []).some((a) => !a.account.resolved);
   const mints = useMemo(() => (assets ?? []).map((a) => a.account.mint.toBase58()), [assets]);
@@ -131,24 +162,39 @@ export function LeaderboardScreen() {
       </View>
 
       {mine ? (
-        <PortfolioPanel
-          title={
-            <>
-              <Text style={styles.metaLabel}>
-                Place: <Text style={styles.metaValue}>{mine.rank}</Text>
-              </Text>
-              <Text style={styles.metaLabel}>
-                Prize:{" "}
-                <Text style={styles.metaValue}>
-                  {mine.prizeLamports > 0n ? `${formatSol(mine.prizeLamports, 3)} SOL` : "—"}
+        <>
+          <PortfolioPanel
+            title={
+              <>
+                <Text style={styles.metaLabel}>
+                  Place: <Text style={styles.metaValue}>{mine.rank}</Text>
                 </Text>
-              </Text>
-            </>
-          }
-          scoreBps={mine.scoreBps}
-          picks={mine.picks}
-          candidatesByMint={candidatesByMint}
-        />
+                <Text style={styles.metaLabel}>
+                  Prize:{" "}
+                  <Text style={styles.metaValue}>
+                    {mine.prizeLamports > 0n ? `${formatSol(mine.prizeLamports, 3)} SOL` : "—"}
+                  </Text>
+                </Text>
+              </>
+            }
+            scoreBps={mine.scoreBps}
+            picks={mine.picks}
+            candidatesByMint={candidatesByMint}
+          />
+          {mine.claimed && mine.prizeLamports > 0n ? (
+            <TouchableRipple style={styles.payoutPill} onPress={() => openPayout(mine.key)}>
+              <View style={styles.payoutPillInner}>
+                <FontAwesome6 name="circle-check" size={13} color={C.positive} />
+                <Text style={styles.payoutPillText}>Paid out · View payout on Solscan</Text>
+                {openingPayout === mine.key ? (
+                  <ActivityIndicator size={12} color={C.header} />
+                ) : (
+                  <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.header} />
+                )}
+              </View>
+            </TouchableRipple>
+          ) : null}
+        </>
       ) : null}
 
       {myRows.length > 1 ? (
@@ -232,10 +278,20 @@ export function LeaderboardScreen() {
               >
                 {r.scoreBps == null ? "…" : bpsToPercentLabel(r.scoreBps)}
               </Text>
-              <Text style={[styles.cell, { flex: 1 }, r.isMine ? styles.bold : undefined]}>
-                {r.prizeLamports > 0n ? formatSol(r.prizeLamports, 3) : "-"}
-                {r.claimed ? " ✓" : ""}
-              </Text>
+              <View style={[styles.prizeCell, { flex: 1 }]}>
+                <Text style={[styles.cell, r.isMine ? styles.bold : undefined]}>
+                  {r.prizeLamports > 0n ? formatSol(r.prizeLamports, 3) : "-"}
+                </Text>
+                {r.claimed && r.prizeLamports > 0n ? (
+                  <TouchableRipple borderless style={styles.payoutIcon} onPress={() => openPayout(r.key)}>
+                    {openingPayout === r.key ? (
+                      <ActivityIndicator size={11} color={C.header} />
+                    ) : (
+                      <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.header} />
+                    )}
+                  </TouchableRipple>
+                ) : null}
+              </View>
               <View style={{ width: 44, alignItems: "center" }}>
                 {r.isMine ? null : (
                   <TouchableRipple
@@ -285,7 +341,7 @@ export function LeaderboardScreen() {
       ) : null}
 
       <Text style={styles.footnote}>
-        The top half of players split the pool minus a 5% fee; a tie at the cut-off wins too. ✓ = paid out to the wallet.
+        The top half of players split the pool minus a 5% fee; a tie at the cut-off wins too. Tap the link icon next to a paid prize to see the payout on Solscan.
       </Text>
     </ScrollView>
   );
@@ -395,6 +451,17 @@ const styles = StyleSheet.create({
   rowMine: { backgroundColor: "#fff", borderColor: C.cardBorder },
   rowCompared: { borderColor: C.header },
   cell: { color: C.textSecondary, fontSize: 13 },
+  prizeCell: { flexDirection: "row", alignItems: "center", gap: 4 },
+  payoutIcon: { padding: 5, borderRadius: 999 },
+  payoutPill: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 999,
+    backgroundColor: "#e9f9ef",
+    alignSelf: "flex-start",
+  },
+  payoutPillInner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  payoutPillText: { color: C.textPrimary, fontWeight: "700", fontSize: 12 },
   bold: { color: C.textPrimary, fontWeight: "800" },
   up: { color: C.header },
   down: { color: C.negative },
