@@ -26,17 +26,25 @@ interface DexPair {
   liquidity?: { usd?: number };
 }
 
-async function pairAddress(env: Env, mint: string): Promise<string | null> {
+/**
+ * Deepest pool for a coin. `useCache` (tournament prices) remembers it in KV;
+ * the volatility sweep passes false — it touches ~1000 coins and KV's free
+ * tier allows only ~1000 writes a day, while DexScreener's own rate limit is
+ * generous enough to just ask again.
+ */
+export async function pairAddress(env: Env, mint: string, useCache = true): Promise<string | null> {
   const key = `pair:${mint}`;
-  const cached = await env.CACHE.get(key);
-  if (cached) return cached;
+  if (useCache) {
+    const cached = await env.CACHE.get(key);
+    if (cached) return cached;
+  }
 
   const res = await fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${mint}`);
   if (!res.ok) return null;
   const pairs = (await res.json()) as DexPair[];
   if (!Array.isArray(pairs) || pairs.length === 0) return null;
   const best = pairs.reduce((a, b) => ((b.liquidity?.usd ?? 0) > (a.liquidity?.usd ?? 0) ? b : a));
-  await env.CACHE.put(key, best.pairAddress, { expirationTtl: PAIR_TTL_SECONDS });
+  if (useCache) await env.CACHE.put(key, best.pairAddress, { expirationTtl: PAIR_TTL_SECONDS });
   return best.pairAddress;
 }
 

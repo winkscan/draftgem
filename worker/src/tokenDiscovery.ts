@@ -15,35 +15,13 @@
 
 import type { Env } from "./env";
 import { effectiveMarketCap, loadUnderlyingMarketCaps } from "./bridgedAssets";
+import { classify, loadVolMap, type VolMap } from "./volatility";
 
-export interface TierDef {
-  name: string;
-  minMarketCapUsd: number;
-  fpCost: number;
-}
-
-// Tiers by MARKET CAP, highest first (user's call 2026-09-19, Blue Chip from
-// $500M). They used to be by coin age, but that put 802 of 1032 coins —
-// median cap $714K — into "BlueChip", which traders expect to mean
-// billion-dollar assets. Smaller cap = more volatile = more FP, same as the
-// old younger = pricier logic, so the FP costs are unchanged. A coin's tier
-// (and therefore fp_cost) follows its live market cap, so it can shift
-// between the moment the Draft list was fetched and /attest — the attested
-// value is the one that counts (see attestation.ts).
-export const TIERS: TierDef[] = [
-  { name: "BlueChip", minMarketCapUsd: 500_000_000, fpCost: 100 },
-  { name: "Veteran", minMarketCapUsd: 100_000_000, fpCost: 300 },
-  { name: "Contender", minMarketCapUsd: 10_000_000, fpCost: 650 },
-  { name: "Gambler", minMarketCapUsd: 1_000_000, fpCost: 1000 },
-  { name: "Degen", minMarketCapUsd: 0, fpCost: 1600 },
-];
+// The coin groups (Boomer … Degen) are by measured volatility — see tiers.ts
+// and volatility.ts. Market cap now only serves the anti-scam floor below.
 
 // User's explicit anti-scam floor, 2026-09-18: "не меньше 100к маркет
-// капа и сколько-то ликвидности". Applied uniformly across every tier —
-// the Degen tier pool will naturally be thinner (most day-old tokens
-// haven't reached $100k mcap yet), which is realistic, not a bug: a
-// day-old token that HAS already hit $100k is exactly the rare, real
-// "caught it early" case this tier is about.
+// капа и сколько-то ликвидности". Applied uniformly to every group.
 export const MIN_LIQUIDITY_USD = 20_000;
 export const MIN_MARKET_CAP_USD = 100_000;
 const PRICE_SCALE = 1_000_000; // matches constants::PRICE_SCALE in the Rust program
@@ -59,6 +37,8 @@ export interface DiscoveredAsset {
   ageDays: number;
   liquidityUsd: number;
   marketCapUsd: number;
+  /** Typical 10-minute move in %, when this coin has been measured yet (else its group is a market-cap stand-in). */
+  volatilityPct?: number;
   // Project links as listed on Jupiter — free with the same payload, used as
   // a fallback for the About tab when DexScreener has no profile.
   website?: string;
@@ -129,10 +109,6 @@ function isStablecoin(t: JupiterToken): boolean {
   return price >= STABLE_PEG_LOW && price <= STABLE_PEG_HIGH;
 }
 
-export function tierForMarketCap(marketCapUsd: number): TierDef {
-  return TIERS.find((t) => marketCapUsd >= t.minMarketCapUsd) ?? TIERS[TIERS.length - 1];
-}
-
 export function ageDaysFromCreatedAt(createdAt: string): number {
   return (Date.now() - new Date(createdAt).getTime()) / (24 * 3600 * 1000);
 }
@@ -152,8 +128,13 @@ async function fetchAllCandidates(): Promise<JupiterToken[]> {
   return [...byMint.values()];
 }
 
-function toDiscovered(t: JupiterToken, ageDays: number, marketCapUsd: number): DiscoveredAsset | null {
-  const tier = tierForMarketCap(marketCapUsd);
+function toDiscovered(
+  t: JupiterToken,
+  ageDays: number,
+  marketCapUsd: number,
+  vols: VolMap,
+): DiscoveredAsset | null {
+  const { tier, movePct } = classify(t.id, marketCapUsd, ageDays, vols);
   const priceUsd = t.usdPrice ?? 0;
   if (Math.round(priceUsd * PRICE_SCALE) <= 0) return null; // too cheap to represent at this fixed-point scale
   return {
@@ -167,6 +148,7 @@ function toDiscovered(t: JupiterToken, ageDays: number, marketCapUsd: number): D
     ageDays,
     liquidityUsd: t.liquidity ?? 0,
     marketCapUsd,
+    volatilityPct: movePct ?? undefined,
     website: t.website || undefined,
     twitter: t.twitter || undefined,
     telegram: t.telegram || undefined,
@@ -176,13 +158,17 @@ function toDiscovered(t: JupiterToken, ageDays: number, marketCapUsd: number): D
 /**
  * The full browsable candidate pool — every real Solana token across
  * Jupiter's combined lists that clears the liquidity+market-cap floor,
- * tagged with its age tier and FP cost. This is what the mobile Draft
- * screen's "browse all 1000+ coins" view is actually backed by (via the
+ * tagged with its volatility group and FP cost. This is what the mobile
+ * Draft screen's "browse all 1000+ coins" view is actually backed by (via the
  * Worker's `/candidates` HTTP endpoint) — nothing here is tournament-
  * specific or pre-registered on-chain.
  */
 export async function getAllCandidates(env: Env): Promise<DiscoveredAsset[]> {
-  const [candidates, underlying] = await Promise.all([fetchAllCandidates(), loadUnderlyingMarketCaps(env)]);
+  const [candidates, underlying, vols] = await Promise.all([
+    fetchAllCandidates(),
+    loadUnderlyingMarketCaps(env),
+    loadVolMap(env),
+  ]);
   const out: DiscoveredAsset[] = [];
   for (const token of candidates) {
     const createdAt = token.firstPool?.createdAt;
@@ -191,7 +177,7 @@ export async function getAllCandidates(env: Env): Promise<DiscoveredAsset[]> {
     const marketCapUsd = effectiveMarketCap(token.id, token.mcap ?? 0, underlying);
     if (marketCapUsd < MIN_MARKET_CAP_USD) continue;
     if (isStablecoin(token)) continue;
-    const discovered = toDiscovered(token, ageDaysFromCreatedAt(createdAt), marketCapUsd);
+    const discovered = toDiscovered(token, ageDaysFromCreatedAt(createdAt), marketCapUsd, vols);
     if (discovered) out.push(discovered);
   }
   return out;

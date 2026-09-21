@@ -117,6 +117,9 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                 <StatRow label="Market cap" value={formatUsdCompact(candidate.marketCapUsd)} />
                 <StatRow label="Liquidity" value={formatUsdCompact(candidate.liquidityUsd)} />
                 <StatRow label="Age" value={formatAge(candidate.ageDays)} />
+                {candidate.volatilityPct != null ? (
+                  <StatRow label="Typical 10-min move" value={`±${candidate.volatilityPct.toFixed(2)}%`} />
+                ) : null}
                 <StatRow label="Category" value={`${candidate.tier} · ${candidate.fpCost} FP`} last />
               </View>
             ) : null}

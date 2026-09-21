@@ -30,7 +30,7 @@ export function TopBar() {
       <View style={styles.left}>
         <FontAwesome6 name="chart-line" size={16} color={C.textOnHeader} />
         <Text variant="titleMedium" style={styles.title}>
-          PumpFantasy
+          DraftJam
         </Text>
       </View>
       <View style={styles.right}>

@@ -1,10 +1,11 @@
 import nacl from "tweetnacl";
 import type { Env } from "./env";
-import { tierForMarketCap } from "./tokenDiscovery";
+import { ageDaysFromCreatedAt } from "./tokenDiscovery";
 import { effectiveMarketCap, loadUnderlyingMarketCaps } from "./bridgedAssets";
+import { classify, loadVolMap } from "./volatility";
 
-// Signs a short-lived attestation of each picked mint's real fp_cost (age
-// tier), so `enter_tournament` can verify the budget on-chain without ever
+// Signs a short-lived attestation of each picked mint's real fp_cost (its
+// volatility group), so `enter_tournament` can verify the budget on-chain without ever
 // needing the mint pre-registered as its own account — see
 // programs/pumpfantasy/src/instructions/enter_tournament.rs's own comment.
 // Same Ed25519-attestation pattern SwapKings already uses in production
@@ -16,6 +17,7 @@ interface JupiterToken {
   id: string;
   usdPrice?: number;
   mcap?: number;
+  firstPool?: { createdAt?: string };
 }
 
 async function lookupMints(mints: string[]): Promise<Map<string, JupiterToken>> {
@@ -38,23 +40,31 @@ export class UnknownMintError extends Error {
   }
 }
 
-// A coin's tier follows its live market cap, so a pick near a boundary can
-// cost more at /attest than the Draft list showed. Say so plainly here instead
-// of letting the transaction die on-chain with a generic BudgetExceeded.
+// Group and price come from the stored volatility measurement — the same
+// number the Draft list used — so they normally match what the player saw. If
+// the list was fetched just before a group changed (or a coin was measured for
+// the first time in between), say so plainly here instead of letting the
+// transaction die on-chain with a generic BudgetExceeded.
 const MAX_BUDGET_FP = 4_000; // constants::MAX_BUDGET_FP in the Rust program
 export class BudgetExceededError extends Error {
   constructor(total: number) {
-    super(`Portfolio costs ${total} FP (max ${MAX_BUDGET_FP}). Swap a pick — a coin's category can also shift with its live market cap.`);
+    super(`Portfolio costs ${total} FP (max ${MAX_BUDGET_FP}). Swap a pick — a coin's group can also change when its volatility is re-measured.`);
   }
 }
 
 /** Real fp_cost for each requested mint, computed fresh — never trusts a client-supplied value. */
 export async function computeFpCosts(mints: string[], env: Env): Promise<AttestedPick[]> {
-  const [byMint, underlying] = await Promise.all([lookupMints(mints), loadUnderlyingMarketCaps(env)]);
+  const [byMint, underlying, vols] = await Promise.all([
+    lookupMints(mints),
+    loadUnderlyingMarketCaps(env),
+    loadVolMap(env),
+  ]);
   return mints.map((mint) => {
     const token = byMint.get(mint);
     if (!token || !token.mcap) throw new UnknownMintError(mint);
-    const tier = tierForMarketCap(effectiveMarketCap(mint, token.mcap, underlying));
+    const createdAt = token.firstPool?.createdAt;
+    const ageDays = createdAt ? ageDaysFromCreatedAt(createdAt) : 365;
+    const { tier } = classify(mint, effectiveMarketCap(mint, token.mcap, underlying), ageDays, vols);
     return { mint, fpCost: tier.fpCost, tier: tier.name };
   });
 }

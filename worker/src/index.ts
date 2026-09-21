@@ -2,7 +2,9 @@ import { Connection, Keypair, PublicKey, SystemProgram, Transaction, Transaction
 import { getAllCandidates } from "./tokenDiscovery";
 import { signAttestation, UnknownMintError, BudgetExceededError } from "./attestation";
 import { loadUnderlyingMarketCaps } from "./bridgedAssets";
-import { findCandidates, syncPrices, TICK_MS, ROUND_SECONDS } from "./syncPrices";
+import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, ROUND_SECONDS } from "./syncPrices";
+import { refreshVolatility } from "./volatility";
+import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { loadStates, saveStates } from "./tournamentState";
 import type { Env } from "./env";
@@ -144,10 +146,11 @@ async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<strin
   const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
   const loaded = await loadStates(env);
   const lines: string[] = [];
+  const budget: PriceBudget = { geckoCalls: GECKO_CALLS_PER_TICK };
   try {
     const candidates = await findCandidates(connection, loaded.states, opts);
     try {
-      lines.push(`Prices: ${await syncPrices(env, connection, candidates, loaded.states)}`);
+      lines.push(`Prices: ${await syncPrices(env, connection, candidates, loaded.states, budget)}`);
     } catch (err) {
       lines.push(`Prices failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -156,8 +159,19 @@ async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<strin
     } catch (err) {
       lines.push(`Settlement failed: ${err instanceof Error ? err.message : String(err)}`);
     }
+    // Last, and only with what tournament prices left over: re-measure a few coins' volatility.
+    try {
+      const coins = (await getAllCandidates(env)).map((c) => c.mint);
+      lines.push(`Volatility: ${await refreshVolatility(env, coins, budget)}`);
+    } catch (err) {
+      lines.push(`Volatility failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   } finally {
-    await saveStates(env, loaded);
+    try {
+      await saveStates(env, loaded);
+    } catch (err) {
+      console.error("Saving tournament state failed:", err); // e.g. KV daily write limit — don't lose the rest of the pass
+    }
   }
   return lines.join("\n");
 }

@@ -21,7 +21,12 @@ const SUBMIT_RESULT_DISCRIMINATOR = Uint8Array.from([240, 42, 89, 180, 10, 239, 
 
 const PRICE_SCALE = 1_000_000; // matches constants::PRICE_SCALE in the Rust program
 const LIVE_FALLBACK_SECONDS = 900; // how long after a timestamp a live price may stand in for missing history
-const GECKO_CALLS_PER_TICK = 8; // GeckoTerminal's free tier 429s quickly; leftovers wait for the next tick
+/**
+ * GeckoTerminal calls the whole tick may make (its free tier 429s quickly).
+ * Tournament prices are spent first — money depends on them — and whatever is
+ * left goes to the volatility sweep (volatility.ts); leftovers wait a tick.
+ */
+export const GECKO_CALLS_PER_TICK = 16;
 
 // 8-byte discriminator + state.rs's own field layout, in declaration order.
 export const TOURNAMENT_SIZE = 118;
@@ -257,10 +262,10 @@ export async function syncPrices(
   connection: Connection,
   candidates: Candidate[],
   states: TournamentStates,
+  budget: PriceBudget,
 ): Promise<string> {
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
   const nowSec = Math.floor(Date.now() / 1000);
-  const budget: PriceBudget = { geckoCalls: GECKO_CALLS_PER_TICK };
 
   let registered = 0;
   let resolved = 0;

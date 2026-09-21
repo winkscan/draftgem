@@ -17,12 +17,15 @@ export interface Candidate {
   ageDays: number;
   liquidityUsd: number;
   marketCapUsd: number;
+  /** Typical 10-minute move in %, once this coin has been measured; the group is a stand-in until then. */
+  volatilityPct?: number;
   website?: string;
   twitter?: string;
   telegram?: string;
 }
 
-export const CATEGORY_TABS = ["All", "Degen", "Gambler", "Contender", "Veteran", "BlueChip"] as const;
+// Groups by how much a coin moves, calmest to wildest (worker/src/tiers.ts).
+export const CATEGORY_TABS = ["All", "Boomer", "Grinder", "Pump", "Moon", "Degen"] as const;
 export type CategoryTab = (typeof CATEGORY_TABS)[number];
 
 export function useCandidates() {

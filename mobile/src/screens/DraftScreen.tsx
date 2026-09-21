@@ -284,7 +284,10 @@ export function DraftScreen() {
                       <Text style={[styles.assetFp, isPicked ? { color: C.accent } : undefined]}>
                         {item.fpCost} FP
                       </Text>
-                      <Text style={styles.assetTier}>{item.tier}</Text>
+                      <Text style={styles.assetTier}>
+                        {item.tier}
+                        {item.volatilityPct != null ? ` · ±${item.volatilityPct.toFixed(1)}%` : ""}
+                      </Text>
                     </View>
                   </View>
                 </TouchableRipple>
