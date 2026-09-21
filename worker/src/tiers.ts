@@ -14,8 +14,8 @@ export interface TierDef {
 }
 
 export const TIERS: TierDef[] = [
-  { name: "Boomer", maxMovePct: 0.5, fpCost: 100 }, // barely moves
-  { name: "Grinder", maxMovePct: 1, fpCost: 300 }, // slow crawl
+  { name: "Hold", maxMovePct: 0.5, fpCost: 100 }, // barely moves — just hold it
+  { name: "Farm", maxMovePct: 1, fpCost: 300 }, // slow crawl — farm the drift
   { name: "Pump", maxMovePct: 2, fpCost: 650 }, // now it's interesting
   { name: "Moon", maxMovePct: 5, fpCost: 1000 }, // big swings
   { name: "Degen", maxMovePct: Infinity, fpCost: 1600 }, // pure chaos

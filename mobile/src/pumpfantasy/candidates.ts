@@ -25,7 +25,7 @@ export interface Candidate {
 }
 
 // Groups by how much a coin moves, calmest to wildest (worker/src/tiers.ts).
-export const CATEGORY_TABS = ["All", "Boomer", "Grinder", "Pump", "Moon", "Degen"] as const;
+export const CATEGORY_TABS = ["All", "Hold", "Farm", "Pump", "Moon", "Degen"] as const;
 export type CategoryTab = (typeof CATEGORY_TABS)[number];
 
 export function useCandidates() {
