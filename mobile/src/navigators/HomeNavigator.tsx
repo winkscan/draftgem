@@ -1,3 +1,4 @@
+import { Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { TopBar } from "../components/top-bar/TopBar";
@@ -30,17 +31,33 @@ export function HomeNavigator() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           header: () => <TopBar phase={PHASES[route.name]} />,
-          tabBarActiveTintColor: C.accent,
-          tabBarInactiveTintColor: C.textSecondary,
+          // Same panel colour as the header, rounded on the top corners, no border;
+          // the active item has a purple icon and a white label.
           tabBarStyle: {
-            backgroundColor: C.card,
-            borderTopColor: C.cardBorder,
+            backgroundColor: C.headerPanel,
+            borderTopWidth: 0,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             height: 64,
-            paddingTop: 6,
+            paddingTop: 8,
             paddingBottom: 8,
+            elevation: 16,
+            shadowColor: "#000000",
+            shadowOpacity: 0.5,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: -6 },
           },
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome6 name={ICONS[route.name] ?? "circle"} size={size * 0.8} color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <FontAwesome6
+              name={ICONS[route.name] ?? "circle"}
+              size={size * 0.8}
+              color={focused ? C.accent : C.textSecondary}
+            />
+          ),
+          tabBarLabel: ({ focused }) => (
+            <Text style={{ fontSize: 11, fontWeight: "600", color: focused ? C.textPrimary : C.textSecondary }}>
+              {route.name}
+            </Text>
           ),
         })}
       >
