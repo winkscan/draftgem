@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Portal } from "react-native-paper";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -57,15 +57,19 @@ export function HomeTabBar({ state, navigation }: BottomTabBarProps) {
       {homeFocused && barHeight > 0 ? (
         <Portal>
           <View style={styles.fabLayer} pointerEvents="box-none">
-            <Pressable
-              style={[styles.fab, { bottom: barHeight + FAB_OVERHANG - FAB_SIZE }]}
+            {/* Deliberately flat: no elevation, shadow or ripple. On Android those made the circle's
+                green fill disappear while its shadow and the "+" stayed. */}
+            <TouchableOpacity
+              style={[styles.fabPosition, { bottom: barHeight + FAB_OVERHANG - FAB_SIZE }]}
+              activeOpacity={0.8}
               onPress={() => navigation.navigate("CreateTournament" as never)}
-              android_ripple={{ color: "rgba(0,0,0,0.15)", borderless: true }}
               accessibilityRole="button"
               accessibilityLabel="Create a tournament"
             >
-              <FontAwesome6 name="plus" size={22} color={C.accent2TextOn} />
-            </Pressable>
+              <View style={styles.fab}>
+                <FontAwesome6 name="plus" size={22} color={C.accent2TextOn} />
+              </View>
+            </TouchableOpacity>
           </View>
         </Portal>
       ) : null}
@@ -94,18 +98,13 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, lineHeight: 14, fontWeight: "600", includeFontPadding: false },
   gap: { width: FAB_SIZE + 32 }, // room for the "+" so no tab crowds it
   fabLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center" },
+  fabPosition: { position: "absolute" },
   fab: {
-    position: "absolute",
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
     backgroundColor: C.accent2,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 8,
-    shadowColor: "#000000",
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
   },
 });
