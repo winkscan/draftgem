@@ -100,6 +100,16 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
               )}
             </View>
             <Text style={styles.hint}>Touch and drag on the chart to see the price at any moment.</Text>
+
+            {candidate ? (
+              <View style={styles.card}>
+                <StatRow
+                  label="Typical 10-min move"
+                  value={candidate.volatilityPct != null ? `±${candidate.volatilityPct.toFixed(2)}%` : "not measured yet"}
+                />
+                <StatRow label="Category" value={`${candidate.tier} · ${candidate.fpCost} FP`} last />
+              </View>
+            ) : null}
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.body}>
@@ -107,11 +117,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
               <View style={styles.card}>
                 <StatRow label="Market cap" value={formatUsdCompact(candidate.marketCapUsd)} />
                 <StatRow label="Liquidity" value={formatUsdCompact(candidate.liquidityUsd)} />
-                <StatRow label="Age" value={formatAge(candidate.ageDays)} />
-                {candidate.volatilityPct != null ? (
-                  <StatRow label="Typical 10-min move" value={`±${candidate.volatilityPct.toFixed(2)}%`} />
-                ) : null}
-                <StatRow label="Category" value={`${candidate.tier} · ${candidate.fpCost} FP`} last />
+                <StatRow label="Age" value={formatAge(candidate.ageDays)} last />
               </View>
             ) : null}
 
