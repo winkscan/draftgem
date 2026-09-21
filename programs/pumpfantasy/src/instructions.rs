@@ -1,4 +1,7 @@
 pub mod cancel_tournament;
+pub mod close_asset_price;
+pub mod close_entry;
+pub mod close_tournament;
 pub mod claim_prize;
 pub mod create_tournament;
 pub mod enter_tournament;
@@ -10,6 +13,9 @@ pub mod submit_result;
 pub mod withdraw_fees;
 
 pub use cancel_tournament::*;
+pub use close_asset_price::*;
+pub use close_entry::*;
+pub use close_tournament::*;
 pub use claim_prize::*;
 pub use create_tournament::*;
 pub use enter_tournament::*;

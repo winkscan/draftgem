@@ -2,6 +2,7 @@ import { Connection, Keypair, PublicKey, SystemProgram, Transaction, Transaction
 import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
 import { CREATOR_FEE_BPS, getSettlementInfo, type SettlementInfo } from "./customTournaments";
+import { hasResult, saveResult, type ArchivedResult } from "./archive";
 import {
   ASSET_SIZE,
   ENTRY_SIZE,
@@ -32,6 +33,9 @@ const CLAIM_DISC = Uint8Array.from([157, 233, 139, 121, 246, 62, 234, 235]);
 const CANCEL_DISC = Uint8Array.from([249, 227, 133, 5, 9, 142, 29, 122]);
 const REFUND_DISC = Uint8Array.from([214, 5, 136, 23, 253, 7, 230, 81]);
 const WITHDRAW_FEES_DISC = Uint8Array.from([198, 212, 171, 109, 144, 215, 174, 89]);
+const CLOSE_ENTRY_DISC = Uint8Array.from([132, 26, 202, 145, 190, 37, 114, 67]);
+const CLOSE_ASSET_PRICE_DISC = Uint8Array.from([118, 156, 47, 26, 189, 189, 198, 129]);
+const CLOSE_TOURNAMENT_DISC = Uint8Array.from([14, 80, 54, 9, 221, 239, 201, 35]);
 
 // constants::CANCEL_GRACE_SECONDS — how long after end_ts the program refuses a cancel.
 // Until then, missing prices are just retried (history never expires).
@@ -47,10 +51,13 @@ const MAX_TX_PER_STEP = 16; // per tournament per tick; the rest continues next 
 interface EntryRow {
   pubkey: PublicKey;
   player: PublicKey;
+  entryIndex: number;
   picks: PublicKey[];
+  fpSpent: number;
   scoreBps: number;
   settled: boolean;
   claimed: boolean;
+  createdAt: number;
 }
 
 // Byte offsets follow programs/pumpfantasy/src/state.rs (8-byte discriminator first).
@@ -61,11 +68,37 @@ function decodeEntry(pubkey: PublicKey, data: Uint8Array): EntryRow {
   return {
     pubkey,
     player: new PublicKey(data.subarray(40, 72)),
+    entryIndex: view.getUint16(72, true),
     picks,
+    fpSpent: view.getUint32(234, true),
     scoreBps: view.getInt32(238, true),
     settled: data[242] !== 0,
     claimed: data[243] !== 0,
+    createdAt: Number(view.getBigInt64(244, true)),
   };
+}
+
+interface AssetRow {
+  pubkey: PublicKey;
+  mint: PublicKey;
+  startMicros: bigint;
+  endMicros: bigint;
+  payer: PublicKey;
+}
+
+// AssetPrice layout: disc 8, tournament 32, mint 32 (40..72), start u64 (72..80), end u64 (80..88), resolved, bump, payer 32 (90..122).
+async function readAssetRows(connection: Connection, tournament: PublicKey): Promise<AssetRow[]> {
+  const raw = await fetchTournamentScopedAccounts(connection, ASSET_SIZE, tournament);
+  return raw.map(({ pubkey, account }) => {
+    const v = new DataView(account.data.buffer, account.data.byteOffset, account.data.byteLength);
+    return {
+      pubkey,
+      mint: new PublicKey(account.data.subarray(40, 72)),
+      startMicros: v.getBigUint64(72, true),
+      endMicros: v.getBigUint64(80, true),
+      payer: new PublicKey(account.data.subarray(90, 122)),
+    };
+  });
 }
 
 async function readEntries(connection: Connection, tournament: PublicKey): Promise<EntryRow[]> {
@@ -228,6 +261,149 @@ async function withdrawFees(
   return { ok: true, note: `fees withdrawn (creator ${creatorLamports} lamports)` };
 }
 
+function closeEntryIx(authority: PublicKey, tournament: PublicKey, entry: EntryRow): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: false },
+      { pubkey: tournament, isSigner: false, isWritable: true },
+      { pubkey: entry.pubkey, isSigner: false, isWritable: true },
+      { pubkey: entry.player, isSigner: false, isWritable: true }, // the entry's rent goes back to the player
+    ],
+    data: Buffer.from(CLOSE_ENTRY_DISC),
+  });
+}
+
+function closeAssetIx(authority: PublicKey, tournament: PublicKey, asset: AssetRow): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: false },
+      { pubkey: tournament, isSigner: false, isWritable: true },
+      { pubkey: asset.pubkey, isSigner: false, isWritable: true },
+      { pubkey: asset.payer, isSigner: false, isWritable: true }, // back to whoever paid it
+    ],
+    data: Buffer.from(CLOSE_ASSET_PRICE_DISC),
+  });
+}
+
+function closeTournamentIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: true },
+      { pubkey: tournament, isSigner: false, isWritable: true },
+      { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.from(CLOSE_TOURNAMENT_DISC),
+  });
+}
+
+const CLOSES_PER_TX = 6;
+const MAX_CLOSE_TX_PER_STEP = 40; // 240 accounts per tick, per tournament
+
+/** The full, off-chain copy of a tournament's standings — written before anything is closed (see archive.ts). */
+function buildArchive(tdata: Uint8Array, entries: EntryRow[], assets: AssetRow[]): ArchivedResult {
+  const v = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
+  const status = v.getUint8(90);
+  const winners = v.getUint32(91, true);
+  const threshold = v.getInt32(95, true);
+  const distributed = v.getBigUint64(99, true);
+  const share = status === TOURNAMENT_FINALIZED && winners > 0 ? distributed / BigInt(winners) : 0n;
+  return {
+    tournament: {
+      id: v.getBigUint64(40, true).toString(),
+      status: status === TOURNAMENT_CANCELLED ? "cancelled" : "finalized",
+      authority: new PublicKey(tdata.subarray(8, 40)).toBase58(),
+      entryFeeLamports: v.getBigUint64(48, true).toString(),
+      startTs: Number(v.getBigInt64(56, true)),
+      endTs: Number(v.getBigInt64(64, true)),
+      entryMode: v.getUint8(107) === 0 ? "single" : "multiple",
+      guaranteedAmountLamports: v.getBigUint64(108, true).toString(),
+      prizePoolLamports: v.getBigUint64(82, true).toString(),
+      distributedPoolLamports: distributed.toString(),
+      winnersCount: winners,
+      thresholdScoreBps: threshold,
+      entryCount: v.getUint32(74, true),
+      assetCount: v.getUint16(72, true),
+    },
+    entries: entries.map((e) => ({
+      player: e.player.toBase58(),
+      entryIndex: e.entryIndex,
+      picks: e.picks.map((p) => p.toBase58()),
+      fpSpent: e.fpSpent,
+      scoreBps: e.scoreBps,
+      createdAt: e.createdAt,
+      prizeLamports: (e.settled && e.scoreBps >= threshold ? share : 0n).toString(),
+    })),
+    assets: assets.map((a) => ({
+      mint: a.mint.toBase58(),
+      startPriceMicros: a.startMicros.toString(),
+      endPriceMicros: a.endMicros.toString(),
+    })),
+  };
+}
+
+/**
+ * The last chapter of a tournament: keep the results, then give every piece of rent back —
+ * entries to the players, coin accounts to whoever paid them, the tournament account (and the vault's
+ * leftover) to us. Order matters (the program enforces it): entries, then coins, then the tournament.
+ * Each pass does as much as fits and the next tick continues; only closing the tournament ends it.
+ */
+async function closeOut(
+  env: Env,
+  connection: Connection,
+  authority: Keypair,
+  tournament: PublicKey,
+): Promise<StepResult> {
+  const info = await connection.getAccountInfo(tournament);
+  if (!info) return { note: "closed", done: true, progressed: false };
+  const tdata = info.data;
+  const v = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
+  const status = v.getUint8(90);
+  const threshold = v.getInt32(95, true);
+
+  const entries = await readEntries(connection, tournament);
+  const assets = await readAssetRows(connection, tournament);
+
+  // Results first: once the first entry is closed the standings are no longer on chain.
+  const id = v.getBigUint64(40, true).toString();
+  if (!(await hasResult(env, id))) await saveResult(env, buildArchive(tdata, entries, assets));
+
+  const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
+  if (entries.length > 0) {
+    // (a cancelled tournament's entries are closed by their refunds, in refundAll)
+    const closable =
+      status === TOURNAMENT_FINALIZED ? entries.filter((e) => e.settled && (e.claimed || e.scoreBps < threshold)) : [];
+    if (closable.length === 0) return { note: `${entries.length} entr(ies) can't be closed yet`, done: false, progressed: false };
+    const batch = closable.slice(0, CLOSES_PER_TX * MAX_CLOSE_TX_PER_STEP);
+    const groups = chunk(batch, CLOSES_PER_TX).map((g) => g.map((e) => closeEntryIx(authority.publicKey, tournament, e)));
+    const failed = await sendAll(connection, authority, groups);
+    return {
+      note: `closed ${batch.length}/${entries.length} entr(ies)${failed ? `, ${failed} tx failed` : ""}`,
+      done: false,
+      progressed: failed < groups.length,
+    };
+  }
+
+  if (assets.length > 0) {
+    const batch = assets.slice(0, CLOSES_PER_TX * MAX_CLOSE_TX_PER_STEP);
+    const groups = chunk(batch, CLOSES_PER_TX).map((g) => g.map((a) => closeAssetIx(authority.publicKey, tournament, a)));
+    const failed = await sendAll(connection, authority, groups);
+    return {
+      note: `closed ${batch.length}/${assets.length} coin account(s)${failed ? `, ${failed} tx failed` : ""}`,
+      done: false,
+      progressed: failed < groups.length,
+    };
+  }
+
+  const failed = await sendAll(connection, authority, [[closeTournamentIx(authority.publicKey, tournament, vault)]]);
+  return failed === 0
+    ? { note: "closed, rent recovered", done: true, progressed: true }
+    : { note: "closing the tournament failed, retrying", done: false, progressed: false };
+}
+
 function claimIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey, entry: EntryRow): TransactionInstruction {
   return new TransactionInstruction({
     programId: PROGRAM_ID,
@@ -314,6 +490,7 @@ const TOURNAMENT_CANCELLED = 2;
 
 /** Settle every entry whose prices are in, finalize once all are scored, then pay the winners. */
 async function settleAndPay(
+  env: Env,
   connection: Connection,
   authority: Keypair,
   tournament: PublicKey,
@@ -362,16 +539,21 @@ async function settleAndPay(
   if (claimable.length === 0) {
     // Every prize is out: now the fees can leave the vault (to the creator and to us).
     const fees = await withdrawFees(connection, authority, tournament, vault, creator);
-    const note = `finalized (${winners} winner(s)), all paid${fees.note ? `; ${fees.note}` : ""}`;
-    return { note, done: fees.ok, progressed: progressed || fees.note.startsWith("fees withdrawn") };
+    const feeNote = `finalized (${winners} winner(s)), all paid${fees.note ? `; ${fees.note}` : ""}`;
+    const feeProgress = progressed || fees.note.startsWith("fees withdrawn");
+    if (!fees.ok) return { note: feeNote, done: false, progressed: feeProgress };
+    // Then tidy up: results are archived and all the rent goes back (closeOut).
+    const closing = await closeOut(env, connection, authority, tournament);
+    return { note: `${feeNote}; ${closing.note}`, done: closing.done, progressed: feeProgress || closing.progressed };
   }
 
   const batch = claimable.slice(0, CLAIMS_PER_TX * MAX_TX_PER_STEP);
   const groups = chunk(batch, CLAIMS_PER_TX).map((g) => g.map((e) => claimIx(authority.publicKey, tournament, vault, e)));
   const failed = await sendAll(connection, authority, groups);
-  const done = failed === 0 && batch.length === claimable.length;
+  // Not done yet even when every claim went through: the next pass finds nothing left to claim,
+  // and only then withdraws the fees (creator's cut + ours) — so this tournament is revisited once more.
   const note = failed === 0 ? `paid ${batch.length}/${claimable.length} winner(s)` : `claims: ${failed} tx failed, retrying`;
-  return { note, done, progressed: progressed || failed < groups.length };
+  return { note, done: false, progressed: progressed || failed < groups.length };
 }
 
 /**
@@ -397,6 +579,7 @@ async function refundAll(connection: Connection, authority: Keypair, tournament:
 }
 
 async function processTournament(
+  env: Env,
   connection: Connection,
   authority: Keypair,
   tournament: PublicKey,
@@ -407,11 +590,16 @@ async function processTournament(
 ): Promise<StepResult> {
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const status = view.getUint8(90);
-  if (status === TOURNAMENT_CANCELLED) return refundAll(connection, authority, tournament);
+  if (status === TOURNAMENT_CANCELLED) {
+    const refunds = await refundAll(connection, authority, tournament);
+    if (!refunds.done) return refunds;
+    const closing = await closeOut(env, connection, authority, tournament); // coin accounts + the tournament
+    return { note: `${refunds.note}; ${closing.note}`, done: closing.done, progressed: refunds.progressed || closing.progressed };
+  }
 
   const endTs = Number(view.getBigInt64(64, true));
   const result: StepResult = pricesReady
-    ? await settleAndPay(connection, authority, tournament, tdata, info)
+    ? await settleAndPay(env, connection, authority, tournament, tdata, info)
     : { note: "waiting for end prices", done: false, progressed: false };
   if (result.done || result.progressed || status !== TOURNAMENT_OPEN) return result;
 
@@ -443,11 +631,18 @@ export async function settleTournaments(
   const infos = await getSettlementInfo(env); // player-made tournaments: prize structure + creator cut
 
   const notes: string[] = [];
+  const empty: Candidate[] = [];
   for (const c of candidates) {
     const view = new DataView(c.data.buffer, c.data.byteOffset, c.data.byteLength);
     const id = view.getBigUint64(40, true).toString();
     const entryCount = view.getUint32(74, true);
-    if (entryCount === 0) continue; // nobody entered: nothing to settle or refund, and nothing to show
+    const assetCount = view.getUint16(72, true);
+    if (entryCount === 0 && assetCount === 0) {
+      // Nobody entered: nothing to settle, refund or show — the only job left is getting the rent back.
+      // (Once closed the account is gone, so it stops being a candidate; no flag needed.)
+      if (nowSec >= Number(view.getBigInt64(56, true))) empty.push(c);
+      continue;
+    }
     const st = (states[id] ??= {});
     if (st.settled) continue;
     const status = view.getUint8(90);
@@ -462,11 +657,29 @@ export async function settleTournaments(
 
     try {
 
-      const r = await processTournament(connection, authority, c.pubkey, c.data, !!st.end, nowSec, infos[id] ?? { payout: "p50" });
+      const r = await processTournament(env, connection, authority, c.pubkey, c.data, !!st.end, nowSec, infos[id] ?? { payout: "p50" });
       notes.push(`${id}: ${r.note}`);
       if (r.done) st.settled = true;
     } catch (err) {
       notes.push(`${id}: error ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (empty.length > 0) {
+    try {
+      const groups = chunk(empty, CLOSES_PER_TX).map((g) =>
+        g.map((c) =>
+          closeTournamentIx(
+            authority.publicKey,
+            c.pubkey,
+            PublicKey.findProgramAddressSync([VAULT_SEED, c.pubkey.toBuffer()], PROGRAM_ID)[0],
+          ),
+        ),
+      );
+      const failed = await sendAll(connection, authority, groups);
+      notes.push(`closed ${empty.length} empty tournament(s) to recover their rent${failed ? ` (${failed} tx failed)` : ""}`);
+    } catch (err) {
+      notes.push(`closing empty tournaments failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   return `${candidates.length} candidate tournament(s)${notes.length ? ": " + notes.join("; ") : ""}`;

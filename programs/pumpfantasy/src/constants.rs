@@ -16,6 +16,10 @@ pub const RAKE_BPS: u16 = 500; // 5%
 #[constant]
 pub const CREATOR_FEE_BPS: u16 = 500; // 5%
 
+/// Rounding leftovers (a few lamports per winner's share) that may sit in a vault next to
+/// its rent reserve without blocking `close_tournament`.
+pub const FEE_DUST_LAMPORTS: u64 = 1_000;
+
 /// A single pick can never drag the entry's score below -100%, even if the
 /// coin goes to zero — nobody is wiped out worse than fully on one slot.
 #[constant]

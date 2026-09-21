@@ -1,6 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchArchivedList, fetchArchivedResult, toAssetRows, toEntryRows, toTournamentAccount } from "./archive";
 import { useConnection } from "../utils/ConnectionProvider";
 import {
   TOURNAMENT_DISCRIMINATOR,
@@ -28,8 +29,16 @@ export function useTournaments() {
   return useQuery({
     queryKey: ["tournaments"],
     queryFn: async () => {
-      const rows = await fetchAllAccountsV2(connection, PROGRAM_ID, TOURNAMENT_DISCRIMINATOR, decodeTournament);
-      return rows.sort((a, b) => Number(b.account.id - a.account.id));
+      // Finished tournaments are closed on chain (to recover the rent) and kept in the worker's archive.
+      const [rows, archived] = await Promise.all([
+        fetchAllAccountsV2(connection, PROGRAM_ID, TOURNAMENT_DISCRIMINATOR, decodeTournament),
+        fetchArchivedList(),
+      ]);
+      const onChain = new Set(rows.map((r) => r.account.id.toString()));
+      const closed = archived
+        .filter((a) => !onChain.has(a.id))
+        .map((a) => ({ publicKey: tournamentPda(BigInt(a.id))[0], account: toTournamentAccount(a) }));
+      return [...rows, ...closed].sort((a, b) => Number(b.account.id - a.account.id));
     },
     refetchInterval: 20_000,
   });
@@ -41,11 +50,19 @@ export function useTournament(id: bigint | number | null) {
 
   return useQuery({
     queryKey: ["tournament", pda?.toBase58()],
-    queryFn: () => fetchOneAccount(connection, pda!, decodeTournament),
+    queryFn: async () => {
+      const onChain = await fetchOneAccount(connection, pda!, decodeTournament);
+      if (onChain) return onChain;
+      const archived = await fetchArchivedResult(id!.toString()); // closed after it finished
+      return archived ? toTournamentAccount(archived.tournament) : null;
+    },
     enabled: !!pda,
     refetchInterval: 10_000,
   });
 }
+
+/** True for a tournament rebuilt from the archive (no on-chain account behind it). */
+export const isArchivedTournament = (t: TournamentAccount | null | undefined) => !!t && t.bump === 0 && t.vaultBump === 0;
 
 // Byte offset of AssetPrice::tournament within its raw account data:
 // 8 (discriminator) + 0 (tournament is the first field) = 8.
@@ -54,17 +71,23 @@ const ASSET_TOURNAMENT_OFFSET = 8;
 // Registered lazily, post-start_ts, only for mints someone actually picked
 // (see register_asset_price.rs) — so this can be an empty list right up
 // until a tournament's entry window locks, and that's expected, not a bug.
-export function useAssetPrices(tournament: PublicKey | null) {
+export function useAssetPrices(tournament: PublicKey | null, archivedId: bigint | null = null) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ["asset-prices", tournament?.toBase58()],
-    queryFn: () =>
-      fetchAllAccountsV2(connection, PROGRAM_ID, ASSET_PRICE_DISCRIMINATOR, decodeAssetPrice, [
+    queryKey: ["asset-prices", tournament?.toBase58(), archivedId?.toString()],
+    queryFn: async () => {
+      // A finished tournament's coin accounts are closed; its prices are in the archive.
+      if (archivedId != null) {
+        const archived = await fetchArchivedResult(archivedId.toString());
+        if (archived) return toAssetRows(archived);
+      }
+      return fetchAllAccountsV2(connection, PROGRAM_ID, ASSET_PRICE_DISCRIMINATOR, decodeAssetPrice, [
         { memcmp: { offset: ASSET_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
-      ]),
+      ]);
+    },
     enabled: !!tournament,
-    refetchInterval: 15_000,
+    refetchInterval: archivedId != null ? false : 15_000,
   });
 }
 
@@ -110,17 +133,23 @@ export function useMyEntries(tournament: PublicKey | null, player: PublicKey | n
 // data source. Refetched fairly often since standings should visibly move
 // while a round is live, but this is still just an account-list poll, not
 // a price feed — price movement itself comes from useLivePrices.
-export function useTournamentEntries(tournament: PublicKey | null) {
+export function useTournamentEntries(tournament: PublicKey | null, archivedId: bigint | null = null) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ["tournament-entries", tournament?.toBase58()],
-    queryFn: () =>
-      fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
+    queryKey: ["tournament-entries", tournament?.toBase58(), archivedId?.toString()],
+    queryFn: async () => {
+      // A finished tournament's entries are closed (each player got their rent back); the standings are archived.
+      if (archivedId != null) {
+        const archived = await fetchArchivedResult(archivedId.toString());
+        if (archived) return toEntryRows(archived);
+      }
+      return fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
-      ]),
+      ]);
+    },
     enabled: !!tournament,
-    refetchInterval: 20_000,
+    refetchInterval: archivedId != null ? false : 20_000,
   });
 }
 
@@ -131,6 +160,7 @@ export function useTournamentEntries(tournament: PublicKey | null) {
 // you're in, instead of re-fetching per card.
 export function useMyEnteredTournaments(player: PublicKey | null) {
   const { connection } = useConnection();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ["my-entered-tournaments", player?.toBase58()],
@@ -138,7 +168,27 @@ export function useMyEnteredTournaments(player: PublicKey | null) {
       const rows = await fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_PLAYER_OFFSET, bytes: bs58.encode(player!.toBuffer()) } },
       ]);
-      return new Set(rows.map((r) => r.account.tournament.toBase58()));
+      const entered = new Set(rows.map((r) => r.account.tournament.toBase58()));
+
+      // Finished tournaments no longer have entry accounts: look for this wallet in the newest
+      // archived results. Those never change, so each is downloaded once and then cached.
+      const me = player!.toBase58();
+      const recent = (await fetchArchivedList()).slice(0, 30);
+      await Promise.all(
+        recent.map(async (t) => {
+          try {
+            const result = await queryClient.fetchQuery({
+              queryKey: ["archived-result", t.id],
+              queryFn: () => fetchArchivedResult(t.id),
+              staleTime: Infinity,
+            });
+            if (result?.entries.some((e) => e.player === me)) entered.add(tournamentPda(BigInt(t.id))[0].toBase58());
+          } catch {
+            // try again on the next refresh
+          }
+        }),
+      );
+      return entered;
     },
     enabled: !!player,
     refetchInterval: 15_000,

@@ -54,6 +54,12 @@ async function enter(kp, tournament, mints) {
       { pubkey: entryPda(tournament, kp.publicKey), isSigner: false, isWritable: true },
       { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      // the picked coins' price accounts — the first picker creates them and pays the rent
+      ...a.picks.map((p) => ({
+        pubkey: PublicKey.findProgramAddressSync([Buffer.from("asset"), tournament.toBuffer(), new PublicKey(p.mint).toBuffer()], PROGRAM)[0],
+        isSigner: false,
+        isWritable: true,
+      })),
     ],
     data,
   });
@@ -120,6 +126,17 @@ function readTournament(d) {
   let lastLine = "";
   while (Date.now() < deadline) {
     const info = await conn.getAccountInfo(tournament);
+    if (!info) {
+      // The worker closed it: everything paid out, all rent returned, results archived.
+      const after = { A: await conn.getBalance(A.publicKey), B: await conn.getBalance(B.publicKey) };
+      const res = await fetch(WORKER + "/results/" + id.toString());
+      const archived = res.ok ? await res.json() : null;
+      log("CLOSED. balance change A", (after.A - balBefore.A) / 1e9, "B", (after.B - balBefore.B) / 1e9);
+      log("archive:", archived ? archived.entries.length + " entries, " + archived.assets.length + " coins, winners " + archived.tournament.winnersCount + ", prizes " + archived.entries.map((e) => e.prizeLamports).join("/") : "MISSING");
+      const left = await conn.getProgramAccounts(PROGRAM, { filters: [{ memcmp: { offset: 8, bytes: tournament.toBase58() } }] });
+      log("accounts still on chain for this tournament:", left.length);
+      return;
+    }
     const s = readTournament(info.data);
     const entries = await conn.getProgramAccounts(PROGRAM, {
       filters: [{ dataSize: 253 }, { memcmp: { offset: 8, bytes: tournament.toBase58() } }],
@@ -133,8 +150,7 @@ function readTournament(d) {
     if (line !== lastLine) { log(line); lastLine = line; }
     if (s.finalized && rows.every((r) => !r.settled || r.claimed || r.score < s.threshold)) {
       const after = { A: await conn.getBalance(A.publicKey), B: await conn.getBalance(B.publicKey) };
-      log("DONE. pool", s.pool / 1e9, "distributed", s.distributed / 1e9, "SOL; balance change A", (after.A - balBefore.A) / 1e9, "B", (after.B - balBefore.B) / 1e9);
-      return;
+      log("PAID. pool", s.pool / 1e9, "distributed", s.distributed / 1e9, "SOL; balance change A", (after.A - balBefore.A) / 1e9, "B", (after.B - balBefore.B) / 1e9, "— waiting for the worker to close everything");
     }
     await sleep(45_000);
   }

@@ -8,6 +8,7 @@ import { useConnection } from "../utils/ConnectionProvider";
 import { CLUSTER } from "../pumpfantasy/config";
 import { useTournament, useAssetPrices, useTournamentEntries } from "../pumpfantasy/hooks";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
+import { isArchivedTournament } from "../pumpfantasy/hooks";
 import { useAuthorization } from "../utils/useAuthorization";
 import { tournamentPda } from "../pumpfantasy/pdas";
 import { useLivePrices } from "../pumpfantasy/livePrices";
@@ -48,8 +49,10 @@ export function LeaderboardScreen() {
 
   const { selectedAccount } = useAuthorization();
   const { data: tournament } = useTournament(id);
-  const { data: assets } = useAssetPrices(tournament ? tournamentPubkey : null);
-  const { data: entries, isLoading: entriesLoading } = useTournamentEntries(tournament ? tournamentPubkey : null);
+  // A finished tournament is closed on chain (to recover the rent); its standings come from the archive.
+  const archivedId = isArchivedTournament(tournament) ? id : null;
+  const { data: assets } = useAssetPrices(tournament ? tournamentPubkey : null, archivedId);
+  const { data: entries, isLoading: entriesLoading } = useTournamentEntries(tournament ? tournamentPubkey : null, archivedId);
   const { data: candidates } = useCandidates();
   // Player-made tournaments can pay Top 1 / Top 3 / 30%; everything else pays the top half.
   const { data: tournamentMeta } = useTournamentMeta();
@@ -92,8 +95,15 @@ export function LeaderboardScreen() {
     let url = `https://solscan.io/account/${entryKey}?cluster=${CLUSTER}`;
     try {
       const sigs = await connection.getSignaturesForAddress(new PublicKey(entryKey), { limit: 10 });
-      const claim = sigs.find((s) => s.err === null);
-      if (claim) url = `https://solscan.io/tx/${claim.signature}?cluster=${CLUSTER}`;
+      // Once the tournament is over the entry account is closed too, so the newest transaction on it is
+      // the closing one — look for the one that actually ran ClaimPrize.
+      for (const s of sigs.filter((x) => x.err === null).slice(0, 4)) {
+        const tx = await connection.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 });
+        if (tx?.meta?.logMessages?.some((l) => l.includes("Instruction: ClaimPrize"))) {
+          url = `https://solscan.io/tx/${s.signature}?cluster=${CLUSTER}`;
+          break;
+        }
+      }
     } catch {
       // keep the account-page fallback
     } finally {

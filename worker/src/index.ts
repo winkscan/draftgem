@@ -6,6 +6,7 @@ import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, ROUND_SECOND
 import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
+import { getResult, listResults } from "./archive";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
 import type { Env } from "./env";
@@ -311,6 +312,25 @@ export default {
     if (req.method === "GET" && url.pathname === "/tournament-meta") {
       try {
         return json({ meta: await getMetaMap(env) });
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+
+    // GET /results — finished tournaments (their accounts are closed on chain to get the rent
+    // back, so the standings live here); GET /results/<id> — one tournament's full standings.
+    if (req.method === "GET" && url.pathname === "/results") {
+      try {
+        return json({ results: await listResults(env) });
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+    const resultMatch = url.pathname.match(/^\/results\/(\d+)$/);
+    if (req.method === "GET" && resultMatch) {
+      try {
+        const result = await getResult(env, resultMatch[1]);
+        return result ? json(result) : json({ error: "Not found" }, 404);
       } catch (err) {
         return json({ error: err instanceof Error ? err.message : String(err) }, 500);
       }

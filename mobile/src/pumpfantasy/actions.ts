@@ -7,7 +7,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
-import { tournamentPda, vaultPda, entryPda } from "./pdas";
+import { tournamentPda, vaultPda, entryPda, assetPda } from "./pdas";
 import { PROGRAM_ID } from "./config";
 import { BinaryWriter } from "./binary";
 import type { Attestation } from "./attestation";
@@ -69,6 +69,13 @@ export async function enterTournament(
       { pubkey: entry, isSigner: false, isWritable: true },
       { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      // The picked coins' price accounts, in pick order. The first entry to pick a coin creates it and
+      // pays its rent (~0.0011 SOL) — refunded when the tournament ends; later entries pay nothing.
+      ...attestation.picks.map((pick) => ({
+        pubkey: assetPda(tournament, new PublicKey(pick.mint))[0],
+        isSigner: false,
+        isWritable: true,
+      })),
     ],
     data: writer.toBuffer(),
   });

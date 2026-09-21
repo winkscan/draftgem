@@ -56,4 +56,12 @@ pub enum PumpFantasyError {
     NothingToWithdraw,
     #[msg("The creator share is larger than this tournament's creator cut")]
     CreatorShareTooLarge,
+    #[msg("This asset already has its start price")]
+    AssetAlreadyRegistered,
+    #[msg("Accounts can only be closed once the tournament is finalized or cancelled")]
+    NotClosable,
+    #[msg("This entry cannot be closed yet (unclaimed prize or not settled)")]
+    EntryNotClosable,
+    #[msg("Entries or asset accounts are still open, or funds are still in the vault")]
+    TournamentNotClosable,
 }

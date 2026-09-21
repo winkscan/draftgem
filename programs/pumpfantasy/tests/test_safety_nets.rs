@@ -158,7 +158,7 @@ impl Mini {
         let fp_costs = [100u32; PICKS_PER_ENTRY];
         let ed = build_ed25519_instruction(&signer, &attestation_message(&picks, &fp_costs, expiry));
         let entry = entry_pda(&self.program_id, &self.tournament, &player.pubkey(), entry_index);
-        let metas = pumpfantasy::accounts::EnterTournament {
+        let mut metas = pumpfantasy::accounts::EnterTournament {
             player: player.pubkey(),
             tournament: self.tournament,
             vault: self.vault,
@@ -167,6 +167,10 @@ impl Mini {
             system_program: anchor_lang::solana_program::system_program::ID,
         }
         .to_account_metas(None);
+        // The picked coins' price accounts (the first picker creates them and pays the rent).
+        for mint in &picks {
+            metas.push(AccountMeta::new(asset_pda(&self.program_id, &self.tournament, mint), false));
+        }
         let ix = Instruction::new_with_bytes(
             self.program_id,
             &pumpfantasy::instruction::EnterTournament { entry_index, picks, fp_costs, attestation_expiry: expiry }.data(),
@@ -186,7 +190,6 @@ impl Mini {
                     authority: self.authority.pubkey(),
                     tournament: self.tournament,
                     asset: asset_pda(&self.program_id, &self.tournament, &mint),
-                    system_program: anchor_lang::solana_program::system_program::ID,
                 }
                 .to_account_metas(None),
             );
@@ -496,4 +499,183 @@ fn test_withdraw_fees_guard_rails() {
     t3.svm.expire_blockhash();
     let bad_low = t3.finalize_ix(2, 1000, 0);
     assert!(send(&mut t3.svm, &t3.authority, vec![bad_low]).is_err(), "a 0% fee must be rejected");
+}
+
+// ---------------------------------------------------------------------------
+// Rent: nothing is fronted by the platform for good, and players get theirs back.
+// ---------------------------------------------------------------------------
+
+impl Mini {
+    fn close_entry_ix(&self, entry: Pubkey, player: Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::CloseEntry {}.data(),
+            pumpfantasy::accounts::CloseEntry {
+                cranker: self.authority.pubkey(),
+                tournament: self.tournament,
+                entry,
+                player,
+            }
+            .to_account_metas(None),
+        )
+    }
+
+    fn close_asset_ix(&self, mint: &Pubkey, payer: Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::CloseAssetPrice {}.data(),
+            pumpfantasy::accounts::CloseAssetPrice {
+                cranker: self.authority.pubkey(),
+                tournament: self.tournament,
+                asset: asset_pda(&self.program_id, &self.tournament, mint),
+                payer,
+            }
+            .to_account_metas(None),
+        )
+    }
+
+    fn close_tournament_ix(&self) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::CloseTournament {}.data(),
+            pumpfantasy::accounts::CloseTournament {
+                authority: self.authority.pubkey(),
+                tournament: self.tournament,
+                vault: self.vault,
+                system_program: anchor_lang::solana_program::system_program::ID,
+            }
+            .to_account_metas(None),
+        )
+    }
+
+    fn gone(&self, key: &Pubkey) -> bool {
+        self.svm.get_account(key).is_none_or(|a| a.lamports == 0)
+    }
+}
+
+/// The whole life of a tournament, following the money: the first player to pick a coin pays that
+/// coin's account rent (a second picker of the same coin pays none), and every piece of rent goes
+/// back — entries and coins to the players, the tournament account and the vault leftover to us.
+#[test]
+fn test_rent_is_paid_by_players_and_fully_returned() {
+    let mut t = mini_tournament(100_000_000);
+    let (a, b) = (Keypair::new(), Keypair::new());
+    for kp in [&a, &b] {
+        t.svm.airdrop(&kp.pubkey(), 1_000_000_000).unwrap();
+    }
+    let asset_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 32 + 8 + 8 + 1 + 1 + 32);
+    let entry_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 32 + 2 + 32 * 5 + 4 + 4 + 1 + 1 + 8 + 1);
+    let auth_before_entries = t.svm.get_balance(&t.authority.pubkey()).unwrap();
+
+    // A picks five coins nobody has picked; B picks the same five.
+    let (a0, b0) = (t.svm.get_balance(&a.pubkey()).unwrap(), t.svm.get_balance(&b.pubkey()).unwrap());
+    let entry_a = t.enter(&a);
+    let entry_b = t.enter(&b);
+    let a_spent = a0 - t.svm.get_balance(&a.pubkey()).unwrap();
+    let b_spent = b0 - t.svm.get_balance(&b.pubkey()).unwrap();
+    assert_eq!(a_spent - b_spent, 5 * asset_rent, "only the first picker pays the coins' rent");
+    assert_eq!(
+        t.svm.get_balance(&t.authority.pubkey()).unwrap(),
+        auth_before_entries,
+        "the platform pays nothing for the coins"
+    );
+
+    t.register_and_resolve(1_100_000);
+    for e in [entry_a, entry_b] {
+        let ix = t.settle_ix(e);
+        send(&mut t.svm, &t.authority, vec![ix]).expect("settle");
+    }
+    let ix = t.finalize_ix(2, 1000, pumpfantasy::RAKE_BPS);
+    send(&mut t.svm, &t.authority, vec![ix]).expect("finalize");
+
+    // Too early to tidy up while prizes are unclaimed / fees not withdrawn.
+    let early = t.close_entry_ix(entry_a, a.pubkey());
+    assert!(send(&mut t.svm, &t.authority, vec![early]).is_err(), "a winner's entry can't close before the claim");
+    t.svm.expire_blockhash();
+    let early_tournament = t.close_tournament_ix();
+    assert!(send(&mut t.svm, &t.authority, vec![early_tournament]).is_err(), "not while entries and coins are open");
+
+    for (e, kp) in [(entry_a, &a), (entry_b, &b)] {
+        let ix = t.claim_ix(e, kp.pubkey());
+        send(&mut t.svm, &t.authority, vec![ix]).expect("claim");
+    }
+    let ix = t.withdraw_fees_ix(&t.authority, t.authority.pubkey(), 0);
+    send(&mut t.svm, &t.authority, vec![ix]).expect("withdraw fees");
+
+    // Entries: each player gets exactly their entry rent back.
+    for (e, kp) in [(entry_a, &a), (entry_b, &b)] {
+        let before = t.svm.get_balance(&kp.pubkey()).unwrap();
+        let ix = t.close_entry_ix(e, kp.pubkey());
+        send(&mut t.svm, &t.authority, vec![ix]).expect("close entry");
+        assert_eq!(t.svm.get_balance(&kp.pubkey()).unwrap() - before, entry_rent, "entry rent returned");
+        assert!(t.gone(&e), "entry account is closed");
+    }
+
+    // Coins: the first picker (A) gets all five back, B gets nothing (B paid nothing).
+    let mints = t.mints.clone();
+    let (a1, b1) = (t.svm.get_balance(&a.pubkey()).unwrap(), t.svm.get_balance(&b.pubkey()).unwrap());
+    for mint in &mints {
+        let ix = t.close_asset_ix(mint, a.pubkey());
+        send(&mut t.svm, &t.authority, vec![ix]).expect("close asset");
+    }
+    assert_eq!(t.svm.get_balance(&a.pubkey()).unwrap() - a1, 5 * asset_rent, "the payer gets the coins' rent back");
+    assert_eq!(t.svm.get_balance(&b.pubkey()).unwrap(), b1, "the second picker gets nothing extra (paid nothing)");
+    let wrong_payer = t.close_asset_ix(&mints[0], b.pubkey());
+    t.svm.expire_blockhash();
+    assert!(send(&mut t.svm, &t.authority, vec![wrong_payer]).is_err(), "already closed, and never to the wrong wallet");
+
+    // The tournament itself: our rent (and the vault's leftover) comes home.
+    let tournament_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 8 + 8 + 8 + 8 + 2 + 4 + 4 + 8 + 1 + 4 + 4 + 8 + 1 + 8 + 1 + 1);
+    let auth_before_close = t.svm.get_balance(&t.authority.pubkey()).unwrap();
+    let ix = t.close_tournament_ix();
+    send(&mut t.svm, &t.authority, vec![ix]).expect("close tournament");
+    let gained = t.svm.get_balance(&t.authority.pubkey()).unwrap() + 10_000 - auth_before_close; // + tx fee allowance
+    assert!(gained >= tournament_rent, "the tournament's rent is returned, got {gained} < {tournament_rent}");
+    assert!(t.gone(&t.tournament), "tournament account is closed");
+    assert_eq!(t.svm.get_balance(&t.vault).unwrap_or(0), 0, "the vault is emptied too");
+}
+
+/// Closing is only allowed when nothing can be lost by it.
+#[test]
+fn test_close_tournament_guards() {
+    // A tournament nobody entered can be closed once its entry window is over — not before.
+    let mut empty = mini_tournament(10_000_000);
+    let early = empty.close_tournament_ix();
+    assert!(send(&mut empty.svm, &empty.authority, vec![early]).is_err(), "not before entries lock");
+    empty.set_time(empty.start_ts + 1);
+    empty.svm.expire_blockhash();
+    let stranger = Keypair::new();
+    empty.svm.airdrop(&stranger.pubkey(), 1_000_000_000).unwrap();
+    let mut forged = empty.close_tournament_ix();
+    forged.accounts[0].pubkey = stranger.pubkey();
+    assert!(send(&mut empty.svm, &stranger, vec![forged]).is_err(), "only the authority may close");
+    let ok = empty.close_tournament_ix();
+    send(&mut empty.svm, &empty.authority, vec![ok]).expect("an empty tournament can be closed");
+    assert!(empty.gone(&empty.tournament));
+
+    // One that has an entry can't be closed while open, even after it started.
+    let mut t = mini_tournament(10_000_000);
+    let p = Keypair::new();
+    t.svm.airdrop(&p.pubkey(), 1_000_000_000).unwrap();
+    let entry = t.enter(&p);
+    t.set_time(t.start_ts + 1);
+    let nope = t.close_tournament_ix();
+    assert!(send(&mut t.svm, &t.authority, vec![nope]).is_err(), "not while it has entries");
+
+    // A cancelled tournament winds down through refunds, then coins, then the tournament.
+    t.set_time(t.end_ts + pumpfantasy::CANCEL_GRACE_SECONDS + 1);
+    let cancel = t.cancel_ix(&t.authority);
+    send(&mut t.svm, &t.authority, vec![cancel]).expect("cancel");
+    let early_asset = t.close_asset_ix(&t.mints[0].clone(), p.pubkey());
+    assert!(send(&mut t.svm, &t.authority, vec![early_asset]).is_ok(), "coins may be closed once cancelled");
+    let refund = t.refund_ix(entry, p.pubkey());
+    send(&mut t.svm, &t.authority, vec![refund]).expect("refund");
+    for mint in t.mints.clone().iter().skip(1) {
+        let ix = t.close_asset_ix(mint, p.pubkey());
+        send(&mut t.svm, &t.authority, vec![ix]).expect("close asset");
+    }
+    t.svm.expire_blockhash(); // the earlier failed attempt was byte-identical
+    let last = t.close_tournament_ix();
+    send(&mut t.svm, &t.authority, vec![last]).expect("a fully wound-down cancelled tournament closes");
+    assert!(t.gone(&t.tournament));
 }

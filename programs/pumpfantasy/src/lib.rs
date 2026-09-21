@@ -43,8 +43,8 @@ pub mod pumpfantasy {
         instructions::register_asset_price::handle_register_asset_price(ctx, mint, start_price_micros)
     }
 
-    pub fn enter_tournament(
-        ctx: Context<EnterTournament>,
+    pub fn enter_tournament<'info>(
+        ctx: Context<'info, EnterTournament<'info>>,
         entry_index: u16,
         picks: [Pubkey; PICKS_PER_ENTRY],
         fp_costs: [u32; PICKS_PER_ENTRY],
@@ -95,5 +95,17 @@ pub mod pumpfantasy {
 
     pub fn withdraw_fees(ctx: Context<WithdrawFees>, creator_lamports: u64) -> Result<()> {
         instructions::withdraw_fees::handle_withdraw_fees(ctx, creator_lamports)
+    }
+
+    pub fn close_entry(ctx: Context<CloseEntry>) -> Result<()> {
+        instructions::close_entry::handle_close_entry(ctx)
+    }
+
+    pub fn close_asset_price(ctx: Context<CloseAssetPrice>) -> Result<()> {
+        instructions::close_asset_price::handle_close_asset_price(ctx)
+    }
+
+    pub fn close_tournament(ctx: Context<CloseTournament>) -> Result<()> {
+        instructions::close_tournament::handle_close_tournament(ctx)
     }
 }

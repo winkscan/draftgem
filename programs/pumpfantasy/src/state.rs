@@ -78,6 +78,9 @@ pub struct AssetPrice {
     pub end_price_micros: u64,
     pub resolved: bool,
     pub bump: u8,
+    /// Who paid this account's rent — the first player to pick the coin (created inside
+    /// `enter_tournament`). `close_asset_price` gives it back to them after the tournament.
+    pub payer: Pubkey,
 }
 
 #[account]

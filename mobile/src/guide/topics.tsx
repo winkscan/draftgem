@@ -151,9 +151,40 @@ function CreateYourOwn() {
   );
 }
 
+function EntryDeposit() {
+  return (
+    <View>
+      <Paragraph>
+        When you enter a tournament you pay the entry fee, plus a small refundable deposit. The deposit is not a fee: it
+        is the on-chain storage rent that your entry needs, and it comes back to your wallet after the tournament is over.
+      </Paragraph>
+
+      <Heading>What the deposit is</Heading>
+      <Paragraph>
+        About 0.002 SOL for your entry itself. If you are the first player to pick a coin in this tournament, you also
+        cover that coin's price record (about 0.0011 SOL per coin) — coins already picked by someone else cost you
+        nothing extra. So the deposit is at most about 0.008 SOL.
+      </Paragraph>
+
+      <Heading>When you get it back</Heading>
+      <Paragraph>
+        Automatically, once the tournament has paid out and been wrapped up — you don't need to do anything. It goes
+        straight to the wallet that paid it, whether or not you won. If a tournament is cancelled, you get your entry fee
+        and the deposit back too.
+      </Paragraph>
+
+      <Heading>Where the results go</Heading>
+      <Paragraph>
+        Finished tournaments stay in Results with their full standings; only the temporary on-chain records are removed.
+      </Paragraph>
+    </View>
+  );
+}
+
 export const GUIDE_TOPICS: GuideTopic[] = [
   { id: "coin-categories", title: "Coin categories", icon: "layer-group", body: <CoinCategories /> },
   { id: "create-tournament", title: "Create your own tournament", icon: "circle-plus", body: <CreateYourOwn /> },
+  { id: "entry-deposit", title: "Entry deposit & refunds", icon: "rotate-left", body: <EntryDeposit /> },
 ];
 
 const styles = StyleSheet.create({

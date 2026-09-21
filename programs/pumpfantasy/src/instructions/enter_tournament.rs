@@ -6,6 +6,9 @@ use anchor_lang::prelude::*;
 use solana_instructions_sysvar::{load_current_index_checked, load_instruction_at_checked};
 use solana_sdk_ids::ed25519_program;
 
+use anchor_lang::system_program::{allocate, assign, create_account, transfer, Allocate, Assign, CreateAccount, Transfer};
+use anchor_lang::Discriminator;
+
 use crate::{constants::*, error::PumpFantasyError, state::*};
 
 // Same native Ed25519Program instruction layout SwapKings' join_guild.rs
@@ -108,8 +111,8 @@ pub struct EnterTournament<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_enter_tournament(
-    ctx: Context<EnterTournament>,
+pub fn handle_enter_tournament<'info>(
+    ctx: Context<'info, EnterTournament<'info>>,
     entry_index: u16,
     picks: [Pubkey; PICKS_PER_ENTRY],
     fp_costs: [u32; PICKS_PER_ENTRY],
@@ -151,6 +154,88 @@ pub fn handle_enter_tournament(
     }
     require!(total_fp <= MAX_BUDGET_FP, PumpFantasyError::BudgetExceeded);
 
+    // Each picked coin needs a shared price account. The first entry to pick a coin creates it and
+    // PAYS its rent (recorded in `payer`); everyone after that finds it already there and pays
+    // nothing. The rent comes back to the payer when the tournament is over (`close_asset_price`),
+    // so the platform never fronts it. remaining_accounts: the five AssetPrice PDAs in pick order.
+    require!(
+        ctx.remaining_accounts.len() == PICKS_PER_ENTRY,
+        PumpFantasyError::AssetNotInEntry
+    );
+    let tournament_key = tournament.key();
+    let space = 8 + AssetPrice::INIT_SPACE;
+    let required_lamports = Rent::get()?.minimum_balance(space);
+    let mut created_assets: u16 = 0;
+    for i in 0..PICKS_PER_ENTRY {
+        let asset_ai = &ctx.remaining_accounts[i];
+        let (expected, bump) = Pubkey::find_program_address(
+            &[ASSET_SEED, tournament_key.as_ref(), picks[i].as_ref()],
+            ctx.program_id,
+        );
+        require_keys_eq!(asset_ai.key(), expected, PumpFantasyError::AssetNotInEntry);
+        if asset_ai.owner == ctx.program_id && !asset_ai.data_is_empty() {
+            continue; // an earlier entry already picked this coin
+        }
+
+        let seeds: &[&[u8]] = &[ASSET_SEED, tournament_key.as_ref(), picks[i].as_ref(), &[bump]];
+        let signer_seeds = [seeds];
+        let current = asset_ai.lamports();
+        if current == 0 {
+            create_account(
+                CpiContext::new_with_signer(
+                    anchor_lang::system_program::ID,
+                    CreateAccount { from: ctx.accounts.player.to_account_info(), to: asset_ai.clone() },
+                    &signer_seeds,
+                ),
+                required_lamports,
+                space as u64,
+                ctx.program_id,
+            )?;
+        } else {
+            // Someone sent lamports to this address beforehand: create_account would fail, so
+            // top up, allocate and assign instead (what Anchor's own `init` does).
+            if current < required_lamports {
+                transfer(
+                    CpiContext::new(
+                        anchor_lang::system_program::ID,
+                        Transfer { from: ctx.accounts.player.to_account_info(), to: asset_ai.clone() },
+                    ),
+                    required_lamports - current,
+                )?;
+            }
+            allocate(
+                CpiContext::new_with_signer(
+                    anchor_lang::system_program::ID,
+                    Allocate { account_to_allocate: asset_ai.clone() },
+                    &signer_seeds,
+                ),
+                space as u64,
+            )?;
+            assign(
+                CpiContext::new_with_signer(
+                    anchor_lang::system_program::ID,
+                    Assign { account_to_assign: asset_ai.clone() },
+                    &signer_seeds,
+                ),
+                ctx.program_id,
+            )?;
+        }
+
+        let asset = AssetPrice {
+            tournament: tournament_key,
+            mint: picks[i],
+            start_price_micros: 0,
+            end_price_micros: 0,
+            resolved: false,
+            bump,
+            payer: ctx.accounts.player.key(),
+        };
+        let mut data = asset_ai.try_borrow_mut_data()?;
+        data[..8].copy_from_slice(AssetPrice::DISCRIMINATOR);
+        asset.serialize(&mut &mut data[8..])?;
+        created_assets += 1;
+    }
+
     // Move the entry fee into the PDA-owned vault.
     let cpi_accounts = anchor_lang::system_program::Transfer {
         from: ctx.accounts.player.to_account_info(),
@@ -173,6 +258,7 @@ pub fn handle_enter_tournament(
 
     let tournament = &mut ctx.accounts.tournament;
     tournament.entry_count += 1;
+    tournament.asset_count += created_assets; // now counts open asset accounts (close_tournament needs 0)
     tournament.prize_pool_lamports += tournament.entry_fee_lamports;
 
     Ok(())

@@ -308,6 +308,11 @@ export function DraftScreen() {
           />
 
           <View style={styles.footer}>
+            {!entriesClosed && !blockedBySingleEntry ? (
+              <Text style={styles.depositNote}>
+                Plus a refundable deposit of about 0.002–0.008 SOL (account rent), returned to you when the tournament ends.
+              </Text>
+            ) : null}
             <Button
               mode="contained"
               buttonColor={C.accent}
@@ -513,6 +518,7 @@ const styles = StyleSheet.create({
   assetName: { color: C.textSecondary, fontSize: 11, maxWidth: 160 },
   assetFp: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
   assetTier: { color: C.textSecondary, fontSize: 10, marginTop: 2 },
+  depositNote: { color: C.textSecondary, fontSize: 11, textAlign: "center", marginBottom: 10 },
   footer: {
     padding: 16,
     borderTopWidth: 1,

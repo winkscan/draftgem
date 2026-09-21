@@ -9,6 +9,7 @@ pub struct RefundEntry<'info> {
     pub cranker: Signer<'info>,
 
     #[account(
+        mut,
         seeds = [TOURNAMENT_SEED, tournament.id.to_le_bytes().as_ref()],
         bump = tournament.bump,
     )]
@@ -66,5 +67,9 @@ pub fn handle_refund_entry(ctx: Context<RefundEntry>) -> Result<()> {
         &signer_seeds,
     );
     anchor_lang::system_program::transfer(cpi_ctx, tournament.entry_fee_lamports)?;
+
+    // The entry is being closed: one fewer left to clean up (close_tournament needs this to reach 0).
+    let tournament = &mut ctx.accounts.tournament;
+    tournament.entry_count = tournament.entry_count.saturating_sub(1);
     Ok(())
 }

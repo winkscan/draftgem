@@ -31,7 +31,7 @@ export const GECKO_CALLS_PER_TICK = 16;
 // 8-byte discriminator + state.rs's own field layout, in declaration order.
 export const TOURNAMENT_SIZE = 118;
 export const ENTRY_SIZE = 253;
-export const ASSET_SIZE = 90; // 8 discriminator + 32 + 32 + 8 + 8 + 1 + 1 (state.rs AssetPrice)
+export const ASSET_SIZE = 122; // 8 discriminator + 32 + 32 + 8 + 8 + 1 + 1 + 32 payer (state.rs AssetPrice)
 
 export function u64le(n: number | bigint): Uint8Array {
   const b = new Uint8Array(8);
@@ -116,42 +116,29 @@ async function registerMissingStartPrices(
   nowSec: number,
   budget: PriceBudget,
 ): Promise<{ count: number; complete: boolean }> {
-  const entryAccounts = await fetchTournamentScopedAccounts(connection, ENTRY_SIZE, tournament);
-  const pickedMints = new Set<string>();
-  for (const { account } of entryAccounts) {
-    for (let i = 0; i < 5; i++) {
-      const offset = 74 + 32 * i;
-      pickedMints.add(new PublicKey(account.data.subarray(offset, offset + 32)).toBase58());
-    }
-  }
-  if (pickedMints.size === 0) return { count: 0, complete: true };
-
+  // The coins' price accounts already exist: the first player to pick each one created it (and
+  // paid its rent) when they entered. What is missing is the shared start price on them.
   const assetAccounts = await fetchTournamentScopedAccounts(connection, ASSET_SIZE, tournament);
-  const alreadyRegistered = new Set<string>();
-  for (const { account } of assetAccounts) {
-    alreadyRegistered.add(new PublicKey(account.data.subarray(40, 72)).toBase58());
-  }
-
-  const missing = [...pickedMints].filter((m) => !alreadyRegistered.has(m));
+  const missing = assetAccounts
+    .filter(({ account }) => new DataView(account.data.buffer, account.data.byteOffset).getBigUint64(72, true) === 0n)
+    .map(({ pubkey, account }) => ({ asset: pubkey, mintStr: new PublicKey(account.data.subarray(40, 72)).toBase58() }));
   if (missing.length === 0) return { count: 0, complete: true };
 
   let liveCache: Map<string, number> | null = null;
-  const live = async () => (liveCache ??= await fetchLivePrices(missing));
+  const live = async () => (liveCache ??= await fetchLivePrices(missing.map((m) => m.mintStr)));
 
   let count = 0;
-  for (const mintStr of missing) {
+  for (const { asset, mintStr } of missing) {
     const micros = await resolvePrice(env, mintStr, startTs, nowSec, budget, live);
     if (micros == null) continue;
 
     const mint = new PublicKey(mintStr);
-    const [asset] = PublicKey.findProgramAddressSync([ASSET_SEED, tournament.toBuffer(), mint.toBuffer()], PROGRAM_ID);
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
-        { pubkey: authority.publicKey, isSigner: true, isWritable: true },
-        { pubkey: tournament, isSigner: false, isWritable: true },
+        { pubkey: authority.publicKey, isSigner: true, isWritable: false },
+        { pubkey: tournament, isSigner: false, isWritable: false },
         { pubkey: asset, isSigner: false, isWritable: true },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data: concatBytes(REGISTER_ASSET_PRICE_DISCRIMINATOR, mint.toBytes(), u64le(micros)),
     });

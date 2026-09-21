@@ -207,7 +207,7 @@ fn test_full_tournament_flow() {
         let message = attestation_message(&picks, &fp_costs, attestation_expiry);
         let ed25519_ix = build_ed25519_instruction(&signer, &message);
 
-        let metas = pumpfantasy::accounts::EnterTournament {
+        let mut metas = pumpfantasy::accounts::EnterTournament {
             player: player.pubkey(),
             tournament,
             vault,
@@ -216,6 +216,13 @@ fn test_full_tournament_flow() {
             system_program: anchor_lang::solana_program::system_program::ID,
         }
         .to_account_metas(None);
+        // The picked coins' price accounts: the first entry to pick a coin creates it and pays its rent.
+        for mint in &picks {
+            metas.push(anchor_lang::solana_program::instruction::AccountMeta::new(
+                asset_pda(&program_id, &tournament, mint).0,
+                false,
+            ));
+        }
         let enter_ix = Instruction::new_with_bytes(
             program_id,
             &pumpfantasy::instruction::EnterTournament { entry_index, picks, fp_costs, attestation_expiry }.data(),
@@ -267,7 +274,6 @@ fn test_full_tournament_flow() {
                 authority: authority.pubkey(),
                 tournament,
                 asset: asset.pda,
-                system_program: anchor_lang::solana_program::system_program::ID,
             }
             .to_account_metas(None),
         );
@@ -428,7 +434,7 @@ fn test_multiple_entry_mode_allows_several_entries_per_wallet() {
         let fp_costs = [fp_cost; PICKS_PER_ENTRY];
         let message = attestation_message(&picks, &fp_costs, attestation_expiry);
         let ed25519_ix = build_ed25519_instruction(&signer, &message);
-        let metas = pumpfantasy::accounts::EnterTournament {
+        let mut metas = pumpfantasy::accounts::EnterTournament {
             player: player.pubkey(),
             tournament,
             vault,
@@ -437,6 +443,12 @@ fn test_multiple_entry_mode_allows_several_entries_per_wallet() {
             system_program: anchor_lang::solana_program::system_program::ID,
         }
         .to_account_metas(None);
+        for mint in &picks {
+            metas.push(anchor_lang::solana_program::instruction::AccountMeta::new(
+                asset_pda(&program_id, &tournament, mint).0,
+                false,
+            ));
+        }
         let enter_ix = Instruction::new_with_bytes(
             program_id,
             &pumpfantasy::instruction::EnterTournament { entry_index, picks, fp_costs, attestation_expiry }.data(),
