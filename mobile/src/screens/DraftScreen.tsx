@@ -14,6 +14,7 @@ import { enterTournament } from "../pumpfantasy/actions";
 import { tournamentPda } from "../pumpfantasy/pdas";
 import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
 import { formatSol } from "../pumpfantasy/format";
+import { useTournamentMeta } from "../pumpfantasy/customTournaments";
 import { TokenIcon } from "../components/TokenIcon";
 import { ModeBadges } from "../components/ModeBadge";
 import { ChartModal } from "../components/ChartModal";
@@ -33,6 +34,7 @@ export function DraftScreen() {
 
   const { data: tournament } = useTournament(id);
   const { data: candidates, isLoading: candidatesLoading } = useCandidates();
+  const { data: tournamentMeta } = useTournamentMeta();
   // Both hooks are called unconditionally (rules of hooks) — only the one
   // matching this tournament's entryMode is actually used below.
   const { data: myEntry } = useMyEntry(tournament ? tournamentPubkey : null, selectedAccount?.publicKey ?? null);
@@ -95,7 +97,11 @@ export function DraftScreen() {
     setPicked([...picked, candidate]);
   };
 
-  const entriesClosed = !!tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs);
+  const timeClosed = !!tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs);
+  // PvP is a duel: two players. The contract can't cap entries, so the app keeps a third one out.
+  const isDuel = tournamentMeta?.[tournamentId]?.payout === "pvp";
+  const duelFull = isDuel && !!tournament && tournament.entryCount >= 2 && !viewingExistingSingleEntry;
+  const entriesClosed = timeClosed || duelFull;
   const blockedBySingleEntry = viewingExistingSingleEntry;
   const canSubmit = picked.length === PICKS_PER_ENTRY && !submitting && !entriesClosed && !blockedBySingleEntry;
 
@@ -207,8 +213,14 @@ export function DraftScreen() {
             </View>
           ) : entriesClosed ? (
             <View style={styles.closedBanner}>
-              <Text style={{ color: C.textPrimary, fontWeight: "700" }}>Entries are closed</Text>
-              <Text style={{ color: C.textSecondary, fontSize: 12 }}>This tournament's round already started.</Text>
+              <Text style={{ color: C.textPrimary, fontWeight: "700" }}>
+                {duelFull && !timeClosed ? "This duel is full" : "Entries are closed"}
+              </Text>
+              <Text style={{ color: C.textSecondary, fontSize: 12 }}>
+                {duelFull && !timeClosed
+                  ? "Two players are already in this head-to-head."
+                  : "This tournament's round already started."}
+              </Text>
             </View>
           ) : (
             <>
@@ -307,7 +319,9 @@ export function DraftScreen() {
               {blockedBySingleEntry
                 ? "Already Entered"
                 : entriesClosed
-                  ? "Entries Closed"
+                  ? duelFull && !timeClosed
+                    ? "Duel Full"
+                    : "Entries Closed"
                   : selectedAccount
                     ? `Enter for ${formatSol(tournament.entryFeeLamports, 2)} SOL`
                     : "Connect & Enter"}

@@ -64,11 +64,14 @@ const LAMPORTS_PER_SOL = 1_000_000_000n;
 const LOW_COST_MAX = LAMPORTS_PER_SOL / 20n; // <= 0.05 SOL
 const BIG_COST_MIN = LAMPORTS_PER_SOL / 2n; // >= 0.5 SOL
 
-// The program has one payout rule for now: the top half of players split the
-// pool. When tournaments get a payout-structure field on chain, read it here
-// and the chips start matching for real.
-export function payoutStructureOf(_t: TournamentAccount): Exclude<PayoutFilter, "all"> {
-  return "p50";
+// Cron-made tournaments always pay the top half. Player-made ones can pick another
+// structure; it is kept off chain, in the worker's metadata (worker/src/customTournaments.ts),
+// and the worker applies it when it finalizes (settlement.ts winnerTarget).
+export function payoutStructureOf(
+  t: TournamentAccount,
+  meta?: Record<string, { payout: Exclude<PayoutFilter, "all"> }>,
+): Exclude<PayoutFilter, "all"> {
+  return meta?.[t.id.toString()]?.payout ?? "p50";
 }
 
 function matchesEntry(t: TournamentAccount, entry: EntryFilter): boolean {
@@ -96,11 +99,12 @@ export function applyTournamentFilters<T extends { publicKey: { toBase58(): stri
   f: TournamentFilters,
   phase: TournamentPhase,
   entered: Set<string> | undefined,
+  meta?: Record<string, { payout: Exclude<PayoutFilter, "all"> }>,
 ): T[] {
   const out = rows.filter((row) => {
     const t = row.account;
     if (f.scope === "mine" && !entered?.has(row.publicKey.toBase58())) return false;
-    if (f.payout !== "all" && payoutStructureOf(t) !== f.payout) return false;
+    if (f.payout !== "all" && payoutStructureOf(t, meta) !== f.payout) return false;
     return matchesEntry(t, f.entry);
   });
 

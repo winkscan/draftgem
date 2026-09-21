@@ -46,17 +46,17 @@ export function HomeTabBar({ state, navigation }: BottomTabBarProps) {
         <View style={styles.gap} />
         <View style={styles.group}>{state.routes.slice(half).map((r, i) => renderTab(r, i + half))}</View>
       </View>
-      <View style={styles.fabRow} pointerEvents="box-none">
-        <Pressable
-          style={styles.fab}
-          onPress={() => navigation.navigate("CreateTournament" as never)}
-          android_ripple={{ color: "rgba(0,0,0,0.15)", borderless: true }}
-          accessibilityRole="button"
-          accessibilityLabel="Create a tournament"
-        >
-          <FontAwesome6 name="plus" size={22} color={C.accent2TextOn} />
-        </Pressable>
-      </View>
+      {/* A direct sibling of the bar (not nested in a wrapper): on Android two siblings are stacked by
+          elevation, and only then is the higher one (24 vs the bar's 16) guaranteed to be drawn on top. */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => navigation.navigate("CreateTournament" as never)}
+        android_ripple={{ color: "rgba(0,0,0,0.15)", borderless: true }}
+        accessibilityRole="button"
+        accessibilityLabel="Create a tournament"
+      >
+        <FontAwesome6 name="plus" size={22} color={C.accent2TextOn} />
+      </Pressable>
     </View>
   );
 }
@@ -84,17 +84,19 @@ const styles = StyleSheet.create({
   // Fixed line height without Android's extra font padding, so the bottom gap really is 12.
   label: { fontSize: 11, lineHeight: 14, fontWeight: "600", includeFontPadding: false },
   gap: { width: FAB_SIZE + 32 }, // room for the "+" so no tab crowds it
-  // Above the bar: on Android a sibling's elevation decides what is drawn on top,
-  // so the row that holds the "+" needs more than the bar's 16.
-  fabRow: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", zIndex: 2, elevation: 24 },
   fab: {
+    position: "absolute",
+    top: 0,
+    left: "50%",
+    marginLeft: -FAB_SIZE / 2,
+    zIndex: 2,
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
     backgroundColor: C.accent2,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 20,
+    elevation: 24,
     shadowColor: "#000000",
     shadowOpacity: 0.4,
     shadowRadius: 8,

@@ -1,6 +1,7 @@
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
+import { getPayoutMap } from "./customTournaments";
 import {
   ASSET_SIZE,
   ENTRY_SIZE,
@@ -195,15 +196,34 @@ function refundIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey,
   });
 }
 
+/** Prize structures a tournament can have. The program itself only knows "equal share for everyone at or above a threshold"; the structure is how many ranks that covers. */
+export type Payout = "top1" | "top3" | "p30" | "p50" | "pvp";
+
+/** How many of `n` entrants win (before ties widen the set). Mirrored in the app's liveScore.ts. */
+export function winnerTarget(payout: Payout, n: number): number {
+  switch (payout) {
+    case "top1":
+    case "pvp": // a duel: winner takes all (the app keeps a third player out; if one gets in anyway it is simply top 1)
+      return 1;
+    case "top3":
+      return Math.min(3, Math.max(1, n));
+    case "p30":
+      return Math.max(1, Math.ceil(n * 0.3));
+    case "p50":
+      return Math.max(1, Math.ceil(n / 2));
+  }
+}
+
 /**
- * The winners' cut-off. The top half of entrants win; the program pays
+ * The winners' cut-off. By default the top half of entrants win (player-made
+ * tournaments can pick Top 1 / Top 3 / 30%); the program pays
  * every settled entry with score >= threshold an equal share, so
  * `winners_count` MUST equal how many entries clear the threshold (ties at the
  * cut-off all win) or the vault would be paid out more than it holds.
  */
-export function winnersFromScores(scores: number[]): { winners: number; thresholdBps: number } {
+export function winnersFromScores(scores: number[], payout: Payout = "p50"): { winners: number; thresholdBps: number } {
   const sorted = [...scores].sort((a, b) => b - a);
-  const target = Math.max(1, Math.ceil(sorted.length / 2));
+  const target = winnerTarget(payout, sorted.length);
   const thresholdBps = sorted[target - 1];
   return { winners: sorted.filter((s) => s >= thresholdBps).length, thresholdBps };
 }
@@ -225,6 +245,7 @@ async function settleAndPay(
   authority: Keypair,
   tournament: PublicKey,
   tdata: Uint8Array,
+  payout: Payout,
 ): Promise<StepResult> {
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const finalized = view.getUint8(90) === TOURNAMENT_FINALIZED;
@@ -255,7 +276,7 @@ async function settleAndPay(
     }
 
     if (entries.some((e) => !e.settled)) return { note: "entries still settling", done: false, progressed };
-    ({ winners, thresholdBps } = winnersFromScores(entries.map((e) => e.scoreBps)));
+    ({ winners, thresholdBps } = winnersFromScores(entries.map((e) => e.scoreBps), payout));
     const failed = await sendAll(connection, authority, [[finalizeIx(authority.publicKey, tournament, winners, thresholdBps)]]);
     if (failed > 0) return { note: "finalize failed, retrying next tick", done: false, progressed };
     progressed = true;
@@ -302,6 +323,7 @@ async function processTournament(
   tdata: Uint8Array,
   pricesReady: boolean,
   nowSec: number,
+  payout: Payout,
 ): Promise<StepResult> {
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const status = view.getUint8(90);
@@ -309,7 +331,7 @@ async function processTournament(
 
   const endTs = Number(view.getBigInt64(64, true));
   const result: StepResult = pricesReady
-    ? await settleAndPay(connection, authority, tournament, tdata)
+    ? await settleAndPay(connection, authority, tournament, tdata, payout)
     : { note: "waiting for end prices", done: false, progressed: false };
   if (result.done || result.progressed || status !== TOURNAMENT_OPEN) return result;
 
@@ -338,6 +360,7 @@ export async function settleTournaments(
 ): Promise<string> {
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
   const nowSec = Math.floor(Date.now() / 1000);
+  const payouts = await getPayoutMap(env); // player-made tournaments may not use the default top-half structure
 
   const notes: string[] = [];
   for (const c of candidates) {
@@ -359,7 +382,7 @@ export async function settleTournaments(
 
     try {
 
-      const r = await processTournament(connection, authority, c.pubkey, c.data, !!st.end, nowSec);
+      const r = await processTournament(connection, authority, c.pubkey, c.data, !!st.end, nowSec, payouts[id] ?? "p50");
       notes.push(`${id}: ${r.note}`);
       if (r.done) st.settled = true;
     } catch (err) {

@@ -11,10 +11,21 @@ import type { SignAndSend } from "./actions";
 
 export type Visibility = "public" | "private";
 export type EntryModeChoice = "single" | "multiple";
+/** Prize structure: how many top finishers split the pool; PvP is a two-player duel, winner takes all. */
+export type PayoutChoice = "top1" | "top3" | "p30" | "p50" | "pvp";
+
+export const PAYOUT_CHOICES: { key: PayoutChoice; label: string; description: string }[] = [
+  { key: "top1", label: "Top 1", description: "Winner takes all — only the best portfolio is paid." },
+  { key: "top3", label: "Top 3", description: "The three best portfolios split the pool equally." },
+  { key: "p30", label: "30%", description: "The top 30% of players split the pool equally." },
+  { key: "p50", label: "50%", description: "The top half of players split the pool equally." },
+  { key: "pvp", label: "PvP", description: "Head-to-head: two players, the winner takes the pool." },
+];
 
 export interface CreateParams {
   name: string;
   visibility: Visibility;
+  payout: PayoutChoice;
   entryFeeLamports: number;
   entryMode: EntryModeChoice;
   startInSec: number;
@@ -38,6 +49,7 @@ export interface CreatedTournament {
 export interface TournamentMeta {
   name: string;
   visibility: Visibility;
+  payout: PayoutChoice;
   creator: string;
 }
 
@@ -63,6 +75,7 @@ export function createTournamentMessage(p: CreateParams & { ts: number; creator:
     "DraftJam: create tournament",
     `name=${p.name}`,
     `visibility=${p.visibility}`,
+    `payout=${p.payout}`,
     `fee=${p.entryFeeLamports}`,
     `mode=${p.entryMode}`,
     `start=${p.startInSec}`,

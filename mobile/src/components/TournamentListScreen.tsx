@@ -66,8 +66,8 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   );
   // The header's filters (scope / payout / sort / entry type) on top of the phase.
   const filtered = useMemo(
-    () => applyTournamentFilters(inPhase, filters, phase, mine),
-    [inPhase, filters, phase, mine],
+    () => applyTournamentFilters(inPhase, filters, phase, mine, meta),
+    [inPhase, filters, phase, mine, meta],
   );
 
   const onRefresh = useCallback(async () => {

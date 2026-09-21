@@ -1,6 +1,22 @@
 import { PublicKey } from "@solana/web3.js";
 import { BPS_DENOMINATOR, RAKE_BPS, SCORE_FLOOR_BPS } from "./config";
 import type { AssetPriceAccount, TournamentAccount } from "./accounts";
+import type { PayoutChoice } from "./customTournaments";
+
+/** How many of `n` players win before ties widen the set. Mirrors the worker's winnerTarget (settlement.ts). */
+export function winnerTarget(payout: PayoutChoice, n: number): number {
+  switch (payout) {
+    case "top1":
+    case "pvp":
+      return 1;
+    case "top3":
+      return Math.min(3, Math.max(1, n));
+    case "p30":
+      return Math.max(1, Math.ceil(n * 0.3));
+    case "p50":
+      return Math.max(1, Math.ceil(n / 2));
+  }
+}
 
 export interface PickScore {
   mint: string;
@@ -60,6 +76,7 @@ export function projectPrizes(
     "status" | "prizePoolLamports" | "winnersCount" | "distributedPoolLamports" | "thresholdScoreBps"
   >,
   sortedScores: (number | null)[],
+  payout: PayoutChoice = "p50",
 ): bigint[] {
   if (tournament.status === "cancelled") return sortedScores.map(() => 0n); // nobody wins; fees are refunded
   if (tournament.status === "finalized") {
@@ -67,7 +84,7 @@ export function projectPrizes(
     const share = tournament.distributedPoolLamports / BigInt(tournament.winnersCount);
     return sortedScores.map((s) => (s != null && s >= tournament.thresholdScoreBps ? share : 0n));
   }
-  const target = Math.max(1, Math.ceil(sortedScores.length / 2));
+  const target = winnerTarget(payout, sortedScores.length);
   const threshold = sortedScores[target - 1];
   if (threshold == null) return sortedScores.map(() => 0n); // cut-off entry isn't scored yet
   const winners = sortedScores.filter((s) => s != null && s >= threshold).length;

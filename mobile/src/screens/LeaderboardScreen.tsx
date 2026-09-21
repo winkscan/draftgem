@@ -14,6 +14,7 @@ import { useLivePrices } from "../pumpfantasy/livePrices";
 import { computePortfolioScore, projectPrizes, type PickScore } from "../pumpfantasy/liveScore";
 import { bpsToPercentLabel, ellipsify, formatSol } from "../pumpfantasy/format";
 import { getTournamentPhase } from "../pumpfantasy/tournamentPhase";
+import { PAYOUT_CHOICES, useTournamentMeta, type PayoutChoice } from "../pumpfantasy/customTournaments";
 import { ModeBadges } from "../components/ModeBadge";
 import { TokenIcon } from "../components/TokenIcon";
 import { PF_COLORS as C } from "../theme";
@@ -50,6 +51,9 @@ export function LeaderboardScreen() {
   const { data: assets } = useAssetPrices(tournament ? tournamentPubkey : null);
   const { data: entries, isLoading: entriesLoading } = useTournamentEntries(tournament ? tournamentPubkey : null);
   const { data: candidates } = useCandidates();
+  // Player-made tournaments can pay Top 1 / Top 3 / 30%; everything else pays the top half.
+  const { data: tournamentMeta } = useTournamentMeta();
+  const payout: PayoutChoice = tournamentMeta?.[tournamentId]?.payout ?? "p50";
 
   const [page, setPage] = useState(0);
   const [myIndex, setMyIndex] = useState(0);
@@ -122,6 +126,7 @@ export function LeaderboardScreen() {
     const prizes = projectPrizes(
       tournament,
       scored.map((s) => s.scoreBps),
+      payout,
     );
     return scored.map((s, i) => ({
       key: s.entry.publicKey.toBase58(),
@@ -135,7 +140,7 @@ export function LeaderboardScreen() {
       claimed: s.entry.account.claimed,
       isMine: !!selectedAccount && s.entry.account.player.equals(selectedAccount.publicKey),
     }));
-  }, [entries, assetsByMint, livePricesMicros, tournament, selectedAccount]);
+  }, [entries, assetsByMint, livePricesMicros, tournament, selectedAccount, payout]);
 
   if (!tournament || entriesLoading) {
     return (
@@ -341,7 +346,7 @@ export function LeaderboardScreen() {
       ) : null}
 
       <Text style={styles.footnote}>
-        The top half of players split the pool minus a 5% fee; a tie at the cut-off wins too. Tap the link icon next to a paid prize to see the payout on Solscan.
+        {PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, minus a 5% fee; a tie at the cut-off wins too. Tap the link icon next to a paid prize to see the payout on Solscan.
       </Text>
     </ScrollView>
   );

@@ -23,6 +23,7 @@ const message = (p) =>
     "DraftJam: create tournament",
     `name=${p.name}`,
     `visibility=${p.visibility}`,
+    `payout=${p.payout}`,
     `fee=${p.entryFeeLamports}`,
     `mode=${p.entryMode}`,
     `start=${p.startInSec}`,
@@ -76,6 +77,7 @@ function check(label, ok, extra = "") {
   const base = {
     name: "Smoke test " + Date.now().toString().slice(-6),
     visibility: "private",
+    payout: "top3",
     entryFeeLamports: 20_000_000,
     entryMode: "multiple",
     startInSec: 600,
@@ -132,7 +134,7 @@ function check(label, ok, extra = "") {
 
   // 7) metadata + landing page
   const meta = (await (await fetch(`${WORKER}/tournament-meta`)).json()).meta;
-  check("meta lists name + private", meta[created.id]?.name === base.name && meta[created.id]?.visibility === "private");
+  check("meta lists name + private + payout", meta[created.id]?.name === base.name && meta[created.id]?.visibility === "private" && meta[created.id]?.payout === "top3");
   const page = await fetch(created.url);
   const html = await page.text();
   check("landing page opens the app link", page.status === 200 && html.includes(`pumpfantasy://t/${created.id}`) && html.includes(base.name));
