@@ -6,6 +6,7 @@ import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, ROUND_SECOND
 import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
+import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
 import type { Env } from "./env";
 
@@ -91,9 +92,6 @@ async function waitForConfirmation(connection: Connection, sig: string): Promise
 // triggers pass Date.now() and are found only by `/sync?full=1`. start/end
 // derive from the id, not "now", so the two stay in lockstep.
 async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promise<string> {
-  const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
-  const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
-
   const startTs = Number(id / 1000n) + ENTRY_WINDOW_SECONDS;
   const endTs = startTs + ROUND_DURATION_SECONDS;
 
@@ -104,8 +102,33 @@ async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promis
   // the ms id) so repeated manual triggers within the same minute still get
   // different modes.
   const cycle = Number(cycleSeed % 3n);
-  const entryModeTag = cycle === 1 ? 1 : 0; // 0 = Single, 1 = Multiple
-  const guaranteedAmountLamports = cycle === 2 ? 500_000_000 : 0;
+  return createTournamentOnChain(env, {
+    id,
+    entryFeeLamports: ENTRY_FEE_LAMPORTS,
+    startTs,
+    endTs,
+    entryModeTag: cycle === 1 ? 1 : 0, // 0 = Single, 1 = Multiple
+    guaranteedAmountLamports: cycle === 2 ? 500_000_000 : 0,
+  });
+}
+
+interface TournamentParams {
+  id: bigint;
+  entryFeeLamports: number;
+  startTs: number;
+  endTs: number;
+  entryModeTag: number;
+  guaranteedAmountLamports: number;
+}
+
+// The on-chain create_tournament call itself, signed by the worker's authority
+// key. Shared by the cron and by user-created tournaments (customTournaments.ts):
+// the authority must be OUR key either way, because only it can register prices,
+// finalize and cancel — a tournament owned by a player's wallet could never be paid out.
+async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<string> {
+  const { id, entryFeeLamports, startTs, endTs, entryModeTag, guaranteedAmountLamports } = p;
+  const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
+  const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
 
   const [tournament] = tournamentPda(id);
   const [vault] = vaultPda(tournament);
@@ -121,7 +144,7 @@ async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promis
     data: concatBytes(
       CREATE_TOURNAMENT_DISCRIMINATOR,
       u64le(id),
-      u64le(ENTRY_FEE_LAMPORTS),
+      u64le(entryFeeLamports),
       i64le(startTs),
       i64le(endTs),
       Uint8Array.from([entryModeTag]),
@@ -148,7 +171,8 @@ async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<strin
   const lines: string[] = [];
   const budget: PriceBudget = { geckoCalls: GECKO_CALLS_PER_TICK };
   try {
-    const candidates = await findCandidates(connection, loaded.states, opts);
+    const extraIds = await activeCustomIds(env, loaded.states);
+    const candidates = await findCandidates(connection, loaded.states, { ...opts, extraIds });
     try {
       lines.push(`Prices: ${await syncPrices(env, connection, candidates, loaded.states, budget)}`);
     } catch (err) {
@@ -260,6 +284,41 @@ export default {
         });
       }
     }
+
+    // POST /create-tournament — a player's tournament from the app's "+" screen
+    // (see customTournaments.ts). Paid for by the player on chain, created on chain by our key.
+    if (req.method === "POST" && url.pathname === "/create-tournament") {
+      try {
+        const result = await handleCreateCustom(env, await req.json().catch(() => null), url.origin, (p) =>
+          createTournamentOnChain(env, p),
+        );
+        return json(result.body, result.status);
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+
+    // GET /create-info — the creation fee and where to pay it, for the "+" screen.
+    if (req.method === "GET" && url.pathname === "/create-info") {
+      try {
+        return json(await getCreateInfo(env));
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+
+    // GET /tournament-meta — names + public/private for player-made tournaments.
+    if (req.method === "GET" && url.pathname === "/tournament-meta") {
+      try {
+        return json({ meta: await getMetaMap(env) });
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+
+    // GET /t/<id> — the shareable link: opens the app on that tournament.
+    const shared = url.pathname.match(/^\/t\/(\d+)$/);
+    if (req.method === "GET" && shared) return landingPage(env, shared[1]);
 
     // Manual trigger for testing (`curl <worker-url>/create`). Its own path,
     // not a catch-all: this URL is public, and any stray request (crawler,

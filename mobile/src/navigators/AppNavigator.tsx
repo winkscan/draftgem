@@ -1,13 +1,14 @@
-import { NavigationContainer, type Theme } from "@react-navigation/native";
+import { NavigationContainer, type LinkingOptions, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
-import { DraftScreen, LeaderboardScreen } from "../screens";
+import { CreateTournamentScreen, DraftScreen, LeaderboardScreen } from "../screens";
 import { PF_COLORS as C } from "../theme";
 
 export type RootStackParamList = {
   HomeStack: undefined;
   Draft: { tournamentId: string };
+  CreateTournament: undefined;
   Leaderboard: { tournamentId: string };
 };
 
@@ -32,6 +33,15 @@ const AppStack = () => (
       }}
     />
     <Stack.Screen
+      name="CreateTournament"
+      component={CreateTournamentScreen}
+      options={{
+        title: "Create Tournament",
+        headerStyle: { backgroundColor: C.header },
+        headerTintColor: C.textOnHeader,
+      }}
+    />
+    <Stack.Screen
       name="Leaderboard"
       component={LeaderboardScreen}
       options={{
@@ -47,9 +57,20 @@ export interface NavigationProps {
   navTheme: Theme;
 }
 
+// Shared tournament links (pumpfantasy://t/<id>, opened from the worker's /t/<id>
+// page) land on that tournament's Draft screen, with the home tabs underneath so
+// Back still goes somewhere.
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ["pumpfantasy://"],
+  config: {
+    initialRouteName: "HomeStack",
+    screens: { Draft: "t/:tournamentId" },
+  },
+};
+
 export const AppNavigator = ({ navTheme }: NavigationProps) => {
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} linking={linking}>
       <StatusBar style="light" />
       <AppStack />
     </NavigationContainer>

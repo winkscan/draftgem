@@ -3,7 +3,9 @@ import { ActivityIndicator, Text, TouchableRipple, Chip } from "react-native-pap
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState, useCallback, useEffect, useMemo } from "react";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useTournaments, useMyEnteredTournaments } from "../pumpfantasy/hooks";
+import { useTournamentMeta } from "../pumpfantasy/customTournaments";
 import { useAuthorization } from "../utils/useAuthorization";
 import { formatSol, formatCountdown } from "../pumpfantasy/format";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
@@ -33,22 +35,39 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   }, []);
 
   const { filters, reset } = useTournamentFilters();
+  // Names and public/private of player-made tournaments (cron-made ones have no entry here).
+  const { data: meta } = useTournamentMeta();
+  const me = selectedAccount?.publicKey.toBase58();
+
+  // "Mine" = tournaments I entered plus the ones I created.
+  const mine = useMemo(() => {
+    const s = new Set<string>(enteredTournaments ?? []);
+    for (const row of tournaments ?? []) {
+      if (me && meta?.[row.account.id.toString()]?.creator === me) s.add(row.publicKey.toBase58());
+    }
+    return s;
+  }, [enteredTournaments, tournaments, meta, me]);
 
   const inPhase = useMemo(
     () =>
       (tournaments ?? []).filter((row) => {
         if (getTournamentPhase(row.account, now) !== phase) return false;
+        // Private tournaments are unlisted: only their creator and the players who
+        // joined (through the shared link) see them here.
+        if (meta?.[row.account.id.toString()]?.visibility === "private" && !mine.has(row.publicKey.toBase58())) {
+          return false;
+        }
         // Nobody entered: it never really starts, so it doesn't appear in Live
         // or Results (there's no one to score). It stays visible in the Lobby
         // while entries are still open.
         return phase === "upcoming" || row.account.entryCount > 0;
       }),
-    [tournaments, phase, now],
+    [tournaments, phase, now, meta, mine],
   );
   // The header's filters (scope / payout / sort / entry type) on top of the phase.
   const filtered = useMemo(
-    () => applyTournamentFilters(inPhase, filters, phase, enteredTournaments),
-    [inPhase, filters, phase, enteredTournaments],
+    () => applyTournamentFilters(inPhase, filters, phase, mine),
+    [inPhase, filters, phase, mine],
   );
 
   const onRefresh = useCallback(async () => {
@@ -133,7 +152,12 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
               <View style={styles.cardTop}>
                 <View style={styles.titleRow}>
                   <ModeBadges tournament={t} />
-                  <Text style={styles.cardTitle}>Fantasy Tournament #{t.id.toString()}</Text>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {meta?.[t.id.toString()]?.name ?? `Fantasy Tournament #${t.id.toString()}`}
+                  </Text>
+                  {meta?.[t.id.toString()]?.visibility === "private" ? (
+                    <FontAwesome6 name="lock" size={11} color={C.textSecondary} />
+                  ) : null}
                 </View>
                 {showView ? (
                   <Chip compact style={styles.viewChip} textStyle={styles.viewChipText}>

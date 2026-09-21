@@ -234,7 +234,7 @@ export interface Candidate {
 export async function findCandidates(
   connection: Connection,
   states: TournamentStates,
-  opts: { full?: boolean } = {},
+  opts: { full?: boolean; extraIds?: bigint[] } = {},
 ): Promise<Candidate[]> {
   if (opts.full) {
     const all = await connection.getProgramAccounts(PROGRAM_ID, { filters: [{ dataSize: TOURNAMENT_SIZE }] });
@@ -248,12 +248,16 @@ export async function findCandidates(
   for (let t = nowAligned - 2 * ROUND_SECONDS - HISTORY_WINDOW_SECONDS; t <= nowAligned - ROUND_SECONDS; t += tickSec) {
     if (!states[String(t * 1000)]?.settled) pdas.push(tournamentPdaFor(BigInt(t) * 1000n));
   }
-  if (pdas.length === 0) return [];
-  const infos = await connection.getMultipleAccountsInfo(pdas);
+  // Player-made tournaments (customTournaments.ts) have arbitrary ids, so the caller passes the live ones.
+  for (const id of opts.extraIds ?? []) pdas.push(tournamentPdaFor(id));
   const out: Candidate[] = [];
-  infos.forEach((info, i) => {
-    if (info && info.data.length === TOURNAMENT_SIZE) out.push({ pubkey: pdas[i], data: info.data });
-  });
+  for (let from = 0; from < pdas.length; from += 100) {
+    const batch = pdas.slice(from, from + 100); // getMultipleAccounts takes at most 100
+    const infos = await connection.getMultipleAccountsInfo(batch);
+    infos.forEach((info, i) => {
+      if (info && info.data.length === TOURNAMENT_SIZE) out.push({ pubkey: batch[i], data: info.data });
+    });
+  }
   return out;
 }
 

@@ -4,3 +4,4 @@ export { LiveScreen } from "./LiveScreen";
 export { ResultsScreen } from "./ResultsScreen";
 export { LeaderboardScreen } from "./LeaderboardScreen";
 export { GuideScreen } from "./GuideScreen";
+export { CreateTournamentScreen } from "./CreateTournamentScreen";

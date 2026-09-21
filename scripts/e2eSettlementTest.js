@@ -5,7 +5,8 @@
 // throwaway keypair (funded from A) as wallet B. Nothing here is committed
 // with secrets — keys are read from ~/.config/solana/id.json.
 //
-//   node scripts/e2eSettlementTest.js
+//   node scripts/e2eSettlementTest.js            (newest cron-created tournament)
+//   TOURNAMENT_ID=<id> node scripts/e2eSettlementTest.js   (a specific one, e.g. player-made)
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -79,13 +80,14 @@ function readTournament(d) {
 
   const candidates = (await (await fetch(WORKER + "/candidates")).json()).candidates;
   const byTier = (t) => candidates.filter((c) => c.tier === t);
-  const mintsA = byTier("BlueChip").slice(0, 5).map((c) => c.mint); // 5 x 100 FP, calm
-  const mintsB = ["Degen", "Gambler", "Contender", "Veteran", "BlueChip"].map((t) => byTier(t)[0].mint); // 3650 FP, volatile
+  const mintsA = byTier("Hold").slice(0, 5).map((c) => c.mint); // 5 x 100 FP, calm
+  const mintsB = ["Degen", "Moon", "Pump", "Farm", "Hold"].map((t) => byTier(t)[0].mint); // 3650 FP, volatile
 
   // wait for a fresh tick-aligned tournament whose entry window is still open
+  // TOURNAMENT_ID=<id> targets a specific (e.g. player-made) tournament instead of the newest cron one.
   let id, tournament, t;
   for (;;) {
-    id = BigInt(Math.floor(Date.now() / TICK_MS) * TICK_MS);
+    id = process.env.TOURNAMENT_ID ? BigInt(process.env.TOURNAMENT_ID) : BigInt(Math.floor(Date.now() / TICK_MS) * TICK_MS);
     tournament = tournamentPda(id);
     const info = await conn.getAccountInfo(tournament);
     if (info) {
