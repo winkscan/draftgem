@@ -46,7 +46,7 @@ export function GuideScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  content: { padding: 16, gap: 10 },
+  content: { padding: 16, gap: 12 },
   intro: { color: C.textSecondary, fontSize: 12, marginBottom: 2 },
   item: {
     backgroundColor: C.card,
