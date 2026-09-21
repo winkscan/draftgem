@@ -2,7 +2,7 @@ import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple, Chip } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTournaments, useMyEnteredTournaments } from "../pumpfantasy/hooks";
 import { useAuthorization } from "../utils/useAuthorization";
 import { formatSol, formatCountdown } from "../pumpfantasy/format";
@@ -20,7 +20,15 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   const { selectedAccount } = useAuthorization();
   const { data: enteredTournaments } = useMyEnteredTournaments(selectedAccount?.publicKey ?? null);
   const [refreshing, setRefreshing] = useState(false);
-  const now = Math.floor(Date.now() / 1000);
+  // Ticking clock: which phase a tournament is in depends on the time, but a
+  // tournament nobody has entered never changes on chain, so nothing else would
+  // re-render the list when its start passes (it would sit in the Lobby
+  // forever). Also keeps the "Starts in / Ends in" countdowns moving.
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const filtered = useMemo(
     () =>
@@ -31,8 +39,7 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
         // while entries are still open.
         return phase === "upcoming" || row.account.entryCount > 0;
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tournaments, phase],
+    [tournaments, phase, now],
   );
 
   const onRefresh = useCallback(async () => {
