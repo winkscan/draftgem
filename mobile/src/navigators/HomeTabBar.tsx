@@ -65,10 +65,11 @@ const styles = StyleSheet.create({
   // The strip above the bar is transparent: it holds the top of the "+" so all of the
   // button sits inside this view's bounds (Android only delivers touches inside them).
   wrap: { paddingTop: FAB_OVERHANG },
+  // Height comes from the content: the same 12px above the icons and below the labels.
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    height: 64,
+    paddingVertical: 12,
     backgroundColor: C.headerPanel,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -79,10 +80,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
   },
   group: { flex: 1, flexDirection: "row" },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, height: "100%" },
-  label: { fontSize: 11, fontWeight: "600" },
+  tab: { flex: 1, alignItems: "center", gap: 4 },
+  // Fixed line height without Android's extra font padding, so the bottom gap really is 12.
+  label: { fontSize: 11, lineHeight: 14, fontWeight: "600", includeFontPadding: false },
   gap: { width: FAB_SIZE + 32 }, // room for the "+" so no tab crowds it
-  fabRow: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center" },
+  // Above the bar: on Android a sibling's elevation decides what is drawn on top,
+  // so the row that holds the "+" needs more than the bar's 16.
+  fabRow: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", zIndex: 2, elevation: 24 },
   fab: {
     width: FAB_SIZE,
     height: FAB_SIZE,
