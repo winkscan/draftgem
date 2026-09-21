@@ -64,15 +64,16 @@ export function TournamentFilterSelects({ phase }: { phase: TournamentPhase }) {
 }
 
 const styles = StyleSheet.create({
-  divider: { height: 1, backgroundColor: C.cardBorder, marginTop: 4 },
-  tabs: { flexDirection: "row" },
+  divider: { height: 1, backgroundColor: C.cardBorder },
+  // Same 16px side margins as the wallet row; each tab stretches to half the width.
+  tabs: { flexDirection: "row", paddingHorizontal: 16 },
   tab: { flex: 1 },
   tabInner: { alignItems: "center", paddingTop: 12 },
-  tabText: { color: C.textSecondary, fontSize: 14, fontWeight: "600", paddingBottom: 8 },
+  tabText: { color: C.textSecondary, fontSize: 14, fontWeight: "600", paddingBottom: 12 },
   tabTextActive: { color: C.textPrimary, fontWeight: "800" },
-  underline: { height: 2, alignSelf: "stretch", marginHorizontal: 28, borderRadius: 1, backgroundColor: "transparent" },
+  underline: { height: 2, alignSelf: "stretch", borderRadius: 1, backgroundColor: "transparent" },
   underlineActive: { backgroundColor: C.accent },
-  chips: { flexDirection: "row", gap: 6, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 14 },
+  chips: { flexDirection: "row", gap: 6, paddingHorizontal: 16, paddingVertical: 12 },
   chip: {
     flex: 1,
     height: 34,
@@ -86,5 +87,5 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: C.accent, borderColor: C.accent },
   chipText: { color: C.textPrimary, fontSize: 12.5, fontWeight: "600" },
   chipTextActive: { color: C.accentTextOn, fontWeight: "800" },
-  selects: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, backgroundColor: C.bg },
+  selects: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 16, backgroundColor: C.bg },
 });

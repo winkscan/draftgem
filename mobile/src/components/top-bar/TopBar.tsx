@@ -70,14 +70,14 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
 const styles = StyleSheet.create({
   // Full-width panel in the border colour, so it sits visibly above the black
   // page; the filter tabs + chips live inside it, the selects hang just below.
-  panel: { backgroundColor: C.headerPanel },
+  panel: { backgroundColor: C.headerPanel, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  // Spacing inside the panel: 16 at the sides, 12 above/below every row.
   bar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   left: { flexDirection: "row", alignItems: "center", gap: 8 },
   title: { color: C.textOnHeader, fontWeight: "700" },
