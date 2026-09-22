@@ -159,7 +159,7 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
         row={infoRow}
         meta={infoMeta}
         onClose={() => setInfoRow(null)}
-        ctaLabel={infoShowView ? "View" : "Enter"}
+        ctaLabel={infoShowView ? "View" : `Enter · ${infoRow ? formatSolCompact(infoRow.account.entryFeeLamports) : ""} SOL`}
         onPressCta={() => {
           if (infoRow) goTo(infoRow.account);
           setInfoRow(null);
@@ -317,9 +317,9 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     minWidth: 84,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 999,
     backgroundColor: C.glassStrong,
     alignItems: "center",
     justifyContent: "center",

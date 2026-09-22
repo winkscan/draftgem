@@ -6,15 +6,14 @@ import type { TournamentMeta } from "./customTournaments";
 // nothing to store, no two nearby cron ticks land on the same word pair (a plain hash
 // would cluster since ids are 5-minute-aligned timestamps — mixed with a splitmix64 step).
 
+// Crypto/degen flavored, not generic sci-fi words — this is a crypto fantasy app.
 const ADJECTIVES = [
-  "Crimson", "Neon", "Quantum", "Solar", "Lunar", "Cosmic", "Electric", "Frozen", "Velvet", "Golden",
-  "Shadow", "Turbo", "Hyper", "Wild", "Silent", "Radiant", "Savage", "Feral", "Rogue", "Stellar",
-  "Crypto", "Atomic", "Blazing", "Arctic", "Molten", "Astral", "Vivid", "Sonic", "Prime", "Ultra",
+  "Bullish", "Diamond", "Turbo", "Degenerate", "Based", "Leveraged", "Onchain", "Staked",
+  "Airdropped", "Volatile", "Pumped", "Liquid", "Anon", "Moonbound", "Decentralized", "Rekt",
 ];
 const NOUNS = [
-  "Comet", "Falcon", "Surge", "Rally", "Vortex", "Nova", "Drift", "Rocket", "Circuit", "Pulse",
-  "Storm", "Raid", "Sprint", "Voyage", "Odyssey", "Dash", "Blitz", "Cascade", "Arena", "Gauntlet",
-  "Frontier", "Horizon", "Expedition", "Uprising", "Cipher", "Signal", "Wager", "Gambit", "Throne", "Legion",
+  "Moonshot", "Airdrop", "Rally", "Pump", "Rocket", "Whale", "Ape", "Bagholder",
+  "Gwei", "Satoshi", "Ledger", "Vault", "Gas", "Candle", "Fork", "Mint",
 ];
 
 const MASK64 = (1n << 64n) - 1n;

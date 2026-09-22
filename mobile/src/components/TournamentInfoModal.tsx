@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FlatList, Modal, ScrollView, Share, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { PublicKey } from "@solana/web3.js";
 import type { TournamentAccount, EntryAccount } from "../pumpfantasy/hooks";
@@ -38,6 +39,7 @@ export interface TournamentInfoModalProps {
 // worth right now, who else is playing, and the rules — without leaving the list.
 export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }: TournamentInfoModalProps) {
   const [tab, setTab] = useState<Tab>("mine");
+  const insets = useSafeAreaInsets();
   const { selectedAccount } = useAuthorization();
   const { data: candidates } = useCandidates();
 
@@ -76,48 +78,53 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.badgeRow}>
-              <ModeBadges tournament={t} />
-              <PayoutBadge label={payoutLabel} />
-              {isPrivate ? <FontAwesome6 name="lock" size={12} color={C.textOnHeaderMuted} /> : null}
-            </View>
-            <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
-              <FontAwesome6 name="xmark" size={18} color={C.textOnHeader} />
-            </TouchableRipple>
-          </View>
-          <View style={styles.headerBottom}>
-            <View style={{ flexShrink: 1 }}>
-              <Text style={styles.title} numberOfLines={1}>
-                {name}
-              </Text>
-              <Text style={styles.subtitle}>Prize pool: {formatSolCompact(pool)} SOL</Text>
-            </View>
-            <View style={styles.headerActions}>
-              <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
-                <FontAwesome6 name="link" size={14} color={C.textOnHeader} />
-              </TouchableRipple>
-              <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
-                <Text style={styles.ctaText} numberOfLines={1}>
-                  {ctaLabel}
-                </Text>
-              </TouchableRipple>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.tabRow}>
-          {TABS.map((tb) => (
-            <TouchableRipple key={tb.key} style={styles.tab} onPress={() => setTab(tb.key)}>
-              <View style={styles.tabInner}>
-                <Text style={[styles.tabText, tab === tb.key ? styles.tabTextActive : undefined]} numberOfLines={1}>
-                  {tb.label}
-                </Text>
-                <View style={[styles.tabUnderline, tab === tb.key ? styles.tabUnderlineActive : undefined]} />
+        {/* Header + tabs share one panel — same look as the tab screens' own TopBar: panel colour,
+            rounded only at the bottom, content pushed below the status bar. */}
+        <View style={styles.panel}>
+          <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+            <View style={styles.headerTop}>
+              <View style={styles.badgeRow}>
+                <ModeBadges tournament={t} />
+                <PayoutBadge label={payoutLabel} />
+                {isPrivate ? <FontAwesome6 name="lock" size={12} color={C.textSecondary} /> : null}
               </View>
-            </TouchableRipple>
-          ))}
+              <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
+                <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
+              </TouchableRipple>
+            </View>
+            <View style={styles.headerBottom}>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {name}
+                </Text>
+                <Text style={styles.subtitle}>Prize pool: {formatSolCompact(pool)} SOL</Text>
+              </View>
+              <View style={styles.headerActions}>
+                <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
+                  <FontAwesome6 name="link" size={14} color={C.textPrimary} />
+                </TouchableRipple>
+                <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
+                  <Text style={styles.ctaText} numberOfLines={1}>
+                    {ctaLabel}
+                  </Text>
+                </TouchableRipple>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+          <View style={styles.tabRow}>
+            {TABS.map((tb) => (
+              <TouchableRipple key={tb.key} style={styles.tab} onPress={() => setTab(tb.key)}>
+                <View style={styles.tabInner}>
+                  <Text style={[styles.tabText, tab === tb.key ? styles.tabTextActive : undefined]} numberOfLines={1}>
+                    {tb.label}
+                  </Text>
+                  <View style={[styles.tabUnderline, tab === tb.key ? styles.tabUnderlineActive : undefined]} />
+                </View>
+              </TouchableRipple>
+            ))}
+          </View>
         </View>
 
         {tab === "mine" ? (
@@ -136,6 +143,18 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
         )}
       </View>
     </Modal>
+  );
+}
+
+// Shared empty look for every tab: a big muted icon over a short bold label, with
+// an optional smaller explanation line underneath.
+function EmptyState({ icon, label, hint }: { icon: string; label: string; hint?: string }) {
+  return (
+    <View style={styles.center}>
+      <FontAwesome6 name={icon} size={44} color={C.disabled} />
+      <Text style={styles.emptyText}>{label}</Text>
+      {hint ? <Text style={styles.emptyHint}>{hint}</Text> : null}
+    </View>
   );
 }
 
@@ -158,12 +177,7 @@ function MyEntriesTab({
     );
   }
   if (entries.length === 0) {
-    return (
-      <View style={styles.center}>
-        <FontAwesome6 name="ghost" size={44} color={C.disabled} />
-        <Text style={styles.emptyText}>No Entries</Text>
-      </View>
-    );
+    return <EmptyState icon="ghost" label="No Entries" />;
   }
   return (
     <ScrollView
@@ -216,19 +230,10 @@ function PrizesTab({
   payout: PayoutChoice;
 }) {
   if (tournament.status === "cancelled") {
-    return (
-      <View style={styles.center}>
-        <FontAwesome6 name="rotate-left" size={32} color={C.disabled} />
-        <Text style={styles.emptyText}>Cancelled — every entry fee was refunded.</Text>
-      </View>
-    );
+    return <EmptyState icon="rotate-left" label="Cancelled" hint="Every entry fee was refunded." />;
   }
   if (tournament.entryCount === 0) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>No entries yet — prizes will appear once players join.</Text>
-      </View>
-    );
+    return <EmptyState icon="trophy" label="No Prizes Yet" hint="They appear once players join." />;
   }
 
   const finalized = tournament.status === "finalized";
@@ -263,11 +268,7 @@ function PrizesTab({
 
 function PlayersTab({ entries, entryMode }: { entries: { account: EntryAccount }[]; entryMode: "single" | "multiple" }) {
   if (entries.length === 0) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>No players have entered yet.</Text>
-      </View>
-    );
+    return <EmptyState icon="user-group" label="No Players" />;
   }
   return (
     <FlatList
@@ -354,21 +355,45 @@ function RulesTab({
   );
 }
 
+// Both header buttons share this exact box (react-native-paper's TouchableRipple can grow
+// past a bare `height` when its label wraps, so the height is fixed AND clipped).
+const HEADER_BUTTON_HEIGHT = 40;
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  header: { backgroundColor: C.header, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 12 },
+  // Same shape as the tab screens' own TopBar panel: panel colour, rounded only at the
+  // bottom, the tabs living inside it rather than in a separate strip below.
+  panel: { backgroundColor: C.headerPanel, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  header: { paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
   headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   closeButton: { padding: 6, borderRadius: 999 },
   headerBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  title: { color: C.textOnHeader, fontWeight: "800", fontSize: 18 },
-  subtitle: { color: C.textOnHeaderMuted, fontSize: 12, marginTop: 2 },
+  title: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
+  subtitle: { color: C.textSecondary, fontSize: 12, marginTop: 2 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  linkButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.glassStrong, alignItems: "center", justifyContent: "center" },
-  ctaButton: { height: 34, paddingHorizontal: 16, borderRadius: 999, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
-  ctaText: { color: C.accentTextOn, fontWeight: "800", fontSize: 13 },
+  linkButton: {
+    width: HEADER_BUTTON_HEIGHT,
+    height: HEADER_BUTTON_HEIGHT,
+    borderRadius: HEADER_BUTTON_HEIGHT / 2,
+    backgroundColor: C.glassStrong,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  ctaButton: {
+    height: HEADER_BUTTON_HEIGHT,
+    paddingHorizontal: 18,
+    borderRadius: HEADER_BUTTON_HEIGHT / 2,
+    backgroundColor: C.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  ctaText: { color: C.accentTextOn, fontWeight: "800", fontSize: 13, includeFontPadding: false },
 
-  tabRow: { flexDirection: "row", backgroundColor: C.card, borderBottomWidth: 1, borderBottomColor: C.cardBorder },
+  divider: { height: 1, backgroundColor: C.cardBorder },
+  tabRow: { flexDirection: "row" },
   tab: { flex: 1 },
   tabInner: { alignItems: "center", paddingTop: 12 },
   tabText: { color: C.textSecondary, fontSize: 12.5, fontWeight: "700", paddingBottom: 10 },
@@ -378,6 +403,7 @@ const styles = StyleSheet.create({
 
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 32 },
   emptyText: { color: C.textSecondary, fontWeight: "700", fontSize: 14, textAlign: "center" },
+  emptyHint: { color: C.textSecondary, fontSize: 12, textAlign: "center", marginTop: -4 },
 
   tabBody: { flex: 1 },
   listContent: { padding: 16, gap: 10 },
