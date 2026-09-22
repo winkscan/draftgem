@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
-import Svg, { Circle, Defs, Filter, FeGaussianBlur, FeColorMatrix, G } from "react-native-svg";
+import Svg, { Circle, Defs, Filter, FeGaussianBlur, FeColorMatrix, G, RadialGradient, Stop } from "react-native-svg";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -43,6 +43,18 @@ export function BlobMorph({ size = 108 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
       <Defs>
+        {/* A glossy-sphere look, like the mark itself: an off-centre highlight (upper-left,
+            the light source) fading through the flat colour to a darker rim for volume. */}
+        <RadialGradient id="tealGradient" cx="35%" cy="28%" r="75%">
+          <Stop offset="0%" stopColor="#D6FFF0" />
+          <Stop offset="45%" stopColor="#40F4B8" />
+          <Stop offset="100%" stopColor="#13B87E" />
+        </RadialGradient>
+        <RadialGradient id="purpleGradient" cx="35%" cy="28%" r="75%">
+          <Stop offset="0%" stopColor="#D9C4FF" />
+          <Stop offset="45%" stopColor="#7527F0" />
+          <Stop offset="100%" stopColor="#440F99" />
+        </RadialGradient>
         <Filter id="goo" x="-50%" y="-50%" width="200%" height="200%">
           <FeGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur" />
           <FeColorMatrix
@@ -53,8 +65,8 @@ export function BlobMorph({ size = 108 }: { size?: number }) {
         </Filter>
       </Defs>
       <G filter="url(#goo)">
-        <AnimatedCircle cx={teal.cx} cy={teal.cy} r={r} fill="#40F4B8" />
-        <AnimatedCircle cx={purple.cx} cy={purple.cy} r={r} fill="#7527F0" />
+        <AnimatedCircle cx={teal.cx} cy={teal.cy} r={r} fill="url(#tealGradient)" />
+        <AnimatedCircle cx={purple.cx} cy={purple.cy} r={r} fill="url(#purpleGradient)" />
       </G>
     </Svg>
   );
