@@ -383,8 +383,15 @@ function PortfolioPanel({
     <View style={styles.panel}>
       <View style={styles.panelHead}>
         <View style={{ flexDirection: "row", gap: 16, flexShrink: 1, flexWrap: "wrap" }}>{title}</View>
-        <View style={[styles.scorePill, scoreBps != null && scoreBps < 0 ? { backgroundColor: C.negative } : undefined]}>
-          <Text style={styles.scorePillText}>{scoreBps == null ? "…" : bpsToPercentLabel(scoreBps)}</Text>
+        <View
+          style={[
+            styles.scorePill,
+            scoreBps == null ? undefined : { backgroundColor: scoreBps < 0 ? C.negative : C.positive },
+          ]}
+        >
+          <Text style={[styles.scorePillText, scoreBps != null && scoreBps >= 0 ? { color: C.accent2TextOn } : undefined]}>
+            {scoreBps == null ? "…" : bpsToPercentLabel(scoreBps)}
+          </Text>
         </View>
       </View>
       <View style={styles.cards}>
