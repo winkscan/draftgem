@@ -31,6 +31,46 @@ function Heading({ children }: { children: ReactNode }) {
   return <Text style={styles.heading}>{children}</Text>;
 }
 
+function FantasyPoints() {
+  return (
+    <View>
+      <Paragraph>
+        Every portfolio is 5 coins, and every coin has a price in Fantasy Points (FP) — set by its category (see Coin
+        categories). You have exactly 4,000 FP to spend across your 5 picks, no more.
+      </Paragraph>
+
+      <Heading>Why a budget at all</Heading>
+      <Paragraph>
+        Without one, the best strategy would always be "pick the wildest coins available" — they have the most
+        upside, so why not fill a portfolio with them? FP prices scale with how much a coin actually moves, so the
+        coins that can swing hardest also cost the most. That's the whole point of the budget: it makes risk cost
+        something, so drafting is a real trade-off instead of an obvious choice.
+      </Paragraph>
+
+      <Heading>Why you can't just draft five Degens</Heading>
+      <Paragraph>
+        A Degen costs 1,600 FP. Two of them already spend 3,200 FP, leaving 800 FP for your other three picks — not
+        enough for a third Degen, and barely enough for two Holds. Five Degens would cost 8,000 FP, double the
+        budget. The numbers force a mix of safe and risky picks.
+      </Paragraph>
+
+      <Heading>How to build a portfolio</Heading>
+      <Paragraph>
+        There's no single right split — it depends on how much risk you want. A common approach: anchor with one or
+        two cheap, steady picks (Hold or Farm) so a bad round doesn't wipe you out, then spend most of the rest on a
+        couple of higher-upside picks (Pump, Moon or Degen) that can actually carry your score. Your remaining FP is
+        shown live as you draft, so you always know what you can still afford.
+      </Paragraph>
+
+      <Heading>Does spending every point matter?</Heading>
+      <Paragraph>
+        No — the budget is only a cap, not a bonus. A portfolio that spends 3,200 FP scores exactly the same as one
+        that spends the full 4,000, based purely on how its 5 picks actually move. Leftover FP buys nothing extra.
+      </Paragraph>
+    </View>
+  );
+}
+
 function CoinCategories() {
   return (
     <View>
@@ -229,6 +269,7 @@ function EntryDeposit() {
 }
 
 export const GUIDE_TOPICS: GuideTopic[] = [
+  { id: "fantasy-points", title: "Fantasy Points & your budget", icon: "coins", body: <FantasyPoints /> },
   { id: "coin-categories", title: "Coin categories", icon: "layer-group", body: <CoinCategories /> },
   { id: "tournament-types", title: "Tournament types", icon: "shuffle", body: <TournamentTypes /> },
   { id: "create-tournament", title: "Create your own tournament", icon: "circle-plus", body: <CreateYourOwn /> },
