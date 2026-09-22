@@ -46,6 +46,11 @@ export const PF_COLORS = {
   modeSingle: "#c1f112",
   modeSingleTextOn: "#1a2200",
 
+  // Payout-structure badge (Top 1/Top 3/30%/50%/PvP). Deliberately NOT accent2 — that
+  // mint green is bright enough to read as washed-out white on a small pill.
+  payoutBadge: "#0d9488",
+  payoutBadgeTextOn: "#ffffff",
+
   // outcomes
   positive: "#14f195",
   negative: "#f11212", // losses, same red as errors

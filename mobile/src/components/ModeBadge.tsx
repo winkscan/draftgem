@@ -24,7 +24,7 @@ export function ModeBadges({ tournament }: { tournament: Pick<TournamentAccount,
 }
 
 // The prize-structure pill (Top 1 / Top 3 / 30% / 50% / PvP) that sits next to the
-// mode badges on a tournament card — green so it never reads as an error/warning.
+// mode badges on a tournament card — a solid teal, distinct from every other badge.
 export function PayoutBadge({ label }: { label: string }) {
   return (
     <View style={styles.payoutPill}>
@@ -50,6 +50,6 @@ const styles = StyleSheet.create({
   letter: { color: C.textPrimary, fontSize: 10, fontWeight: "800" },
   letterOnGreen: { color: C.accent2TextOn },
   letterOnSingle: { color: C.modeSingleTextOn },
-  payoutPill: { height: 20, paddingHorizontal: 8, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center" },
-  payoutText: { color: C.accent2TextOn, fontSize: 10, fontWeight: "800" },
+  payoutPill: { height: 20, paddingHorizontal: 8, borderRadius: 999, backgroundColor: C.payoutBadge, justifyContent: "center" },
+  payoutText: { color: C.payoutBadgeTextOn, fontSize: 10, fontWeight: "800" },
 });
