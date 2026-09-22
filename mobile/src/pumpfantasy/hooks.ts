@@ -112,12 +112,22 @@ const ENTRY_PLAYER_OFFSET = 40;
 
 // Multiple mode: every entry this wallet holds in this tournament, however
 // many there are.
-export function useMyEntries(tournament: PublicKey | null, player: PublicKey | null) {
+export function useMyEntries(tournament: PublicKey | null, player: PublicKey | null, archivedId: bigint | null = null) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ["entries", tournament?.toBase58(), player?.toBase58()],
+    queryKey: ["entries", tournament?.toBase58(), player?.toBase58(), archivedId?.toString()],
     queryFn: async () => {
+      // A finished tournament's entries are closed on chain; look this wallet up in the archive instead.
+      if (archivedId != null) {
+        const archived = await fetchArchivedResult(archivedId.toString());
+        if (archived) {
+          const me = player!.toBase58();
+          return toEntryRows(archived)
+            .filter((r) => r.account.player.toBase58() === me)
+            .sort((a, b) => a.account.entryIndex - b.account.entryIndex);
+        }
+      }
       const rows = await fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
         { memcmp: { offset: ENTRY_PLAYER_OFFSET, bytes: bs58.encode(player!.toBuffer()) } },
@@ -125,7 +135,7 @@ export function useMyEntries(tournament: PublicKey | null, player: PublicKey | n
       return rows.sort((a, b) => a.account.entryIndex - b.account.entryIndex);
     },
     enabled: !!tournament && !!player,
-    refetchInterval: 10_000,
+    refetchInterval: archivedId != null ? false : 10_000,
   });
 }
 

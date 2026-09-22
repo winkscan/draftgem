@@ -89,7 +89,8 @@ function matchesEntry(t: TournamentAccount, entry: EntryFilter): boolean {
   }
 }
 
-const poolOf = (t: TournamentAccount) =>
+/** The pool to advertise: the real one, or the house-guaranteed floor if that's bigger. */
+export const poolOf = (t: TournamentAccount) =>
   t.prizePoolLamports > t.guaranteedAmountLamports ? t.prizePoolLamports : t.guaranteedAmountLamports;
 
 const cmpBig = (a: bigint, b: bigint) => (a < b ? -1 : a > b ? 1 : 0);

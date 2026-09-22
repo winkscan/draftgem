@@ -1,19 +1,26 @@
-import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Text, TouchableRipple, Chip } from "react-native-paper";
+import { FlatList, RefreshControl, Share, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import { useTournaments, useMyEnteredTournaments } from "../pumpfantasy/hooks";
-import { useTournamentMeta } from "../pumpfantasy/customTournaments";
+import type { PublicKey } from "@solana/web3.js";
+import { useTournaments, useMyEnteredTournaments, type TournamentAccount } from "../pumpfantasy/hooks";
+import { useTournamentMeta, PAYOUT_CHOICES, type TournamentMeta } from "../pumpfantasy/customTournaments";
 import { useAuthorization } from "../utils/useAuthorization";
-import { formatSol, formatCountdown } from "../pumpfantasy/format";
+import { formatSolCompact, formatDuration, formatCountdown } from "../pumpfantasy/format";
+import { tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
-import { ModeBadges } from "./ModeBadge";
+import { payoutStructureOf, poolOf } from "../pumpfantasy/tournamentFilters";
+import { WORKER_URL } from "../pumpfantasy/config";
+import { ModeBadges, PayoutBadge } from "./ModeBadge";
+import { TournamentInfoModal } from "./TournamentInfoModal";
 import { useTournamentFilters } from "./TournamentFiltersContext";
 import { applyTournamentFilters, isDefaultFilters } from "../pumpfantasy/tournamentFilters";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
+
+type Row = { publicKey: PublicKey; account: TournamentAccount };
 
 // Shared by Lobby/Live/Results — same card list, filtered to one time-based
 // phase (see tournamentPhase.ts). A tournament moves phases purely by
@@ -76,6 +83,18 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
     setRefreshing(false);
   }, [refetch]);
 
+  // The (i) popup is one instance for the whole list, opened on whichever card was tapped.
+  const [infoRow, setInfoRow] = useState<Row | null>(null);
+
+  const goTo = useCallback(
+    (t: TournamentAccount) => {
+      phase === "upcoming"
+        ? navigation.navigate("Draft", { tournamentId: t.id.toString() })
+        : navigation.navigate("Leaderboard", { tournamentId: t.id.toString() });
+    },
+    [navigation, phase],
+  );
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -84,103 +103,176 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
     );
   }
 
+  const infoMeta = infoRow ? meta?.[infoRow.account.id.toString()] : undefined;
+  const infoShowView = infoRow ? phase !== "upcoming" || (infoRow.account.entryMode === "single" && mine.has(infoRow.publicKey.toBase58())) : false;
+
   return (
-    <FlatList
-      style={styles.list}
-      contentContainerStyle={styles.listContent}
-      data={filtered}
-      keyExtractor={(row) => row.publicKey.toBase58()}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
-      ListHeaderComponent={
-        isError ? (
-          <View style={styles.debugBox}>
-            <Text style={styles.debugTitle}>Fetch failed</Text>
-            <Text style={styles.debugText}>{error instanceof Error ? error.message : String(error)}</Text>
-          </View>
-        ) : null
-      }
-      ListEmptyComponent={
-        <View style={styles.center}>
-          {inPhase.length > 0 || !isDefaultFilters(filters) ? (
-            <>
-              <Text style={styles.emptyText}>
-                {filters.scope === "mine" && !selectedAccount
-                  ? "Connect your wallet to see the tournaments you entered."
-                  : "No tournaments match these filters."}
-              </Text>
-              {!isDefaultFilters(filters) ? (
-                <TouchableRipple style={styles.resetButton} borderless onPress={reset}>
-                  <Text style={styles.resetText}>Reset filters</Text>
-                </TouchableRipple>
-              ) : null}
-            </>
-          ) : (
-            <Text style={styles.emptyText}>{emptyText}</Text>
-          )}
-        </View>
-      }
-      renderItem={({ item }) => {
-        const t = item.account;
-        let label: string;
-        if (phase === "upcoming") label = `Starts in ${formatCountdown(Number(t.startTs), now)}`;
-        else if (phase === "live") label = `Ends in ${formatCountdown(Number(t.endTs), now)}`;
-        else if (t.status === "finalized") label = "Paid out";
-        else if (t.status === "cancelled") label = "Cancelled · refunded";
-        else label = "Awaiting results";
-
-        // Live and Results are always "View" — entries are closed the
-        // moment a round leaves "upcoming", full stop, whether or not you
-        // ever entered it (a tournament you never joined must not offer a
-        // red "Entry" CTA once it's no longer joinable). Within "upcoming"
-        // the entry-fee CTA stays live mode-permitting: Single mode swaps
-        // to View the moment you're in (only one entry ever possible);
-        // Multiple mode keeps offering Entry so more portfolios can be
-        // added right up to the close.
-        const alreadyIn = !!enteredTournaments?.has(item.publicKey.toBase58());
-        const showView = phase !== "upcoming" || (t.entryMode === "single" && alreadyIn);
-
-        return (
-          <TouchableRipple
-            style={styles.card}
-            onPress={() =>
-              phase === "upcoming"
-                ? navigation.navigate("Draft", { tournamentId: t.id.toString() })
-                : navigation.navigate("Leaderboard", { tournamentId: t.id.toString() })
-            }
-          >
-            <View>
-              <View style={styles.cardTop}>
-                <View style={styles.titleRow}>
-                  <ModeBadges tournament={t} />
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {meta?.[t.id.toString()]?.name ?? `Fantasy Tournament #${t.id.toString()}`}
-                  </Text>
-                  {meta?.[t.id.toString()]?.visibility === "private" ? (
-                    <FontAwesome6 name="lock" size={11} color={C.textSecondary} />
-                  ) : null}
-                </View>
-                {showView ? (
-                  <Chip compact style={styles.viewChip} textStyle={styles.viewChipText}>
-                    View
-                  </Chip>
-                ) : (
-                  <Chip compact style={styles.entryChip} textStyle={styles.entryChipText}>
-                    {formatSol(t.entryFeeLamports, 2)} SOL Entry
-                  </Chip>
-                )}
-              </View>
-              <View style={styles.cardStats}>
-                <Text style={styles.statText}>{t.entryCount} players</Text>
-                <Text style={styles.statDot}>·</Text>
-                <Text style={styles.statText}>{t.assetCount} coins</Text>
-                <Text style={styles.statDot}>·</Text>
-                <Text style={[styles.statText, phase !== "results" ? styles.statAccent : undefined]}>{label}</Text>
-              </View>
+    <>
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        data={filtered}
+        keyExtractor={(row) => row.publicKey.toBase58()}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
+        ListHeaderComponent={
+          isError ? (
+            <View style={styles.debugBox}>
+              <Text style={styles.debugTitle}>Fetch failed</Text>
+              <Text style={styles.debugText}>{error instanceof Error ? error.message : String(error)}</Text>
             </View>
-          </TouchableRipple>
-        );
-      }}
-    />
+          ) : null
+        }
+        ListEmptyComponent={
+          <View style={styles.center}>
+            {inPhase.length > 0 || !isDefaultFilters(filters) ? (
+              <>
+                <Text style={styles.emptyText}>
+                  {filters.scope === "mine" && !selectedAccount
+                    ? "Connect your wallet to see the tournaments you entered."
+                    : "No tournaments match these filters."}
+                </Text>
+                {!isDefaultFilters(filters) ? (
+                  <TouchableRipple style={styles.resetButton} borderless onPress={reset}>
+                    <Text style={styles.resetText}>Reset filters</Text>
+                  </TouchableRipple>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.emptyText}>{emptyText}</Text>
+            )}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TournamentCard
+            row={item}
+            phase={phase}
+            now={now}
+            meta={meta?.[item.account.id.toString()]}
+            alreadyIn={mine.has(item.publicKey.toBase58())}
+            onOpenInfo={() => setInfoRow(item)}
+            onPressCta={() => goTo(item.account)}
+          />
+        )}
+      />
+
+      <TournamentInfoModal
+        row={infoRow}
+        meta={infoMeta}
+        onClose={() => setInfoRow(null)}
+        ctaLabel={infoShowView ? "View" : "Enter"}
+        onPressCta={() => {
+          if (infoRow) goTo(infoRow.account);
+          setInfoRow(null);
+        }}
+      />
+    </>
+  );
+}
+
+function StatCell({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.statCell}>
+      <Text style={styles.statValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function TournamentCard({
+  row,
+  phase,
+  now,
+  meta,
+  alreadyIn,
+  onOpenInfo,
+  onPressCta,
+}: {
+  row: Row;
+  phase: TournamentPhase;
+  now: number;
+  meta: TournamentMeta | undefined;
+  alreadyIn: boolean;
+  onOpenInfo: () => void;
+  onPressCta: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const t = row.account;
+
+  const payout = payoutStructureOf(t, meta ? { [t.id.toString()]: meta } : undefined);
+  const payoutLabel = PAYOUT_CHOICES.find((p) => p.key === payout)?.label ?? "50%";
+  const name = tournamentDisplayName(t.id, meta);
+  const pool = poolOf(t);
+
+  const showView = phase !== "upcoming" || (t.entryMode === "single" && alreadyIn);
+
+  let thirdLabel: string;
+  let thirdValue: string;
+  if (phase === "upcoming") {
+    thirdLabel = "Starts in";
+    thirdValue = formatCountdown(Number(t.startTs), now);
+  } else if (phase === "live") {
+    thirdLabel = "Ends in";
+    thirdValue = formatCountdown(Number(t.endTs), now);
+  } else {
+    thirdLabel = "Status";
+    thirdValue = t.status === "finalized" ? "Paid out" : t.status === "cancelled" ? "Cancelled" : "Awaiting results";
+  }
+
+  const copyLink = async () => {
+    const url = `${WORKER_URL}/t/${t.id.toString()}`;
+    try {
+      const Clipboard = require("expo-clipboard");
+      await Clipboard.setStringAsync(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      Share.share({ message: url });
+    }
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.row1}>
+        <View style={styles.titleWrap}>
+          <ModeBadges tournament={t} />
+          <PayoutBadge label={payoutLabel} />
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {formatSolCompact(pool)} SOL {name}
+          </Text>
+          {meta?.visibility === "private" ? <FontAwesome6 name="lock" size={11} color={C.textSecondary} /> : null}
+        </View>
+        <TouchableRipple style={styles.infoButton} borderless onPress={onOpenInfo}>
+          <FontAwesome6 name="circle-info" size={17} color={C.textSecondary} />
+        </TouchableRipple>
+      </View>
+
+      <View style={styles.row2}>
+        <View style={styles.statsRow}>
+          <StatCell value={String(t.entryCount)} label="Players" />
+          <StatCell value={formatDuration(Number(t.endTs - t.startTs))} label="Duration" />
+          <StatCell value={thirdValue} label={thirdLabel} />
+        </View>
+        <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
+          <FontAwesome6 name={copied ? "check" : "link"} size={13} color={copied ? C.accent2 : C.textSecondary} />
+        </TouchableRipple>
+        <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
+          {showView ? (
+            <Text style={styles.ctaViewText}>View</Text>
+          ) : (
+            <View style={{ alignItems: "center" }}>
+              <Text style={styles.ctaAmount} numberOfLines={1}>
+                {formatSolCompact(t.entryFeeLamports)} SOL
+              </Text>
+              <Text style={styles.ctaLabel}>Entry</Text>
+            </View>
+          )}
+        </TouchableRipple>
+      </View>
+    </View>
   );
 }
 
@@ -203,19 +295,38 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.cardBorder,
-    padding: 16,
+    padding: 14,
+    gap: 12,
   },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
-  cardTitle: { color: C.textPrimary, fontWeight: "700", fontSize: 15, flexShrink: 1 },
-  entryChip: { backgroundColor: C.accent },
-  entryChipText: { color: C.accentTextOn, fontSize: 11, fontWeight: "700" },
-  viewChip: { backgroundColor: C.textPrimary },
-  viewChipText: { color: "#000000", fontSize: 11, fontWeight: "700" },
-  cardStats: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
-  statText: { color: C.textSecondary, fontSize: 12 },
-  statDot: { color: C.textSecondary },
-  statAccent: { color: C.accentText, fontWeight: "700" },
+  row1: { flexDirection: "row", alignItems: "center", gap: 8 },
+  titleWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  cardTitle: { color: C.textPrimary, fontWeight: "700", fontSize: 14, flexShrink: 1 },
+  infoButton: { padding: 4, borderRadius: 999 },
+  row2: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statsRow: { flex: 1, flexDirection: "row" },
+  statCell: { flex: 1, gap: 1 },
+  statValue: { color: C.textPrimary, fontWeight: "800", fontSize: 14 },
+  statLabel: { color: C.textSecondary, fontSize: 10 },
+  linkButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C.glass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaButton: {
+    minWidth: 84,
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: C.glassStrong,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaViewText: { color: C.textPrimary, fontWeight: "800", fontSize: 13 },
+  ctaAmount: { color: C.textPrimary, fontWeight: "800", fontSize: 12 },
+  ctaLabel: { color: C.textSecondary, fontSize: 9, marginTop: 1 },
   debugBox: {
     backgroundColor: C.errorTint,
     borderColor: C.error,

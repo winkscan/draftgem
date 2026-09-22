@@ -77,7 +77,12 @@ async function retry(fn) {
     tx.sign(authority);
     try {
       const sig = await retry(() => conn.sendRawTransaction(tx.serialize()));
-      await retry(() => conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed"));
+      for (let k = 0; k < 20; k++) {
+        await sleep(1500);
+        const { value } = await retry(() => conn.getSignatureStatuses([sig]));
+        if (value[0]?.err) throw new Error(JSON.stringify(value[0].err));
+        if (value[0]?.confirmationStatus === "confirmed" || value[0]?.confirmationStatus === "finalized") break;
+      }
       closed += ixs.length;
     } catch (e) {
       console.error(`batch at ${i} failed:`, String(e.message).slice(0, 200));

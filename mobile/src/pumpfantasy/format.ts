@@ -18,6 +18,24 @@ export function formatSol(lamports: number | bigint, decimals = 3): string {
   return lamportsToSol(lamports).toFixed(decimals);
 }
 
+/** SOL amount with just enough decimals to be readable, no trailing zeros — for card titles ("10 SOL", "0.05 SOL"). */
+export function formatSolCompact(lamports: number | bigint): string {
+  const sol = lamportsToSol(lamports);
+  if (sol === 0) return "0";
+  const decimals = sol >= 100 ? 0 : sol >= 1 ? 2 : sol >= 0.01 ? 3 : 6;
+  const s = sol.toFixed(decimals);
+  return s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
+}
+
+/** A round's length as a short label: "10m", "1h", "6h". */
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
+}
+
 export function bpsToPercentLabel(bps: number): string {
   const pct = bps / 100;
   const sign = pct > 0 ? "+" : "";
@@ -26,8 +44,10 @@ export function bpsToPercentLabel(bps: number): string {
 
 export function formatCountdown(targetUnixSeconds: number, nowUnixSeconds: number): string {
   const diff = Math.max(0, targetUnixSeconds - nowUnixSeconds);
-  const m = Math.floor(diff / 60);
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
   const s = diff % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
