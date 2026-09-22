@@ -125,12 +125,17 @@ fn mini_tournament_with(fee: u64, entry_mode: pumpfantasy::EntryMode) -> Mini {
             end_ts,
             entry_mode,
             guaranteed_amount_lamports: 0,
+            mint: Pubkey::default(),
         }
         .data(),
         pumpfantasy::accounts::CreateTournament {
             authority: authority.pubkey(),
             tournament,
             vault,
+            vault_token_account: vault,
+            mint_account: anchor_lang::solana_program::system_program::ID,
+            token_program: anchor_lang::solana_program::system_program::ID,
+            associated_token_program: anchor_lang::solana_program::system_program::ID,
             system_program: anchor_lang::solana_program::system_program::ID,
         }
         .to_account_metas(None),
@@ -162,6 +167,10 @@ impl Mini {
             player: player.pubkey(),
             tournament: self.tournament,
             vault: self.vault,
+            vault_token_account: self.vault,
+            player_token_account: player.pubkey(),
+            mint_account: anchor_lang::solana_program::system_program::ID,
+            token_program: anchor_lang::solana_program::system_program::ID,
             entry,
             instructions_sysvar: solana_sdk_ids::sysvar::instructions::ID,
             system_program: anchor_lang::solana_program::system_program::ID,
@@ -219,6 +228,10 @@ impl Mini {
                 cranker: self.authority.pubkey(),
                 tournament: self.tournament,
                 vault: self.vault,
+                vault_token_account: self.vault,
+                player_token_account: player,
+                mint_account: anchor_lang::solana_program::system_program::ID,
+                token_program: anchor_lang::solana_program::system_program::ID,
                 entry,
                 player,
                 system_program: anchor_lang::solana_program::system_program::ID,
@@ -235,6 +248,10 @@ impl Mini {
                 cranker: self.authority.pubkey(),
                 tournament: self.tournament,
                 vault: self.vault,
+                vault_token_account: self.vault,
+                player_token_account: player,
+                mint_account: anchor_lang::solana_program::system_program::ID,
+                token_program: anchor_lang::solana_program::system_program::ID,
                 entry,
                 player,
                 system_program: anchor_lang::solana_program::system_program::ID,
@@ -416,6 +433,11 @@ impl Mini {
                 authority: signer.pubkey(),
                 tournament: self.tournament,
                 vault: self.vault,
+                vault_token_account: self.vault,
+                authority_token_account: signer.pubkey(),
+                creator_token_account: creator,
+                mint_account: anchor_lang::solana_program::system_program::ID,
+                token_program: anchor_lang::solana_program::system_program::ID,
                 creator,
                 system_program: anchor_lang::solana_program::system_program::ID,
             }
@@ -577,6 +599,8 @@ impl Mini {
                 authority: self.authority.pubkey(),
                 tournament: self.tournament,
                 vault: self.vault,
+                vault_token_account: self.vault,
+                token_program: anchor_lang::solana_program::system_program::ID,
                 system_program: anchor_lang::solana_program::system_program::ID,
             }
             .to_account_metas(None),
@@ -793,4 +817,257 @@ fn test_tiered_prizes_uneven_and_ties() {
     // winners' entries can't be closed yet (they're settled + claimed, so they CAN close too).
     let close_c = t.close_entry_ix(entry_c, c.pubkey());
     send(&mut t.svm, &t.authority, vec![close_c]).expect("a non-winner's entry closes for its rent");
+}
+
+// ---------------------------------------------------------------------------
+// SPL-denominated tournaments (ORE/USDC-style): the whole flow — entry fee,
+// claim, and vault teardown — moving through a real SPL mint's ATAs instead
+// of lamports, exactly like ORE's 11-decimal devnet mint or USDC's 6.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_spl_tournament_full_lifecycle() {
+    let program_id = pumpfantasy::ID;
+    let mut svm = LiteSVM::new();
+    svm.add_program(program_id, program_bytes()).unwrap();
+
+    let authority = Keypair::new();
+    svm.airdrop(&authority.pubkey(), 10_000_000_000).unwrap();
+    let token_program = spl_token_interface::ID;
+    let ata_program = spl_associated_token_account_interface::program::ID;
+
+    // An 11-decimal mint, matching ORE's real devnet/mainnet mint.
+    let mint = litesvm_token::CreateMint::new(&mut svm, &authority).decimals(11).send().expect("create mint");
+
+    let now = svm.get_sysvar::<Clock>().unix_timestamp;
+    let tournament_id: u64 = 42;
+    let tournament = tournament_pda(&program_id, tournament_id);
+    let vault = vault_pda(&program_id, &tournament);
+    let vault_token_account = spl_associated_token_account_interface::address::get_associated_token_address_with_program_id(
+        &vault,
+        &mint,
+        &token_program,
+    );
+    let (start_ts, end_ts) = (now + 100, now + 200);
+    let entry_fee: u64 = 20_000_000_00000; // 20 ORE at 11 decimals, matching devnet smoke-test scale
+
+    let create_ix = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::CreateTournament {
+            id: tournament_id,
+            entry_fee_lamports: entry_fee,
+            start_ts,
+            end_ts,
+            entry_mode: pumpfantasy::EntryMode::Single,
+            guaranteed_amount_lamports: 0,
+            mint,
+        }
+        .data(),
+        pumpfantasy::accounts::CreateTournament {
+            authority: authority.pubkey(),
+            tournament,
+            vault,
+            vault_token_account,
+            mint_account: mint,
+            token_program,
+            associated_token_program: ata_program,
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![create_ix]).expect("create_tournament (SPL) failed");
+    assert!(svm.get_account(&vault_token_account).is_some(), "vault ATA was created");
+
+    // Two players, each funded with the mint and their own ATA.
+    let signer = load_attestation_signer();
+    let mints: Vec<Pubkey> = (0..5).map(|_| Pubkey::new_unique()).collect();
+    let make_player = |svm: &mut LiteSVM| -> (Keypair, Pubkey) {
+        let player = Keypair::new();
+        svm.airdrop(&player.pubkey(), 1_000_000_000).unwrap();
+        let ata = litesvm_token::CreateAssociatedTokenAccount::new(svm, &player, &mint)
+            .send()
+            .expect("create player ATA");
+        litesvm_token::MintTo::new(svm, &authority, &mint, &ata, entry_fee)
+            .send()
+            .expect("mint entry fee to player");
+        (player, ata)
+    };
+    let (player_a, ata_a) = make_player(&mut svm);
+    let (player_b, ata_b) = make_player(&mut svm);
+
+    let enter = |svm: &mut LiteSVM, player: &Keypair, player_ata: Pubkey| -> Pubkey {
+        let expiry = svm.get_sysvar::<Clock>().unix_timestamp + 60;
+        let picks: [Pubkey; PICKS_PER_ENTRY] = std::array::from_fn(|i| mints[i]);
+        let fp_costs = [100u32; PICKS_PER_ENTRY];
+        let ed = build_ed25519_instruction(&signer, &attestation_message(&picks, &fp_costs, expiry));
+        let entry = entry_pda(&program_id, &tournament, &player.pubkey(), 0);
+        let mut metas = pumpfantasy::accounts::EnterTournament {
+            player: player.pubkey(),
+            tournament,
+            vault,
+            vault_token_account,
+            player_token_account: player_ata,
+            mint_account: mint,
+            token_program,
+            entry,
+            instructions_sysvar: solana_sdk_ids::sysvar::instructions::ID,
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None);
+        for m in &picks {
+            metas.push(AccountMeta::new(asset_pda(&program_id, &tournament, m), false));
+        }
+        let ix = Instruction::new_with_bytes(
+            program_id,
+            &pumpfantasy::instruction::EnterTournament { entry_index: 0, picks, fp_costs, attestation_expiry: expiry }.data(),
+            metas,
+        );
+        send(svm, player, vec![ed, ix]).expect("SPL entry failed");
+        entry
+    };
+    let entry_a = enter(&mut svm, &player_a, ata_a);
+    let entry_b = enter(&mut svm, &player_b, ata_b);
+
+    let vault_amount = |svm: &LiteSVM| -> u64 { litesvm_token::get_spl_account::<spl_token_interface::state::Account>(svm, &vault_token_account).unwrap().amount };
+    assert_eq!(vault_amount(&svm), entry_fee * 2, "both entry fees landed in the vault ATA");
+
+    // Resolve: A picks lose, B picks win — same +10%-on-every-pick pattern the native tests use.
+    let mut clock = svm.get_sysvar::<Clock>();
+    clock.unix_timestamp = start_ts + 1;
+    svm.set_sysvar(&clock);
+    for m in &mints {
+        let ix = Instruction::new_with_bytes(
+            program_id,
+            &pumpfantasy::instruction::RegisterAssetPrice { mint: *m, start_price_micros: 1_000_000 }.data(),
+            pumpfantasy::accounts::RegisterAssetPrice { authority: authority.pubkey(), tournament, asset: asset_pda(&program_id, &tournament, m) }
+                .to_account_metas(None),
+        );
+        send(&mut svm, &authority, vec![ix]).expect("register price");
+    }
+    clock.unix_timestamp = end_ts + 1;
+    svm.set_sysvar(&clock);
+    for m in &mints {
+        let ix = Instruction::new_with_bytes(
+            program_id,
+            &pumpfantasy::instruction::SubmitResult { end_price_micros: 1_100_000 }.data(),
+            pumpfantasy::accounts::SubmitResult { authority: authority.pubkey(), tournament, asset: asset_pda(&program_id, &tournament, m) }
+                .to_account_metas(None),
+        );
+        send(&mut svm, &authority, vec![ix]).expect("submit result");
+    }
+    for entry in [entry_a, entry_b] {
+        let mut metas = pumpfantasy::accounts::SettleEntry { cranker: authority.pubkey(), tournament, entry }.to_account_metas(None);
+        for m in &mints {
+            metas.push(AccountMeta::new_readonly(asset_pda(&program_id, &tournament, m), false));
+        }
+        let ix = Instruction::new_with_bytes(program_id, &pumpfantasy::instruction::SettleEntry {}.data(), metas);
+        send(&mut svm, &authority, vec![ix]).expect("settle");
+    }
+    let finalize = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 1000, fee_bps: pumpfantasy::RAKE_BPS }.data(),
+        pumpfantasy::accounts::FinalizeTournament { authority: authority.pubkey(), tournament }.to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![finalize]).expect("finalize");
+
+    // Winner-takes-all: distributed_pool = pool * 95%.
+    let distributed = entry_fee * 2 * 95 / 100;
+    let set_prize = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::SetPrize { prize_lamports: distributed }.data(),
+        pumpfantasy::accounts::SetPrize { authority: authority.pubkey(), tournament, entry: entry_a }.to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![set_prize]).expect("set_prize");
+    let finish = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::FinishPrizes {}.data(),
+        pumpfantasy::accounts::FinishPrizes { authority: authority.pubkey(), tournament }.to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![finish]).expect("finish_prizes");
+
+    // Claim moves real SPL tokens from the vault ATA to the winner's ATA.
+    let claim = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::ClaimPrize {}.data(),
+        pumpfantasy::accounts::ClaimPrize {
+            cranker: authority.pubkey(),
+            tournament,
+            vault,
+            vault_token_account,
+            player_token_account: ata_a,
+            mint_account: mint,
+            token_program,
+            entry: entry_a,
+            player: player_a.pubkey(),
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![claim]).expect("SPL claim failed");
+    let winner_balance = litesvm_token::get_spl_account::<spl_token_interface::state::Account>(&svm, &ata_a).unwrap().amount;
+    assert_eq!(winner_balance, distributed, "winner received the full distributed pool in the SPL mint");
+
+    // Withdraw the platform's fee into its own ATA.
+    let authority_ata = litesvm_token::CreateAssociatedTokenAccount::new(&mut svm, &authority, &mint).send().expect("authority ATA");
+    let withdraw = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::WithdrawFees { creator_lamports: 0 }.data(),
+        pumpfantasy::accounts::WithdrawFees {
+            authority: authority.pubkey(),
+            tournament,
+            vault,
+            vault_token_account,
+            authority_token_account: authority_ata,
+            creator_token_account: authority_ata,
+            mint_account: mint,
+            token_program,
+            creator: authority.pubkey(),
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![withdraw]).expect("SPL withdraw_fees failed");
+    assert_eq!(vault_amount(&svm), 0, "the platform fee sweep drains the vault ATA completely (no lamport-rent reserve applies to a token amount)");
+
+    // Close out: entries, then the tournament + its vault ATA, rent fully reclaimed.
+    let close_a = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::CloseEntry {}.data(),
+        pumpfantasy::accounts::CloseEntry { cranker: authority.pubkey(), tournament, entry: entry_a, player: player_a.pubkey() }
+            .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![close_a]).expect("close entry A");
+    let close_b = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::CloseEntry {}.data(),
+        pumpfantasy::accounts::CloseEntry { cranker: authority.pubkey(), tournament, entry: entry_b, player: player_b.pubkey() }
+            .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![close_b]).expect("close entry B");
+    for m in &mints {
+        let ix = Instruction::new_with_bytes(
+            program_id,
+            &pumpfantasy::instruction::CloseAssetPrice {}.data(),
+            pumpfantasy::accounts::CloseAssetPrice { cranker: authority.pubkey(), tournament, asset: asset_pda(&program_id, &tournament, m), payer: player_a.pubkey() }
+                .to_account_metas(None),
+        );
+        send(&mut svm, &authority, vec![ix]).expect("close asset price");
+    }
+
+    let close_tournament = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::CloseTournament {}.data(),
+        pumpfantasy::accounts::CloseTournament {
+            authority: authority.pubkey(),
+            tournament,
+            vault,
+            vault_token_account,
+            token_program,
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![close_tournament]).expect("close_tournament (SPL) failed");
+    assert!(svm.get_account(&vault_token_account).is_none_or(|a| a.lamports == 0), "vault ATA is closed, rent reclaimed");
+    assert!(svm.get_account(&tournament).is_none_or(|a| a.lamports == 0), "tournament account is closed");
 }

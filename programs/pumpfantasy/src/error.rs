@@ -70,4 +70,12 @@ pub enum PumpFantasyError {
     PrizesAlreadyFinalized,
     #[msg("This would assign more than the tournament's distributable pool")]
     PrizeBudgetExceeded,
+    #[msg("Expected an initialized SPL token account owned by the token program")]
+    InvalidTokenAccount,
+    #[msg("Token account is for the wrong mint")]
+    TokenAccountMintMismatch,
+    #[msg("Token account has the wrong owner")]
+    TokenAccountOwnerMismatch,
+    #[msg("Wrong token or associated-token program supplied")]
+    WrongTokenProgram,
 }

@@ -51,6 +51,13 @@ pub struct Tournament {
     /// locked in. `claim_prize` and `close_entry` both require this — it is the line
     /// between "the authority is still writing the prize plan" and "money can move".
     pub prizes_finalized: bool,
+    /// Pubkey::default() = native SOL, the vault is a plain lamport-holding PDA exactly
+    /// as before. Any other value is an SPL mint: the vault's SPL token account (a
+    /// canonical ATA owned by the `vault` PDA) holds the pool instead, and every
+    /// `_lamports`-named amount field on this account/its entries is really "smallest
+    /// units of this mint" — kept as `_lamports` in the field name so no existing byte
+    /// offset or client decoder shifts.
+    pub mint: Pubkey,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]

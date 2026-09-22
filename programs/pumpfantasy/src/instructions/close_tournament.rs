@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::*, error::PumpFantasyError, state::*};
+use crate::{constants::*, currency, error::PumpFantasyError, state::*};
 
 #[derive(Accounts)]
 pub struct CloseTournament<'info> {
@@ -24,6 +24,15 @@ pub struct CloseTournament<'info> {
         bump = tournament.vault_bump,
     )]
     pub vault: SystemAccount<'info>,
+
+    /// The vault's SPL token account — only used (closed, rent reclaimed to `authority`) for
+    /// an SPL tournament. Pass any account as a placeholder for native SOL.
+    /// CHECK: unpacked and validated in the handler when used.
+    #[account(mut)]
+    pub vault_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: must equal the SPL Token program for an SPL tournament; unused for native SOL.
+    pub token_program: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -81,6 +90,26 @@ pub fn handle_close_tournament(ctx: Context<CloseTournament>) -> Result<()> {
             &signer_seeds,
         );
         anchor_lang::system_program::transfer(cpi_ctx, vault_lamports)?;
+    }
+
+    // An SPL tournament's pool lives in vault_token_account instead — same "nothing but dust
+    // left" requirement, then close it and hand its own rent back to the authority too.
+    if !currency::is_native(&tournament.mint) {
+        let token_amount = currency::unpack_token_account(&ctx.accounts.vault_token_account.to_account_info())?.amount;
+        require!(
+            token_amount <= tournament.winners_count as u64,
+            PumpFantasyError::TournamentNotClosable
+        );
+        let tournament_key = tournament.key();
+        let vault_seeds: &[&[u8]] = &[VAULT_SEED, tournament_key.as_ref(), &[tournament.vault_bump]];
+        let signer_seeds: &[&[&[u8]]] = &[vault_seeds];
+        currency::close_token_account(
+            &ctx.accounts.token_program.to_account_info(),
+            &ctx.accounts.vault_token_account.to_account_info(),
+            &ctx.accounts.authority.to_account_info(),
+            &ctx.accounts.vault.to_account_info(),
+            signer_seeds,
+        )?;
     }
     Ok(())
 }

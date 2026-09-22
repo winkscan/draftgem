@@ -1,4 +1,5 @@
 pub mod constants;
+pub mod currency;
 pub mod error;
 pub mod instructions;
 pub mod state;
@@ -15,6 +16,7 @@ declare_id!("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu");
 pub mod pumpfantasy {
     use super::*;
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_tournament(
         ctx: Context<CreateTournament>,
         id: u64,
@@ -23,6 +25,7 @@ pub mod pumpfantasy {
         end_ts: i64,
         entry_mode: EntryMode,
         guaranteed_amount_lamports: u64,
+        mint: Pubkey,
     ) -> Result<()> {
         instructions::create_tournament::handle_create_tournament(
             ctx,
@@ -32,6 +35,7 @@ pub mod pumpfantasy {
             end_ts,
             entry_mode,
             guaranteed_amount_lamports,
+            mint,
         )
     }
 

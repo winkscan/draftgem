@@ -9,7 +9,7 @@ use solana_sdk_ids::ed25519_program;
 use anchor_lang::system_program::{allocate, assign, create_account, transfer, Allocate, Assign, CreateAccount, Transfer};
 use anchor_lang::Discriminator;
 
-use crate::{constants::*, error::PumpFantasyError, state::*};
+use crate::{constants::*, currency, error::PumpFantasyError, state::*};
 
 // Same native Ed25519Program instruction layout SwapKings' join_guild.rs
 // already confirmed live (both @solana/web3.js's Ed25519Program helper and
@@ -92,6 +92,25 @@ pub struct EnterTournament<'info> {
         bump = tournament.vault_bump,
     )]
     pub vault: SystemAccount<'info>,
+
+    /// The vault's SPL token account — only used (and required to actually be it) when
+    /// `tournament.mint` isn't native SOL. Pass any account as a placeholder otherwise.
+    /// CHECK: unpacked and checked against `tournament.mint`/`vault` in the handler when used.
+    #[account(mut)]
+    pub vault_token_account: UncheckedAccount<'info>,
+
+    /// The player's own token account for `tournament.mint`, source of the entry fee.
+    /// Only used for an SPL tournament — the player is responsible for it already existing
+    /// (e.g. their ATA, created client-side in the same transaction if needed).
+    /// CHECK: unpacked and checked (mint + owner == player) in the handler when used.
+    #[account(mut)]
+    pub player_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: only read (for `decimals`) when `tournament.mint` isn't native SOL.
+    pub mint_account: UncheckedAccount<'info>,
+
+    /// CHECK: must equal the SPL Token program for an SPL tournament; unused for native SOL.
+    pub token_program: UncheckedAccount<'info>,
 
     #[account(
         init,
@@ -236,13 +255,33 @@ pub fn handle_enter_tournament<'info>(
         created_assets += 1;
     }
 
-    // Move the entry fee into the PDA-owned vault.
-    let cpi_accounts = anchor_lang::system_program::Transfer {
-        from: ctx.accounts.player.to_account_info(),
-        to: ctx.accounts.vault.to_account_info(),
-    };
-    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
-    anchor_lang::system_program::transfer(cpi_ctx, tournament.entry_fee_lamports)?;
+    // Move the entry fee into the PDA-owned vault — native SOL straight to the vault PDA, or
+    // (for an SPL tournament) a checked token transfer into its ATA.
+    if currency::is_native(&tournament.mint) {
+        let cpi_accounts = anchor_lang::system_program::Transfer {
+            from: ctx.accounts.player.to_account_info(),
+            to: ctx.accounts.vault.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+        anchor_lang::system_program::transfer(cpi_ctx, tournament.entry_fee_lamports)?;
+    } else {
+        currency::require_token_account(
+            &ctx.accounts.player_token_account.to_account_info(),
+            &tournament.mint,
+            &ctx.accounts.player.key(),
+        )?;
+        let mint_state = currency::unpack_mint(&ctx.accounts.mint_account.to_account_info())?;
+        currency::transfer_checked(
+            &ctx.accounts.token_program.to_account_info(),
+            &ctx.accounts.player_token_account.to_account_info(),
+            &ctx.accounts.mint_account.to_account_info(),
+            &ctx.accounts.vault_token_account.to_account_info(),
+            &ctx.accounts.player.to_account_info(),
+            tournament.entry_fee_lamports,
+            mint_state.decimals,
+            None,
+        )?;
+    }
 
     let entry = &mut ctx.accounts.entry;
     entry.tournament = tournament.key();

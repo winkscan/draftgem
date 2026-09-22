@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::*, error::PumpFantasyError, state::*};
+use crate::{constants::*, currency, error::PumpFantasyError, state::*};
 
 #[derive(Accounts)]
 pub struct WithdrawFees<'info> {
@@ -22,6 +22,27 @@ pub struct WithdrawFees<'info> {
         bump = tournament.vault_bump,
     )]
     pub vault: SystemAccount<'info>,
+
+    /// The vault's SPL token account — only used for an SPL tournament (pass any account
+    /// otherwise). CHECK: unpacked and validated in the handler when used.
+    #[account(mut)]
+    pub vault_token_account: UncheckedAccount<'info>,
+
+    /// The authority's own token account for `tournament.mint` — only used for an SPL
+    /// tournament. CHECK: unpacked and validated in the handler when used.
+    #[account(mut)]
+    pub authority_token_account: UncheckedAccount<'info>,
+
+    /// The creator's own token account for `tournament.mint` — only used for an SPL
+    /// tournament. CHECK: unpacked and validated in the handler when used.
+    #[account(mut)]
+    pub creator_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: only read (for `decimals`) for an SPL tournament.
+    pub mint_account: UncheckedAccount<'info>,
+
+    /// CHECK: must equal the SPL Token program for an SPL tournament; unused for native SOL.
+    pub token_program: UncheckedAccount<'info>,
 
     /// Receives the creator's share (the tournament's creator; may be the same
     /// account as `authority` when `creator_lamports` is 0).
@@ -55,7 +76,10 @@ pub fn handle_withdraw_fees(ctx: Context<WithdrawFees>, creator_lamports: u64) -
 
     let pool = tournament.prize_pool_lamports;
     let total_fees = pool.saturating_sub(tournament.distributed_pool_lamports);
-    let rent_minimum = Rent::get()?.minimum_balance(0);
+    // The "leave one rent-exempt minimum behind" reserve is a native-SOL concept (the vault
+    // PDA's own lamport balance) — an SPL vault's token *amount* has nothing to do with its
+    // account's rent, which is tracked separately in lamports, so the full fee is spendable.
+    let rent_minimum = if currency::is_native(&tournament.mint) { Rent::get()?.minimum_balance(0) } else { 0 };
     let spendable = total_fees.saturating_sub(rent_minimum);
     require!(spendable > 0, PumpFantasyError::NothingToWithdraw);
 
@@ -69,24 +93,45 @@ pub fn handle_withdraw_fees(ctx: Context<WithdrawFees>, creator_lamports: u64) -
 
     let tournament_key = tournament.key();
     let vault_seeds: &[&[u8]] = &[VAULT_SEED, tournament_key.as_ref(), &[tournament.vault_bump]];
-    let signer_seeds = [vault_seeds];
 
-    for (to, lamports) in [
-        (ctx.accounts.creator.to_account_info(), creator_lamports),
-        (ctx.accounts.authority.to_account_info(), platform_lamports),
-    ] {
-        if lamports == 0 {
-            continue;
+    if currency::is_native(&tournament.mint) {
+        let signer_seeds = [vault_seeds];
+        for (to, lamports) in [
+            (ctx.accounts.creator.to_account_info(), creator_lamports),
+            (ctx.accounts.authority.to_account_info(), platform_lamports),
+        ] {
+            if lamports == 0 {
+                continue;
+            }
+            let cpi_ctx = CpiContext::new_with_signer(
+                anchor_lang::system_program::ID,
+                anchor_lang::system_program::Transfer { from: ctx.accounts.vault.to_account_info(), to },
+                &signer_seeds,
+            );
+            anchor_lang::system_program::transfer(cpi_ctx, lamports)?;
         }
-        let cpi_ctx = CpiContext::new_with_signer(
-            anchor_lang::system_program::ID,
-            anchor_lang::system_program::Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to,
-            },
-            &signer_seeds,
-        );
-        anchor_lang::system_program::transfer(cpi_ctx, lamports)?;
+    } else {
+        let mint_state = currency::unpack_mint(&ctx.accounts.mint_account.to_account_info())?;
+        let signer_seeds: &[&[&[u8]]] = &[vault_seeds];
+        for (to, dest_owner, amount) in [
+            (ctx.accounts.creator_token_account.to_account_info(), ctx.accounts.creator.key(), creator_lamports),
+            (ctx.accounts.authority_token_account.to_account_info(), ctx.accounts.authority.key(), platform_lamports),
+        ] {
+            if amount == 0 {
+                continue;
+            }
+            currency::require_token_account(&to, &tournament.mint, &dest_owner)?;
+            currency::transfer_checked(
+                &ctx.accounts.token_program.to_account_info(),
+                &ctx.accounts.vault_token_account.to_account_info(),
+                &ctx.accounts.mint_account.to_account_info(),
+                &to,
+                &ctx.accounts.vault.to_account_info(),
+                amount,
+                mint_state.decimals,
+                Some(signer_seeds),
+            )?;
+        }
     }
 
     tournament.prize_pool_lamports = pool - spendable;
