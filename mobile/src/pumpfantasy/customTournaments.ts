@@ -3,6 +3,7 @@ import type { Connection } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
 import { WORKER_URL } from "./config";
 import type { SignAndSend } from "./actions";
+import type { Currency } from "./currency";
 
 // Player-made tournaments ("+" screen). The worker owns the details — see
 // worker/src/customTournaments.ts. In short: the player pays a small fee in ONE
@@ -26,6 +27,7 @@ export interface CreateParams {
   name: string;
   visibility: Visibility;
   payout: PayoutChoice;
+  currency: Currency;
   entryFeeLamports: number;
   entryMode: EntryModeChoice;
   startInSec: number;
@@ -36,6 +38,7 @@ export interface CreateInfo {
   feeLamports: number;
   treasury: string;
   available: boolean;
+  currencies: Record<Currency, { mint: string | null; decimals: number; minFee: number; maxFee: number }>;
 }
 
 export interface CreatedTournament {
@@ -52,6 +55,7 @@ export interface TournamentMeta {
   payout: PayoutChoice;
   /** The creator's extra cut of the pool, in bps (500 = 5%); 0 for tournaments made before creators could earn it. */
   creatorFeeBps: number;
+  currency: Currency;
   creator: string;
 }
 
@@ -78,6 +82,7 @@ export function createTournamentMessage(p: CreateParams & { ts: number; creator:
     `name=${p.name}`,
     `visibility=${p.visibility}`,
     `payout=${p.payout}`,
+    `currency=${p.currency}`,
     `fee=${p.entryFeeLamports}`,
     `mode=${p.entryMode}`,
     `start=${p.startInSec}`,

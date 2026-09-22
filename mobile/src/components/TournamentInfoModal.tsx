@@ -12,7 +12,8 @@ import { slotsFor } from "../pumpfantasy/liveScore";
 import { PAYOUT_CHOICES, type PayoutChoice, type TournamentMeta } from "../pumpfantasy/customTournaments";
 import { poolOf } from "../pumpfantasy/tournamentFilters";
 import { tournamentDisplayName } from "../pumpfantasy/tournamentNames";
-import { ellipsify, formatSol, formatSolCompact } from "../pumpfantasy/format";
+import { ellipsify } from "../pumpfantasy/format";
+import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { RAKE_BPS, WORKER_URL } from "../pumpfantasy/config";
 import { TokenIcon } from "./TokenIcon";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
@@ -97,7 +98,9 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
                 <Text style={styles.title} numberOfLines={1}>
                   {name}
                 </Text>
-                <Text style={styles.subtitle}>Prize pool: {formatSolCompact(pool)} SOL</Text>
+                <Text style={styles.subtitle}>
+                  Prize pool: {formatAmountCompact(pool, t ? decimalsForMint(t.mint) : 9)} {t ? currencyForMint(t.mint) : "SOL"}
+                </Text>
               </View>
               <View style={styles.headerActions}>
                 <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
@@ -268,7 +271,9 @@ function PrizesTab({
       renderItem={({ item }) => (
         <View style={styles.playerRow}>
           <FontAwesome6 name="trophy" size={12} color={C.textSecondary} />
-          <Text style={styles.playerAddress}>{formatSol(item.amount, 4)} SOL</Text>
+          <Text style={styles.playerAddress}>
+            {formatAmountCompact(item.amount, decimalsForMint(tournament.mint))} {currencyForMint(tournament.mint)}
+          </Text>
           <Text style={styles.playerIndex}>#{item.rank}</Text>
         </View>
       )}

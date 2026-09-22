@@ -11,6 +11,7 @@ import { tournamentPda, vaultPda, entryPda, assetPda } from "./pdas";
 import { PROGRAM_ID } from "./config";
 import { BinaryWriter } from "./binary";
 import type { Attestation } from "./attestation";
+import { TOKEN_PROGRAM_ID, createAtaIdempotentIx, getAssociatedTokenAddress, isNativeMint } from "./currency";
 
 export interface SignAndSend {
   (transaction: Transaction, minContextSlot: number): Promise<string>;
@@ -42,10 +43,16 @@ export async function enterTournament(
   tournamentId: bigint | number,
   attestation: Attestation,
   entryIndex: number,
+  mint: PublicKey = PublicKey.default,
 ): Promise<string> {
   const [tournament] = tournamentPda(tournamentId);
   const [vault] = vaultPda(tournament);
   const [entry] = entryPda(tournament, player, entryIndex);
+  const native = isNativeMint(mint);
+  const vaultTokenAccount = native ? vault : getAssociatedTokenAddress(vault, mint);
+  const playerTokenAccount = native ? player : getAssociatedTokenAddress(player, mint);
+  const mintAccount = native ? vault : mint;
+  const tokenProgram = native ? SystemProgram.programId : TOKEN_PROGRAM_ID;
 
   const ed25519Ix = Ed25519Program.createInstructionWithPublicKey({
     publicKey: Uint8Array.from(attestation.publicKey),
@@ -66,6 +73,10 @@ export async function enterTournament(
       { pubkey: player, isSigner: true, isWritable: true },
       { pubkey: tournament, isSigner: false, isWritable: true },
       { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: playerTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: mintAccount, isSigner: false, isWritable: false },
+      { pubkey: tokenProgram, isSigner: false, isWritable: false },
       { pubkey: entry, isSigner: false, isWritable: true },
       { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
@@ -83,6 +94,9 @@ export async function enterTournament(
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
   const minContextSlot = await connection.getSlot("confirmed");
 
-  const tx = new Transaction({ feePayer: player, blockhash, lastValidBlockHeight }).add(ed25519Ix, enterIx);
+  // For an SPL-denominated tournament, make sure the player's own ATA exists first (they pay
+  // its tiny rent themselves, in the same approval — same as any normal token deposit flow).
+  const ixs = native ? [ed25519Ix, enterIx] : [createAtaIdempotentIx(player, player, mint), ed25519Ix, enterIx];
+  const tx = new Transaction({ feePayer: player, blockhash, lastValidBlockHeight }).add(...ixs);
   return signAndSendTransaction(tx, minContextSlot);
 }

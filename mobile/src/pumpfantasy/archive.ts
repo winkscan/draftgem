@@ -14,6 +14,8 @@ export interface ArchivedTournament {
   id: string;
   status: "finalized" | "cancelled";
   authority: string;
+  /** Absent on archives from before multi-currency support (= native SOL). */
+  mint?: string;
   entryFeeLamports: string;
   startTs: number;
   endTs: number;
@@ -100,6 +102,7 @@ export function toTournamentAccount(a: ArchivedTournament): TournamentAccount {
     // Archived = fully wound down already, so the prize plan was necessarily locked in and fully spent.
     prizesAssignedLamports: BigInt(a.distributedPoolLamports),
     prizesFinalized: true,
+    mint: a.mint ? new PublicKey(a.mint) : PublicKey.default,
   };
 }
 

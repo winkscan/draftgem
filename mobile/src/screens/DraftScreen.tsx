@@ -13,7 +13,7 @@ import { fetchAttestation } from "../pumpfantasy/attestation";
 import { enterTournament } from "../pumpfantasy/actions";
 import { tournamentPda } from "../pumpfantasy/pdas";
 import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
-import { formatSol } from "../pumpfantasy/format";
+import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { useTournamentMeta } from "../pumpfantasy/customTournaments";
 import { TokenIcon } from "../components/TokenIcon";
 import { ModeBadges } from "../components/ModeBadge";
@@ -116,7 +116,7 @@ export function DraftScreen() {
       }
       const attestation = await fetchAttestation(picked.map((p) => p.mint));
       const entryIndex = isMultiple ? myEntries?.length ?? 0 : 0;
-      await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex);
+      await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex, tournament?.mint);
       setPicked([]); // clear the drafted picks so Multiple mode can start the next entry right away
       await queryClient.invalidateQueries({ queryKey: ["entry"] });
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
@@ -142,7 +142,7 @@ export function DraftScreen() {
         <ModeBadges tournament={tournament} />
         {tournament.guaranteedAmountLamports > 0n ? (
           <Text style={styles.guaranteedText}>
-            {formatSol(tournament.guaranteedAmountLamports, 2)} SOL guaranteed
+            {formatAmountCompact(tournament.guaranteedAmountLamports, decimalsForMint(tournament.mint))} {currencyForMint(tournament.mint)} guaranteed
           </Text>
         ) : null}
       </View>
@@ -328,7 +328,7 @@ export function DraftScreen() {
                     ? "Duel Full"
                     : "Entries Closed"
                   : selectedAccount
-                    ? `Enter for ${formatSol(tournament.entryFeeLamports, 2)} SOL`
+                    ? `Enter for ${formatAmountCompact(tournament.entryFeeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
                     : "Connect & Enter"}
             </Button>
           </View>

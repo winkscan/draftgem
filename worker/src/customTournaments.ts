@@ -3,6 +3,7 @@ import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
 import { HISTORY_WINDOW_SECONDS, TICK_MS, loadAuthority } from "./syncPrices";
 import type { Payout } from "./settlement";
+import { CURRENCIES, type Currency } from "./currency";
 
 // Tournaments created by players from the app's "+" screen, alongside the ones
 // the cron keeps creating on its own.
@@ -34,6 +35,8 @@ export interface CustomMeta {
   payout?: Payout;
   /** Extra cut of the pool paid to the creator (CREATOR_FEE_BPS); absent on tournaments made before the contract could pay it. */
   creatorFeeBps?: number;
+  /** Entry-fee currency; absent on tournaments made before this existed (= SOL). */
+  currency?: Currency;
   creator: string;
   startTs: number;
   endTs: number;
@@ -44,6 +47,7 @@ export interface CreateRequest {
   name: string;
   visibility: Visibility;
   payout: Payout;
+  currency: Currency;
   entryFeeLamports: number;
   entryMode: "single" | "multiple";
   startInSec: number;
@@ -52,10 +56,21 @@ export interface CreateRequest {
   signature: string; // signature of the payment transaction (base58)
 }
 
-/** What it costs a player to create a tournament. The app reads it from /create-info, so changing it needs no app release. */
+/**
+ * What it costs a player to create a tournament — always paid in SOL (the memo+transfer
+ * verification below), regardless of what currency the tournament itself will run in.
+ * The app reads it from /create-info, so changing it needs no app release.
+ */
 export const CREATE_FEE_LAMPORTS = 5_000_000; // 0.005 SOL
 export const MIN_FEE_LAMPORTS = 1_000_000; // 0.001 SOL (entry fee)
 export const MAX_FEE_LAMPORTS = 5_000_000_000; // 5 SOL (entry fee)
+// Per-currency entry-fee bounds — same "0.001 to 5 of the unit" shape as SOL's, scaled to
+// each mint's own decimals (ORE 11, USDC 6) rather than SOL's 9.
+const ENTRY_FEE_RANGE: Record<Currency, { min: number; max: number }> = {
+  SOL: { min: MIN_FEE_LAMPORTS, max: MAX_FEE_LAMPORTS },
+  ORE: { min: 100_00000000, max: 500_000_00000000 }, // 0.001 – 5,000 ORE
+  USDC: { min: 1_000, max: 5_000_000_000 }, // 0.001 – 5,000 USDC
+};
 // Entry window / round lengths on offer. The longest total (12h) must stay well inside
 // tournamentState.ts's 24h flag retention, or a long tournament would lose its progress flags.
 export const ALLOWED_SECONDS = [600, 1800, 3600, 10800, 21600];
@@ -78,6 +93,7 @@ export function createMessage(p: Omit<CreateRequest, "signature">): string {
     `name=${p.name}`,
     `visibility=${p.visibility}`,
     `payout=${p.payout}`,
+    `currency=${p.currency}`,
     `fee=${p.entryFeeLamports}`,
     `mode=${p.entryMode}`,
     `start=${p.startInSec}`,
@@ -108,14 +124,12 @@ export function validateCreateRequest(body: unknown, nowSec: number): { error: s
   }
   if (b.visibility !== "public" && b.visibility !== "private") return { error: "visibility must be public or private" };
   if (!PAYOUTS.includes(b.payout as Payout)) return { error: "Unsupported prize structure" };
+  if (b.currency !== "SOL" && b.currency !== "ORE" && b.currency !== "USDC") return { error: "Unsupported currency" };
   if (b.entryMode !== "single" && b.entryMode !== "multiple") return { error: "entryMode must be single or multiple" };
   if (b.payout === "pvp" && b.entryMode !== "single") return { error: "A PvP duel must be single entry" };
-  if (
-    !Number.isInteger(b.entryFeeLamports) ||
-    (b.entryFeeLamports as number) < MIN_FEE_LAMPORTS ||
-    (b.entryFeeLamports as number) > MAX_FEE_LAMPORTS
-  ) {
-    return { error: "Entry fee must be between 0.001 and 5 SOL" };
+  const feeRange = ENTRY_FEE_RANGE[b.currency as Currency];
+  if (!Number.isInteger(b.entryFeeLamports) || (b.entryFeeLamports as number) < feeRange.min || (b.entryFeeLamports as number) > feeRange.max) {
+    return { error: `Entry fee out of range for ${b.currency}` };
   }
   if (!ALLOWED_SECONDS.includes(b.startInSec as number)) return { error: "Unsupported entry window" };
   if (!ALLOWED_SECONDS.includes(b.durationSec as number)) return { error: "Unsupported duration" };
@@ -173,11 +187,18 @@ async function loadIndex(env: Env): Promise<CustomMeta[]> {
 }
 
 /** Everything the app needs to label and hide tournaments: id -> {name, visibility, creator}. */
-type PublicMeta = Pick<CustomMeta, "name" | "visibility" | "creator"> & { payout: Payout; creatorFeeBps: number };
+type PublicMeta = Pick<CustomMeta, "name" | "visibility" | "creator"> & { payout: Payout; creatorFeeBps: number; currency: Currency };
 export async function getMetaMap(env: Env): Promise<Record<string, PublicMeta>> {
   const out: Record<string, PublicMeta> = {};
   for (const m of await loadIndex(env)) {
-    out[m.id] = { name: m.name, visibility: m.visibility, creator: m.creator, payout: m.payout ?? "p50", creatorFeeBps: m.creatorFeeBps ?? 0 };
+    out[m.id] = {
+      name: m.name,
+      visibility: m.visibility,
+      creator: m.creator,
+      payout: m.payout ?? "p50",
+      creatorFeeBps: m.creatorFeeBps ?? 0,
+      currency: m.currency ?? "SOL",
+    };
   }
   return out;
 }
@@ -200,11 +221,23 @@ export async function getSettlementInfo(env: Env): Promise<Record<string, Settle
   return out;
 }
 
-/** What the "+" screen needs before it builds the payment. */
-export async function getCreateInfo(env: Env): Promise<{ feeLamports: number; treasury: string; available: boolean }> {
+/** What the "+" screen needs before it builds the payment: the (always-SOL) creation fee,
+ * plus each entry-fee currency's mint/decimals/bounds so the app never has to hardcode them. */
+export async function getCreateInfo(env: Env): Promise<{
+  feeLamports: number;
+  treasury: string;
+  available: boolean;
+  currencies: Record<Currency, { mint: string | null; decimals: number; minFee: number; maxFee: number }>;
+}> {
   const now = Math.floor(Date.now() / 1000);
   const active = (await loadIndex(env)).filter((m) => m.endTs > now).length;
-  return { feeLamports: CREATE_FEE_LAMPORTS, treasury: treasuryAddress(env), available: active < MAX_ACTIVE_CUSTOM };
+  const currencies = Object.fromEntries(
+    (Object.keys(CURRENCIES) as Currency[]).map((c) => [
+      c,
+      { mint: CURRENCIES[c].mint?.toBase58() ?? null, decimals: CURRENCIES[c].decimals, minFee: ENTRY_FEE_RANGE[c].min, maxFee: ENTRY_FEE_RANGE[c].max },
+    ]),
+  ) as Record<Currency, { mint: string | null; decimals: number; minFee: number; maxFee: number }>;
+  return { feeLamports: CREATE_FEE_LAMPORTS, treasury: treasuryAddress(env), available: active < MAX_ACTIVE_CUSTOM, currencies };
 }
 
 /** Ids of custom tournaments the maintenance pass should look at: started, not yet fully settled, inside the work window. */
@@ -218,6 +251,7 @@ export async function activeCustomIds(env: Env, states: TournamentStates): Promi
 export interface CreateOnChain {
   (params: {
     id: bigint;
+    currency: Currency;
     entryFeeLamports: number;
     startTs: number;
     endTs: number;
@@ -272,6 +306,7 @@ export async function handleCreateCustom(
   try {
     await createOnChain({
       id,
+      currency: req.currency,
       entryFeeLamports: req.entryFeeLamports,
       startTs,
       endTs,
@@ -289,6 +324,7 @@ export async function handleCreateCustom(
     visibility: req.visibility,
     payout: req.payout,
     creatorFeeBps: CREATOR_FEE_BPS,
+    currency: req.currency,
     creator: req.creator,
     startTs,
     endTs,

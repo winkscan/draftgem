@@ -8,7 +8,8 @@ import type { PublicKey } from "@solana/web3.js";
 import { useTournaments, useMyEnteredTournaments, type TournamentAccount } from "../pumpfantasy/hooks";
 import { useTournamentMeta, PAYOUT_CHOICES, type TournamentMeta } from "../pumpfantasy/customTournaments";
 import { useAuthorization } from "../utils/useAuthorization";
-import { formatSolCompact, formatDuration, formatCountdown } from "../pumpfantasy/format";
+import { formatDuration, formatCountdown } from "../pumpfantasy/format";
+import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { payoutStructureOf, poolOf } from "../pumpfantasy/tournamentFilters";
@@ -159,7 +160,11 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
         row={infoRow}
         meta={infoMeta}
         onClose={() => setInfoRow(null)}
-        ctaLabel={infoShowView ? "View" : `Enter · ${infoRow ? formatSolCompact(infoRow.account.entryFeeLamports) : ""} SOL`}
+        ctaLabel={
+          infoShowView
+            ? "View"
+            : `Enter · ${infoRow ? formatAmountCompact(infoRow.account.entryFeeLamports, decimalsForMint(infoRow.account.mint)) : ""} ${infoRow ? currencyForMint(infoRow.account.mint) : "SOL"}`
+        }
         onPressCta={() => {
           if (infoRow) goTo(infoRow.account);
           setInfoRow(null);
@@ -206,6 +211,8 @@ function TournamentCard({
   const payoutLabel = PAYOUT_CHOICES.find((p) => p.key === payout)?.label ?? "50%";
   const name = tournamentDisplayName(t.id, meta);
   const pool = poolOf(t);
+  const currency = currencyForMint(t.mint);
+  const decimals = decimalsForMint(t.mint);
 
   const showView = phase !== "upcoming" || (t.entryMode === "single" && alreadyIn);
 
@@ -245,7 +252,7 @@ function TournamentCard({
             <ModeBadges tournament={t} />
             <PayoutBadge label={payoutLabel} />
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {formatSolCompact(pool)} SOL {name}
+              {formatAmountCompact(pool, decimals)} {currency} {name}
             </Text>
             {meta?.visibility === "private" ? <FontAwesome6 name="lock" size={11} color={C.textSecondary} /> : null}
           </View>
@@ -265,7 +272,7 @@ function TournamentCard({
           </TouchableRipple>
           <View style={styles.ctaButton}>
             <Text style={styles.ctaViewText} numberOfLines={1}>
-              {showView ? "View" : `${formatSolCompact(t.entryFeeLamports)} SOL`}
+              {showView ? "View" : `${formatAmountCompact(t.entryFeeLamports, decimals)} ${currency}`}
             </Text>
           </View>
         </View>

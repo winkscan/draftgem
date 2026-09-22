@@ -34,6 +34,8 @@ export interface TournamentAccount {
   prizesAssignedLamports: bigint;
   /** Set once by finish_prizes; claim_prize and close_entry both require it. */
   prizesFinalized: boolean;
+  /** PublicKey.default() = native SOL; any other value is the SPL mint this tournament runs in. */
+  mint: PublicKey;
 }
 
 // Mirrors Tournament in programs/pumpfantasy/src/state.rs, field for field.
@@ -59,6 +61,7 @@ export function decodeTournament(data: Buffer): TournamentAccount {
     bump: r.readU8(),
     prizesAssignedLamports: r.readU64(),
     prizesFinalized: r.readBool(),
+    mint: r.readPubkey(),
   };
 }
 

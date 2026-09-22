@@ -10,7 +10,6 @@ import { useMobileWallet } from "../utils/useMobileWallet";
 import { useConnection } from "../utils/ConnectionProvider";
 import { formatSol } from "../pumpfantasy/format";
 import {
-  ENTRY_FEE_PRESETS_SOL,
   MAX_ENTRY_FEE_SOL,
   MIN_ENTRY_FEE_SOL,
   NAME_MAX,
@@ -27,8 +26,15 @@ import {
   type PayoutChoice,
   type Visibility,
 } from "../pumpfantasy/customTournaments";
+import { formatAmount, parseAmount, type Currency } from "../pumpfantasy/currency";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
+
+const CURRENCY_PRESETS: Record<Currency, string[]> = {
+  SOL: ["0.01", "0.05", "0.1", "0.5", "1"],
+  ORE: ["5", "10", "25", "50", "100"],
+  USDC: ["1", "5", "10", "25", "50"],
+};
 
 function hasControlChars(s: string): boolean {
   for (const ch of s) {
@@ -55,6 +61,7 @@ export function CreateTournamentScreen() {
 
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [payout, setPayout] = useState<PayoutChoice>("p50");
+  const [currency, setCurrency] = useState<Currency>("SOL");
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
   const [feeText, setFeeText] = useState("0.01");
@@ -70,8 +77,17 @@ export function CreateTournamentScreen() {
   const [paid, setPaid] = useState<{ signature: string; ts: number; params: CreateParams } | null>(null);
   const [created, setCreated] = useState<{ result: CreatedTournament; name: string; visibility: Visibility } | null>(null);
 
-  const feeSol = Number(feeText.replace(",", "."));
-  const feeValid = Number.isFinite(feeSol) && feeSol >= MIN_ENTRY_FEE_SOL && feeSol <= MAX_ENTRY_FEE_SOL;
+  const currencyInfo = info?.currencies[currency];
+  const decimals = currencyInfo?.decimals ?? 9;
+  const feeAmount = Number(feeText.replace(",", "."));
+  const entryFeeBaseUnits = parseAmount(feeText, decimals);
+  const feeValid =
+    Number.isFinite(feeAmount) &&
+    entryFeeBaseUnits > 0 &&
+    (currencyInfo ? entryFeeBaseUnits >= currencyInfo.minFee && entryFeeBaseUnits <= currencyInfo.maxFee : feeAmount >= MIN_ENTRY_FEE_SOL && feeAmount <= MAX_ENTRY_FEE_SOL);
+  const feeRangeLabel = currencyInfo
+    ? `${formatAmount(BigInt(currencyInfo.minFee), decimals)}–${formatAmount(BigInt(currencyInfo.maxFee), decimals)} ${currency}`
+    : `${MIN_ENTRY_FEE_SOL}–${MAX_ENTRY_FEE_SOL} SOL`;
   const trimmedName = name.trim();
   const nameValid = trimmedName.length >= NAME_MIN && trimmedName.length <= NAME_MAX && !hasControlChars(trimmedName);
   const busy = step !== "idle";
@@ -80,7 +96,7 @@ export function CreateTournamentScreen() {
     setError(null);
     if (!paid) {
       if (!nameValid) return setError(`Name must be ${NAME_MIN}–${NAME_MAX} characters.`);
-      if (!feeValid) return setError(`Entry fee must be between ${MIN_ENTRY_FEE_SOL} and ${MAX_ENTRY_FEE_SOL} SOL.`);
+      if (!feeValid) return setError(`Entry fee must be between ${feeRangeLabel}.`);
     }
     setStep("wallet");
     let paymentDone = !!paid;
@@ -96,7 +112,8 @@ export function CreateTournamentScreen() {
           name: trimmedName,
           visibility,
           payout,
-          entryFeeLamports: Math.round(feeSol * 1_000_000_000),
+          currency,
+          entryFeeLamports: entryFeeBaseUnits,
           entryMode: mode,
           startInSec,
           durationSec,
@@ -261,18 +278,33 @@ export function CreateTournamentScreen() {
         {trimmedName.length}/{NAME_MAX}
       </Text>
 
-      <Text style={styles.label}>Entry fee (SOL)</Text>
+      <Text style={styles.label}>Currency</Text>
+      <View style={styles.chips}>
+        {(["SOL", "ORE", "USDC"] as Currency[]).map((c) => (
+          <Chip
+            key={c}
+            label={c}
+            selected={currency === c}
+            onPress={() => {
+              setCurrency(c);
+              setFeeText(CURRENCY_PRESETS[c][0]);
+            }}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.label}>Entry fee ({currency})</Text>
       <TextInput
         style={styles.input}
         value={feeText}
         onChangeText={(t) => setFeeText(t.replace(/[^0-9.,]/g, ""))}
         keyboardType="decimal-pad"
-        placeholder="0.01"
+        placeholder={CURRENCY_PRESETS[currency][0]}
         placeholderTextColor={C.textSecondary}
       />
       <View style={styles.chips}>
-        {ENTRY_FEE_PRESETS_SOL.map((v) => (
-          <Chip key={v} label={String(v)} selected={feeText === String(v)} onPress={() => setFeeText(String(v))} />
+        {CURRENCY_PRESETS[currency].map((v) => (
+          <Chip key={v} label={v} selected={feeText === v} onPress={() => setFeeText(v)} />
         ))}
       </View>
 

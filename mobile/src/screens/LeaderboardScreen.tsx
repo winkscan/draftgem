@@ -13,7 +13,8 @@ import { useAuthorization } from "../utils/useAuthorization";
 import { tournamentPda } from "../pumpfantasy/pdas";
 import { useLivePrices } from "../pumpfantasy/livePrices";
 import { computePortfolioScore, projectPrizes, type PickScore } from "../pumpfantasy/liveScore";
-import { bpsToPercentLabel, ellipsify, formatSol } from "../pumpfantasy/format";
+import { bpsToPercentLabel, ellipsify } from "../pumpfantasy/format";
+import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { getTournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { PAYOUT_CHOICES, useTournamentMeta, type PayoutChoice } from "../pumpfantasy/customTournaments";
 import { ModeBadges } from "../components/ModeBadge";
@@ -190,7 +191,9 @@ export function LeaderboardScreen() {
                 <Text style={styles.metaLabel}>
                   Prize:{" "}
                   <Text style={styles.metaValue}>
-                    {mine.prizeLamports > 0n ? `${formatSol(mine.prizeLamports, 3)} SOL` : "—"}
+                    {mine.prizeLamports > 0n && tournament
+                      ? `${formatAmountCompact(mine.prizeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
+                      : "—"}
                   </Text>
                 </Text>
               </>
@@ -298,7 +301,7 @@ export function LeaderboardScreen() {
               </Text>
               <View style={[styles.prizeCell, { flex: 1 }]}>
                 <Text style={[styles.cell, r.isMine ? styles.bold : undefined]}>
-                  {r.prizeLamports > 0n ? formatSol(r.prizeLamports, 3) : "-"}
+                  {r.prizeLamports > 0n ? formatAmountCompact(r.prizeLamports, decimalsForMint(tournament.mint)) : "-"}
                 </Text>
                 {r.claimed && r.prizeLamports > 0n ? (
                   <TouchableRipple borderless style={styles.payoutIcon} onPress={() => openPayout(r.key)}>

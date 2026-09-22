@@ -13,6 +13,8 @@ export interface ArchivedTournament {
   id: string;
   status: "finalized" | "cancelled";
   authority: string;
+  /** SOL when absent (older archives) or the sentinel all-zero mint — otherwise the SPL mint the tournament ran in. */
+  mint?: string;
   entryFeeLamports: string;
   startTs: number;
   endTs: number;

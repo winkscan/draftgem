@@ -7,12 +7,21 @@ import {
   ASSET_SIZE,
   ENTRY_SIZE,
   PROGRAM_ID,
+  TOURNAMENT_MINT_OFFSET,
   concatBytes,
   u64le,
   fetchTournamentScopedAccounts,
   loadAuthority,
   type Candidate,
 } from "./syncPrices";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  createAtaIdempotentIx,
+  getAssociatedTokenAddress,
+  isNativeMint,
+  readTokenAmount,
+} from "./currency";
 
 // Pays tournaments out with no human in the loop, using the three permissionless
 // steps the program already has: settle_entry (score one entry from the shared
@@ -46,8 +55,26 @@ const CANCEL_GRACE_SECONDS = 3_600;
 const ASSET_SEED = new TextEncoder().encode("asset");
 const VAULT_SEED = new TextEncoder().encode("vault");
 
+function readMint(tdata: Uint8Array): PublicKey {
+  return new PublicKey(tdata.subarray(TOURNAMENT_MINT_OFFSET, TOURNAMENT_MINT_OFFSET + 32));
+}
+
+/** The extra accounts every value-moving instruction needs for an SPL-denominated tournament;
+ * for native SOL these are unused by the program, so `vault` itself is a harmless filler. */
+function tokenAccountMetas(mint: PublicKey, vault: PublicKey) {
+  const native = isNativeMint(mint);
+  const vaultTokenAccount = native ? vault : getAssociatedTokenAddress(vault, mint);
+  return {
+    native,
+    vaultTokenAccount,
+    mintAccount: native ? vault : mint,
+    tokenProgram: native ? SystemProgram.programId : TOKEN_PROGRAM_ID,
+  };
+}
+
 const SETTLES_PER_TX = 3; // 3 settle ixs + their 15 asset accounts fit a legacy tx comfortably
 const CLAIMS_PER_TX = 5;
+const SPL_CLAIMS_PER_TX = 3; // each SPL claim/refund is 2 instructions (idempotent ATA create + the real one)
 const MAX_TX_PER_STEP = 16; // per tournament per tick; the rest continues next tick
 
 interface EntryRow {
@@ -215,13 +242,22 @@ function withdrawFeesIx(
   vault: PublicKey,
   creator: PublicKey,
   creatorLamports: bigint,
+  mint: PublicKey,
 ): TransactionInstruction {
+  const { vaultTokenAccount, mintAccount, tokenProgram } = tokenAccountMetas(mint, vault);
+  const authorityTokenAccount = isNativeMint(mint) ? vault : getAssociatedTokenAddress(authority, mint);
+  const creatorTokenAccount = isNativeMint(mint) ? vault : getAssociatedTokenAddress(creator, mint);
   return new TransactionInstruction({
     programId: PROGRAM_ID,
     keys: [
       { pubkey: authority, isSigner: true, isWritable: true },
       { pubkey: tournament, isSigner: false, isWritable: true },
       { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: authorityTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: creatorTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: mintAccount, isSigner: false, isWritable: false },
+      { pubkey: tokenProgram, isSigner: false, isWritable: false },
       { pubkey: creator, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
@@ -242,13 +278,17 @@ async function withdrawFees(
   tournament: PublicKey,
   vault: PublicKey,
   creator: string | undefined,
+  mint: PublicKey,
 ): Promise<{ ok: boolean; note: string }> {
   const info = await connection.getAccountInfo(tournament);
   if (!info) return { ok: true, note: "" };
   const v = new DataView(info.data.buffer, info.data.byteOffset, info.data.byteLength);
   const pool = v.getBigUint64(82, true);
   const distributed = v.getBigUint64(99, true);
-  const rentMinimum = BigInt(await connection.getMinimumBalanceForRentExemption(0));
+  const native = isNativeMint(mint);
+  // The lamport rent-exempt reserve only matters for a native vault's own SOL balance — an SPL
+  // vault's token amount has nothing to do with its account's (separately-tracked) rent.
+  const rentMinimum = native ? BigInt(await connection.getMinimumBalanceForRentExemption(0)) : 0n;
   const totalFees = pool > distributed ? pool - distributed : 0n;
   const spendable = totalFees > rentMinimum ? totalFees - rentMinimum : 0n;
   if (spendable === 0n) return { ok: true, note: "" };
@@ -261,11 +301,15 @@ async function withdrawFees(
     creatorLamports = cap < spendable ? cap : spendable;
   }
   const creatorKey = creator ? new PublicKey(creator) : authority.publicKey;
-  const failed = await sendAll(connection, authority, [
-    [withdrawFeesIx(authority.publicKey, tournament, vault, creatorKey, creatorLamports)],
-  ]);
+  const ixs: TransactionInstruction[] = [];
+  if (!native) {
+    ixs.push(createAtaIdempotentIx(authority.publicKey, authority.publicKey, mint));
+    if (creatorLamports > 0n) ixs.push(createAtaIdempotentIx(authority.publicKey, creatorKey, mint));
+  }
+  ixs.push(withdrawFeesIx(authority.publicKey, tournament, vault, creatorKey, creatorLamports, mint));
+  const failed = await sendAll(connection, authority, [ixs]);
   if (failed > 0) return { ok: false, note: "fee withdrawal failed, retrying" };
-  return { ok: true, note: `fees withdrawn (creator ${creatorLamports} lamports)` };
+  return { ok: true, note: `fees withdrawn (creator ${creatorLamports})` };
 }
 
 function closeEntryIx(authority: PublicKey, tournament: PublicKey, entry: EntryRow): TransactionInstruction {
@@ -294,13 +338,16 @@ function closeAssetIx(authority: PublicKey, tournament: PublicKey, asset: AssetR
   });
 }
 
-function closeTournamentIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey): TransactionInstruction {
+function closeTournamentIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey, mint: PublicKey): TransactionInstruction {
+  const { vaultTokenAccount, tokenProgram } = tokenAccountMetas(mint, vault);
   return new TransactionInstruction({
     programId: PROGRAM_ID,
     keys: [
       { pubkey: authority, isSigner: true, isWritable: true },
       { pubkey: tournament, isSigner: false, isWritable: true },
       { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: tokenProgram, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data: Buffer.from(CLOSE_TOURNAMENT_DISC),
@@ -322,6 +369,7 @@ function buildArchive(tdata: Uint8Array, entries: EntryRow[], assets: AssetRow[]
       id: v.getBigUint64(40, true).toString(),
       status: status === TOURNAMENT_CANCELLED ? "cancelled" : "finalized",
       authority: new PublicKey(tdata.subarray(8, 40)).toBase58(),
+      mint: readMint(tdata).toBase58(),
       entryFeeLamports: v.getBigUint64(48, true).toString(),
       startTs: Number(v.getBigInt64(56, true)),
       endTs: Number(v.getBigInt64(64, true)),
@@ -404,25 +452,39 @@ async function closeOut(
     };
   }
 
-  const failed = await sendAll(connection, authority, [[closeTournamentIx(authority.publicKey, tournament, vault)]]);
+  const failed = await sendAll(connection, authority, [[closeTournamentIx(authority.publicKey, tournament, vault, readMint(tdata))]]);
   return failed === 0
     ? { note: "closed, rent recovered", done: true, progressed: true }
     : { note: "closing the tournament failed, retrying", done: false, progressed: false };
 }
 
-function claimIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey, entry: EntryRow): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: [
-      { pubkey: authority, isSigner: true, isWritable: false },
-      { pubkey: tournament, isSigner: false, isWritable: false },
-      { pubkey: vault, isSigner: false, isWritable: true },
-      { pubkey: entry.pubkey, isSigner: false, isWritable: true },
-      { pubkey: entry.player, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
-    data: Buffer.from(CLAIM_DISC),
-  });
+/** claim_prize for one entry — for an SPL tournament, preceded by an idempotent create of the
+ * winner's ATA (the worker fronts that tiny rent; claim_prize itself is permissionless and
+ * always cranked by us, so there's no wallet-owner transaction to piggyback it on). */
+function claimIxs(authority: PublicKey, tournament: PublicKey, vault: PublicKey, entry: EntryRow, mint: PublicKey): TransactionInstruction[] {
+  const { native, vaultTokenAccount, mintAccount, tokenProgram } = tokenAccountMetas(mint, vault);
+  const playerTokenAccount = native ? entry.player : getAssociatedTokenAddress(entry.player, mint);
+  const ixs: TransactionInstruction[] = [];
+  if (!native) ixs.push(createAtaIdempotentIx(authority, entry.player, mint));
+  ixs.push(
+    new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: authority, isSigner: true, isWritable: false },
+        { pubkey: tournament, isSigner: false, isWritable: false },
+        { pubkey: vault, isSigner: false, isWritable: true },
+        { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: playerTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: mintAccount, isSigner: false, isWritable: false },
+        { pubkey: tokenProgram, isSigner: false, isWritable: false },
+        { pubkey: entry.pubkey, isSigner: false, isWritable: true },
+        { pubkey: entry.player, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from(CLAIM_DISC),
+    }),
+  );
+  return ixs;
 }
 
 function cancelIx(authority: PublicKey, tournament: PublicKey): TransactionInstruction {
@@ -436,19 +498,30 @@ function cancelIx(authority: PublicKey, tournament: PublicKey): TransactionInstr
   });
 }
 
-function refundIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey, entry: EntryRow): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: [
-      { pubkey: authority, isSigner: true, isWritable: false },
-      { pubkey: tournament, isSigner: false, isWritable: false },
-      { pubkey: vault, isSigner: false, isWritable: true },
-      { pubkey: entry.pubkey, isSigner: false, isWritable: true },
-      { pubkey: entry.player, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
-    data: Buffer.from(REFUND_DISC),
-  });
+function refundIxs(authority: PublicKey, tournament: PublicKey, vault: PublicKey, entry: EntryRow, mint: PublicKey): TransactionInstruction[] {
+  const { native, vaultTokenAccount, mintAccount, tokenProgram } = tokenAccountMetas(mint, vault);
+  const playerTokenAccount = native ? entry.player : getAssociatedTokenAddress(entry.player, mint);
+  const ixs: TransactionInstruction[] = [];
+  if (!native) ixs.push(createAtaIdempotentIx(authority, entry.player, mint));
+  ixs.push(
+    new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: authority, isSigner: true, isWritable: false },
+        { pubkey: tournament, isSigner: false, isWritable: false },
+        { pubkey: vault, isSigner: false, isWritable: true },
+        { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: playerTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: mintAccount, isSigner: false, isWritable: false },
+        { pubkey: tokenProgram, isSigner: false, isWritable: false },
+        { pubkey: entry.pubkey, isSigner: false, isWritable: true },
+        { pubkey: entry.player, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from(REFUND_DISC),
+    }),
+  );
+  return ixs;
 }
 
 /** Prize structures a tournament can have. */
@@ -664,10 +737,11 @@ async function settleAndPay(
   }
 
   const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
+  const mint = readMint(tdata);
   const claimable = entries.filter((e) => e.settled && !e.claimed && e.prizeLamports > 0n);
   if (claimable.length === 0) {
     // Every prize is out: now the fees can leave the vault (to the creator and to us).
-    const fees = await withdrawFees(connection, authority, tournament, vault, creator);
+    const fees = await withdrawFees(connection, authority, tournament, vault, creator, mint);
     const feeNote = `finalized (${winners} winner(s)), all paid${fees.note ? `; ${fees.note}` : ""}`;
     const feeProgress = fees.note.startsWith("fees withdrawn");
     if (!fees.ok) return { note: feeNote, done: false, progressed: feeProgress };
@@ -676,8 +750,9 @@ async function settleAndPay(
     return { note: `${feeNote}; ${closing.note}`, done: closing.done, progressed: feeProgress || closing.progressed };
   }
 
-  const batch = claimable.slice(0, CLAIMS_PER_TX * MAX_TX_PER_STEP);
-  const groups = chunk(batch, CLAIMS_PER_TX).map((g) => g.map((e) => claimIx(authority.publicKey, tournament, vault, e)));
+  const perTx = isNativeMint(mint) ? CLAIMS_PER_TX : SPL_CLAIMS_PER_TX;
+  const batch = claimable.slice(0, perTx * MAX_TX_PER_STEP);
+  const groups = chunk(batch, perTx).map((g) => g.flatMap((e) => claimIxs(authority.publicKey, tournament, vault, e, mint)));
   const failed = await sendAll(connection, authority, groups);
   // Not done yet even when every claim went through: the next pass finds nothing left to claim,
   // and only then withdraws the fees (creator's cut + ours) — so this tournament is revisited once more.
@@ -690,14 +765,15 @@ async function settleAndPay(
  * entry account's rent — refund_entry closes it). Refunded entries no longer
  * exist, so what's left on chain is exactly what's still owed.
  */
-async function refundAll(connection: Connection, authority: Keypair, tournament: PublicKey): Promise<StepResult> {
+async function refundAll(connection: Connection, authority: Keypair, tournament: PublicKey, mint: PublicKey): Promise<StepResult> {
   const entries = await readEntries(connection, tournament);
   const owed = entries.filter((e) => !e.claimed);
   if (owed.length === 0) return { note: "cancelled, all entries refunded", done: true, progressed: false };
 
   const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
-  const batch = owed.slice(0, CLAIMS_PER_TX * MAX_TX_PER_STEP);
-  const groups = chunk(batch, CLAIMS_PER_TX).map((g) => g.map((e) => refundIx(authority.publicKey, tournament, vault, e)));
+  const perTx = isNativeMint(mint) ? CLAIMS_PER_TX : SPL_CLAIMS_PER_TX;
+  const batch = owed.slice(0, perTx * MAX_TX_PER_STEP);
+  const groups = chunk(batch, perTx).map((g) => g.flatMap((e) => refundIxs(authority.publicKey, tournament, vault, e, mint)));
   const failed = await sendAll(connection, authority, groups);
   const done = failed === 0 && batch.length === owed.length;
   return {
@@ -720,7 +796,7 @@ async function processTournament(
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const status = view.getUint8(90);
   if (status === TOURNAMENT_CANCELLED) {
-    const refunds = await refundAll(connection, authority, tournament);
+    const refunds = await refundAll(connection, authority, tournament, readMint(tdata));
     if (!refunds.done) return refunds;
     const closing = await closeOut(env, connection, authority, tournament); // coin accounts + the tournament
     return { note: `${refunds.note}; ${closing.note}`, done: closing.done, progressed: refunds.progressed || closing.progressed };
@@ -802,6 +878,7 @@ export async function settleTournaments(
             authority.publicKey,
             c.pubkey,
             PublicKey.findProgramAddressSync([VAULT_SEED, c.pubkey.toBuffer()], PROGRAM_ID)[0],
+            readMint(c.data),
           ),
         ),
       );

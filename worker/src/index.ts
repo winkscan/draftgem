@@ -9,6 +9,7 @@ import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, CURRENCIES, TOKEN_PROGRAM_ID, getAssociatedTokenAddress, mintFor, type Currency } from "./currency";
 import type { Env } from "./env";
 
 // Standalone Cron Trigger that creates a fresh PumpFantasy tournament on a
@@ -32,6 +33,9 @@ const PROGRAM_ID = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu")
 // is blocked") — confirmed live. Helius devnet doesn't.
 
 const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL
+// Round, easy-to-reason-about entry fees for the non-SOL cron tournaments — devnet has no
+// real market for either, so these aren't price-derived, just "a normal-looking amount".
+const ORE_ENTRY_FEE = 5_000_00000000; // 5 ORE (11 decimals)
 const ROUND_DURATION_SECONDS = ROUND_SECONDS;
 const ENTRY_WINDOW_SECONDS = ROUND_SECONDS; // syncPrices.ts derives tournament ids from this — change both together
 
@@ -103,18 +107,23 @@ async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promis
   // the ms id) so repeated manual triggers within the same minute still get
   // different modes.
   const cycle = Number(cycleSeed % 3n);
+  // Every 4th tick is ORE-denominated instead of SOL — the ORE integration prize's "there
+  // are ORE tournaments to actually play" requirement, without displacing the SOL rotation.
+  const currency: Currency = cycleSeed % 4n === 3n ? "ORE" : "SOL";
   return createTournamentOnChain(env, {
     id,
-    entryFeeLamports: ENTRY_FEE_LAMPORTS,
+    currency,
+    entryFeeLamports: currency === "ORE" ? ORE_ENTRY_FEE : ENTRY_FEE_LAMPORTS,
     startTs,
     endTs,
     entryModeTag: cycle === 1 ? 1 : 0, // 0 = Single, 1 = Multiple
-    guaranteedAmountLamports: cycle === 2 ? 500_000_000 : 0,
+    guaranteedAmountLamports: cycle === 2 && currency === "SOL" ? 500_000_000 : 0,
   });
 }
 
 interface TournamentParams {
   id: bigint;
+  currency: Currency;
   entryFeeLamports: number;
   startTs: number;
   endTs: number;
@@ -127,12 +136,19 @@ interface TournamentParams {
 // the authority must be OUR key either way, because only it can register prices,
 // finalize and cancel — a tournament owned by a player's wallet could never be paid out.
 async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<string> {
-  const { id, entryFeeLamports, startTs, endTs, entryModeTag, guaranteedAmountLamports } = p;
+  const { id, currency, entryFeeLamports, startTs, endTs, entryModeTag, guaranteedAmountLamports } = p;
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
   const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
 
   const [tournament] = tournamentPda(id);
   const [vault] = vaultPda(tournament);
+  const mint = mintFor(currency);
+  const mintInfo = CURRENCIES[currency];
+  // Native SOL: these three are never read by the program, so any accounts satisfy the
+  // instruction's fixed account list — the vault PDA itself is a harmless placeholder.
+  const vaultTokenAccount = mintInfo.mint ? getAssociatedTokenAddress(vault, mintInfo.mint) : vault;
+  const tokenProgram = mintInfo.mint ? TOKEN_PROGRAM_ID : SystemProgram.programId;
+  const associatedTokenProgram = mintInfo.mint ? ASSOCIATED_TOKEN_PROGRAM_ID : SystemProgram.programId;
 
   const createIx = new TransactionInstruction({
     programId: PROGRAM_ID,
@@ -140,6 +156,10 @@ async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<s
       { pubkey: authority.publicKey, isSigner: true, isWritable: true },
       { pubkey: tournament, isSigner: false, isWritable: true },
       { pubkey: vault, isSigner: false, isWritable: false },
+      { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: tokenProgram, isSigner: false, isWritable: false },
+      { pubkey: associatedTokenProgram, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data: concatBytes(
@@ -150,6 +170,7 @@ async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<s
       i64le(endTs),
       Uint8Array.from([entryModeTag]),
       u64le(guaranteedAmountLamports),
+      mint.toBytes(),
     ),
   });
 

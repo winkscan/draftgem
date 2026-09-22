@@ -29,7 +29,8 @@ const LIVE_FALLBACK_SECONDS = 900; // how long after a timestamp a live price ma
 export const GECKO_CALLS_PER_TICK = 16;
 
 // 8-byte discriminator + state.rs's own field layout, in declaration order.
-export const TOURNAMENT_SIZE = 127; // +prizes_assigned_lamports(8) +prizes_finalized(1), appended after bump
+export const TOURNAMENT_SIZE = 159; // +mint(32), appended after prizes_finalized — offset 127..159
+export const TOURNAMENT_MINT_OFFSET = 127;
 export const ENTRY_SIZE = 261; // +prize_lamports(8), appended after bump
 export const ASSET_SIZE = 122; // 8 discriminator + 32 + 32 + 8 + 8 + 1 + 1 + 32 payer (state.rs AssetPrice)
 
