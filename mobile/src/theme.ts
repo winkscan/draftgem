@@ -40,6 +40,11 @@ export const PF_COLORS = {
   accent2TextOn: "#04140d",
   accent2Tint: "rgba(20,241,149,0.12)",
 
+  // Single-entry mode badge — a third, cooler accent so it reads apart from
+  // Multiple (purple) and Guaranteed (green) at a glance.
+  modeSingle: "#12c1f1",
+  modeSingleTextOn: "#04222b",
+
   // outcomes
   positive: "#14f195",
   negative: "#e879f9", // losses: magenta, deliberately not red

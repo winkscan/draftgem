@@ -10,7 +10,9 @@ export function ModeBadges({ tournament }: { tournament: Pick<TournamentAccount,
   return (
     <View style={styles.row}>
       <View style={[styles.circle, tournament.entryMode === "multiple" ? styles.multiple : styles.single]}>
-        <Text style={styles.letter}>{tournament.entryMode === "multiple" ? "M" : "S"}</Text>
+        <Text style={[styles.letter, tournament.entryMode === "multiple" ? undefined : styles.letterOnSingle]}>
+          {tournament.entryMode === "multiple" ? "M" : "S"}
+        </Text>
       </View>
       {tournament.guaranteedAmountLamports > 0n ? (
         <View style={[styles.circle, styles.guaranteed]}>
@@ -42,11 +44,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  single: { backgroundColor: C.glassStrong },
+  single: { backgroundColor: C.modeSingle },
   multiple: { backgroundColor: C.accent },
   guaranteed: { backgroundColor: C.accent2 },
   letter: { color: C.textPrimary, fontSize: 10, fontWeight: "800" },
   letterOnGreen: { color: C.accent2TextOn },
+  letterOnSingle: { color: C.modeSingleTextOn },
   payoutPill: { height: 20, paddingHorizontal: 8, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center" },
   payoutText: { color: C.accent2TextOn, fontSize: 10, fontWeight: "800" },
 });
