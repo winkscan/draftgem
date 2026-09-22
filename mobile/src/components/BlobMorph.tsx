@@ -67,6 +67,10 @@ export function BlobMorph({ size = 108 }: { size?: number }) {
       <G filter="url(#goo)">
         <AnimatedCircle cx={teal.cx} cy={teal.cy} r={r} fill="url(#tealGradient)" />
         <AnimatedCircle cx={purple.cx} cy={purple.cy} r={r} fill="url(#purpleGradient)" />
+        {/* Sits exactly where the two blobs meet (their midpoint is always the centre, whatever
+            s is) — the mark's own neck colour, so the join reads as that blue, not a blur-muddy
+            teal/purple smear. */}
+        <Circle cx={CENTER.x} cy={CENTER.y} r={24} fill="#4A83F3" />
       </G>
     </Svg>
   );
