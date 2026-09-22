@@ -30,6 +30,10 @@ export interface TournamentAccount {
   guaranteedAmountLamports: bigint;
   vaultBump: number;
   bump: number;
+  /** Running total of every set_prize call so far — never exceeds distributedPoolLamports. */
+  prizesAssignedLamports: bigint;
+  /** Set once by finish_prizes; claim_prize and close_entry both require it. */
+  prizesFinalized: boolean;
 }
 
 // Mirrors Tournament in programs/pumpfantasy/src/state.rs, field for field.
@@ -53,6 +57,8 @@ export function decodeTournament(data: Buffer): TournamentAccount {
     guaranteedAmountLamports: r.readU64(),
     vaultBump: r.readU8(),
     bump: r.readU8(),
+    prizesAssignedLamports: r.readU64(),
+    prizesFinalized: r.readBool(),
   };
 }
 
@@ -96,6 +102,8 @@ export interface EntryAccount {
   // earlier createdAt ranks higher (see state.rs's own comment).
   createdAt: bigint;
   bump: number;
+  /** Set by set_prize once the tournament finalizes and its prize plan is written — 0 until then, or if it didn't place. */
+  prizeLamports: bigint;
 }
 
 export function decodeEntry(data: Buffer): EntryAccount {
@@ -116,5 +124,6 @@ export function decodeEntry(data: Buffer): EntryAccount {
     claimed: r.readBool(),
     createdAt: r.readI64(),
     bump: r.readU8(),
+    prizeLamports: r.readU64(),
   };
 }

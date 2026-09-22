@@ -18,6 +18,30 @@ export function winnerTarget(payout: PayoutChoice, n: number): number {
   }
 }
 
+/**
+ * Relative weights for each paid rank, best place first — mirrors the worker's `slotsFor`
+ * (settlement.ts) exactly, since it's what actually decides the real prize plan on chain.
+ * Top 1/PvP: winner takes all. Top 3: fixed 50/30/15. 30%: a linear taper from 1st to last.
+ * 50%/PvP: every paid place is worth the same.
+ */
+export function slotsFor(payout: PayoutChoice, n: number): number[] {
+  switch (payout) {
+    case "top1":
+    case "pvp":
+      return [1];
+    case "top3":
+      return [50, 30, 15].slice(0, Math.min(3, Math.max(1, n)));
+    case "p30": {
+      const k = Math.max(1, Math.ceil(n * 0.3));
+      return Array.from({ length: k }, (_, i) => k - i);
+    }
+    case "p50": {
+      const k = Math.max(1, Math.ceil(n / 2));
+      return Array.from({ length: k }, () => 1);
+    }
+  }
+}
+
 export interface PickScore {
   mint: string;
   /** % change since the tournament's shared start price, in bps, floored at -100%. null = no price yet. */
@@ -61,36 +85,51 @@ export function computePortfolioScore(
 }
 
 /**
- * Prize per entry, given every entry's score sorted best-first (null = not
- * scored yet). Mirrors finalize_tournament/claim_prize: the top half of
- * entrants win, and EVERY score at or above the cut-off score wins an equal
- * share of the pool minus the 5% rake — so a tie at the cut-off widens the
- * winner set instead of splitting hairs (the program pays by threshold, not
- * by rank). Once the tournament is finalized on-chain (the Worker does this
- * automatically after the round), its real threshold/winners are used and
- * this stops being a projection.
+ * Prize per entry, given every entry's score sorted best-first (null = not scored yet). A live
+ * projection only — once a tournament is finalized on chain, each entry's real `prizeLamports`
+ * (set by the worker's `set_prize`) is what actually pays out; callers should prefer that field
+ * directly once it's available (see LeaderboardScreen) rather than this projection.
+ *
+ * Groups entries by exact tied score and gives each group its slots' combined weight (see
+ * `slotsFor`), split evenly across the group — same algorithm as the worker's real
+ * `computePrizes` (settlement.ts), so what's projected here matches what actually gets paid,
+ * modulo which entries happen to still be tied once the round truly ends.
  */
 export function projectPrizes(
-  tournament: Pick<
-    TournamentAccount,
-    "status" | "prizePoolLamports" | "winnersCount" | "distributedPoolLamports" | "thresholdScoreBps"
-  >,
+  tournament: Pick<TournamentAccount, "status" | "prizePoolLamports" | "winnersCount" | "distributedPoolLamports">,
   sortedScores: (number | null)[],
   payout: PayoutChoice = "p50",
   /** Extra cut for the tournament's creator, in bps, on top of the platform rake (player-made tournaments). */
   creatorFeeBps = 0,
 ): bigint[] {
-  if (tournament.status === "cancelled") return sortedScores.map(() => 0n); // nobody wins; fees are refunded
+  const out = sortedScores.map(() => 0n);
+  if (tournament.status === "cancelled") return out; // nobody wins; fees are refunded
   if (tournament.status === "finalized") {
-    if (tournament.winnersCount === 0) return sortedScores.map(() => 0n);
+    // No per-entry data here to read the real prize from — callers should use entry.prizeLamports
+    // directly once finalized; this is only a reasonable fallback (flat share) if they don't.
+    if (tournament.winnersCount === 0) return out;
     const share = tournament.distributedPoolLamports / BigInt(tournament.winnersCount);
-    return sortedScores.map((s) => (s != null && s >= tournament.thresholdScoreBps ? share : 0n));
+    return sortedScores.map((s) => (s != null ? share : 0n));
   }
-  const target = winnerTarget(payout, sortedScores.length);
-  const threshold = sortedScores[target - 1];
-  if (threshold == null) return sortedScores.map(() => 0n); // cut-off entry isn't scored yet
-  const winners = sortedScores.filter((s) => s != null && s >= threshold).length;
+
   const distributable = (tournament.prizePoolLamports * BigInt(BPS_DENOMINATOR - RAKE_BPS - creatorFeeBps)) / BigInt(BPS_DENOMINATOR);
-  const share = distributable / BigInt(winners);
-  return sortedScores.map((s) => (s != null && s >= threshold ? share : 0n));
+  const weights = slotsFor(payout, sortedScores.length);
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let i = 0;
+  let slotIndex = 0;
+  while (i < sortedScores.length && slotIndex < weights.length) {
+    const score = sortedScores[i];
+    if (score == null) break; // unscored entries sort last — nothing further can be ranked yet
+    let j = i;
+    while (j < sortedScores.length && sortedScores[j] === score) j++;
+    const groupSize = j - i;
+    const consumed = Math.min(groupSize, weights.length - slotIndex);
+    const weightSum = weights.slice(slotIndex, slotIndex + consumed).reduce((a, b) => a + b, 0);
+    const groupTotal = (distributable * BigInt(weightSum)) / BigInt(totalWeight);
+    const share = groupTotal / BigInt(groupSize);
+    if (share > 0n) for (let k = i; k < j; k++) out[k] = share;
+    slotIndex += consumed;
+    i = j;
+  }
+  return out;
 }

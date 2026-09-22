@@ -132,7 +132,7 @@ function check(label, ok, extra = "") {
   idBuf.writeBigUInt64LE(BigInt(created.id));
   const pda = PublicKey.findProgramAddressSync([Buffer.from("tournament"), idBuf], PROGRAM)[0];
   const acc = await conn.getAccountInfo(pda, "confirmed");
-  check("tournament account exists on chain", !!acc && acc.data.length === 118);
+  check("tournament account exists on chain", !!acc && acc.data.length === 127, `len=${acc?.data.length}`);
   if (acc) {
     const d = acc.data;
     const authority = new PublicKey(d.subarray(8, 40));

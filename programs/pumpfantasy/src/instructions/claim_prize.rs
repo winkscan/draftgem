@@ -44,14 +44,14 @@ pub fn handle_claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
         tournament.status == TournamentStatus::Finalized,
         PumpFantasyError::NotFinalized
     );
+    // The prize plan (set_prize, per entry) must be locked in — otherwise a winner's prize
+    // hasn't necessarily been written yet, and 0 would wrongly look like "not a winner".
+    require!(tournament.prizes_finalized, PumpFantasyError::PrizesNotFinalized);
     require!(entry.settled, PumpFantasyError::NotSettled);
     require!(!entry.claimed, PumpFantasyError::AlreadyClaimed);
-    require!(
-        entry.score_bps >= tournament.threshold_score_bps,
-        PumpFantasyError::NotAWinner
-    );
+    require!(entry.prize_lamports > 0, PumpFantasyError::NotAWinner);
 
-    let mut payout = tournament.distributed_pool_lamports / tournament.winners_count as u64;
+    let mut payout = entry.prize_lamports;
 
     // A system account (the vault) may not be left holding more than 0 but
     // less than the rent-exempt minimum, or the transfer fails. The 5% rake

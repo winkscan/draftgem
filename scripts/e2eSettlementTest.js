@@ -139,14 +139,15 @@ function readTournament(d) {
     }
     const s = readTournament(info.data);
     const entries = await conn.getProgramAccounts(PROGRAM, {
-      filters: [{ dataSize: 253 }, { memcmp: { offset: 8, bytes: tournament.toBase58() } }],
+      filters: [{ dataSize: 261 }, { memcmp: { offset: 8, bytes: tournament.toBase58() } }],
     });
     const rows = entries.map(({ account: { data } }) => ({
       player: new PublicKey(data.subarray(40, 72)).toBase58().slice(0, 6),
       score: data.readInt32LE(238), settled: data[242] === 1, claimed: data[243] === 1,
+      prize: data.length >= 261 ? Number(data.readBigUInt64LE(253)) : null,
     }));
     const line = `entries=${s.entryCount} settled=${s.settledCount} finalized=${s.finalized} winners=${s.winners} thr=${s.threshold} | ` +
-      rows.map((r) => `${r.player}:${r.settled ? r.score : "-"}${r.claimed ? " PAID" : ""}`).join("  ");
+      rows.map((r) => `${r.player}:${r.settled ? r.score : "-"}${r.prize ? ` prize=${r.prize / 1e9}` : ""}${r.claimed ? " PAID" : ""}`).join("  ");
     if (line !== lastLine) { log(line); lastLine = line; }
     if (s.finalized && rows.every((r) => !r.settled || r.claimed || r.score < s.threshold)) {
       const after = { A: await conn.getBalance(A.publicKey), B: await conn.getBalance(B.publicKey) };

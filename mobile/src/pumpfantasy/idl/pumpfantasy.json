@@ -145,6 +145,206 @@
       "args": []
     },
     {
+      "name": "close_asset_price",
+      "discriminator": [
+        118,
+        156,
+        47,
+        26,
+        189,
+        189,
+        198,
+        129
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless: anyone can tidy up, the rent can only go to whoever paid it."
+          ],
+          "signer": true
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_entry",
+      "discriminator": [
+        132,
+        26,
+        202,
+        145,
+        190,
+        37,
+        114,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless: anyone can tidy up, the rent can only go to the player."
+          ],
+          "signer": true
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true
+        },
+        {
+          "name": "player",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_tournament",
+      "discriminator": [
+        14,
+        80,
+        54,
+        9,
+        221,
+        239,
+        201,
+        35
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Signs, and gets back the rent it paid to create the tournament (plus whatever",
+            "dust is left in the vault)."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_tournament",
       "discriminator": [
         158,
@@ -448,8 +648,63 @@
         {
           "name": "threshold_score_bps",
           "type": "i32"
+        },
+        {
+          "name": "fee_bps",
+          "type": "u16"
         }
       ]
+    },
+    {
+      "name": "finish_prizes",
+      "discriminator": [
+        39,
+        242,
+        54,
+        9,
+        187,
+        64,
+        153,
+        93
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
     },
     {
       "name": "refund_entry",
@@ -474,6 +729,7 @@
         },
         {
           "name": "tournament",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -551,7 +807,95 @@
       "accounts": [
         {
           "name": "authority",
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset",
+          "docs": [
+            "Created (and its rent paid) by the first player to pick this coin, inside",
+            "`enter_tournament`; here the authority only records the start price on it."
+          ],
           "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  115,
+                  115,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "start_price_micros",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_prize",
+      "discriminator": [
+        35,
+        194,
+        101,
+        36,
+        7,
+        240,
+        153,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "authority",
           "signer": true,
           "relations": [
             "tournament"
@@ -586,43 +930,13 @@
           }
         },
         {
-          "name": "asset",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  115,
-                  115,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tournament"
-              },
-              {
-                "kind": "arg",
-                "path": "mint"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "entry",
+          "writable": true
         }
       ],
       "args": [
         {
-          "name": "mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "start_price_micros",
+          "name": "prize_lamports",
           "type": "u64"
         }
       ]
@@ -739,6 +1053,100 @@
       "args": [
         {
           "name": "end_price_micros",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_fees",
+      "discriminator": [
+        198,
+        212,
+        171,
+        109,
+        144,
+        215,
+        174,
+        89
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Signs, and receives the platform's share."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "Tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "docs": [
+            "Receives the creator's share (the tournament's creator; may be the same",
+            "account as `authority` when `creator_lamports` is 0)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "creator_lamports",
           "type": "u64"
         }
       ]
@@ -905,6 +1313,56 @@
       "code": 6023,
       "name": "NotCancelled",
       "msg": "Tournament has not been cancelled"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidFee",
+      "msg": "Fee must be the platform rake, or the rake plus the creator cut"
+    },
+    {
+      "code": 6025,
+      "name": "NothingToWithdraw",
+      "msg": "There are no fees to withdraw (yet, or any more)"
+    },
+    {
+      "code": 6026,
+      "name": "CreatorShareTooLarge",
+      "msg": "The creator share is larger than this tournament's creator cut"
+    },
+    {
+      "code": 6027,
+      "name": "AssetAlreadyRegistered",
+      "msg": "This asset already has its start price"
+    },
+    {
+      "code": 6028,
+      "name": "NotClosable",
+      "msg": "Accounts can only be closed once the tournament is finalized or cancelled"
+    },
+    {
+      "code": 6029,
+      "name": "EntryNotClosable",
+      "msg": "This entry cannot be closed yet (unclaimed prize or not settled)"
+    },
+    {
+      "code": 6030,
+      "name": "TournamentNotClosable",
+      "msg": "Entries or asset accounts are still open, or funds are still in the vault"
+    },
+    {
+      "code": 6031,
+      "name": "PrizesNotFinalized",
+      "msg": "The prize plan isn't finished yet — finish_prizes hasn't been called"
+    },
+    {
+      "code": 6032,
+      "name": "PrizesAlreadyFinalized",
+      "msg": "The prize plan is already locked in — set_prize can no longer change it"
+    },
+    {
+      "code": 6033,
+      "name": "PrizeBudgetExceeded",
+      "msg": "This would assign more than the tournament's distributable pool"
     }
   ],
   "types": [
@@ -944,6 +1402,14 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "payer",
+            "docs": [
+              "Who paid this account's rent — the first player to pick the coin (created inside",
+              "`enter_tournament`). `close_asset_price` gives it back to them after the tournament."
+            ],
+            "type": "pubkey"
           }
         ]
       }
@@ -1016,6 +1482,16 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "prize_lamports",
+            "docs": [
+              "What this entry is owed, set by `set_prize` once the tournament is finalized and the",
+              "off-chain ranking/tie-grouping is done — 0 if it didn't place. `claim_prize` pays out",
+              "exactly this (no more on-chain arithmetic): a flat equal share for a 50%/PvP structure,",
+              "a tiered amount for Top 1/Top 3/30%. See settlement.ts's `computePrizes`."
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -1146,6 +1622,23 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "prizes_assigned_lamports",
+            "docs": [
+              "Running total of every `set_prize` call so far — never allowed to exceed",
+              "`distributed_pool_lamports` (see `set_prize`'s own comment)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "prizes_finalized",
+            "docs": [
+              "Set once by `finish_prizes`, after every winning entry has its `prize_lamports`",
+              "locked in. `claim_prize` and `close_entry` both require this — it is the line",
+              "between \"the authority is still writing the prize plan\" and \"money can move\"."
+            ],
+            "type": "bool"
           }
         ]
       }
@@ -1169,6 +1662,15 @@
     }
   ],
   "constants": [
+    {
+      "name": "CREATOR_FEE_BPS",
+      "docs": [
+        "Extra cut, ON TOP of RAKE_BPS, that goes to the player who created the tournament",
+        "(tournaments made from the app's \"+\" screen). Winners then share 90% of the pool."
+      ],
+      "type": "u16",
+      "value": "500"
+    },
     {
       "name": "MAX_BUDGET_FP",
       "docs": [

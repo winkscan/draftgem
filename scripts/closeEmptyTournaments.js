@@ -18,7 +18,7 @@ const {
 
 const PROGRAM = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu");
 const CLOSE_TOURNAMENT_DISC = Buffer.from([14, 80, 54, 9, 221, 239, 201, 35]);
-const TOURNAMENT_SIZE = 118;
+const TOURNAMENT_SIZE = 127; // +prizes_assigned_lamports(8) +prizes_finalized(1)
 const PER_TX = 6;
 const SEND = process.argv.includes("--send");
 

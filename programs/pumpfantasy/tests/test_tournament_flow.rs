@@ -347,6 +347,20 @@ fn test_full_tournament_flow() {
     let expected_distributed = expected_pool * (10_000 - pumpfantasy::RAKE_BPS as u64) / 10_000;
     assert_eq!(expected_distributed, 1_900_000_000);
 
+    // What the worker does off-chain after finalizing: write the one winner's prize, then lock the plan.
+    let set_prize_ix = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::SetPrize { prize_lamports: expected_distributed }.data(),
+        pumpfantasy::accounts::SetPrize { authority: authority.pubkey(), tournament, entry: entry_b }.to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![set_prize_ix], &[]).expect("set_prize failed");
+    let finish_ix = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::FinishPrizes {}.data(),
+        pumpfantasy::accounts::FinishPrizes { authority: authority.pubkey(), tournament }.to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![finish_ix], &[]).expect("finish_prizes failed");
+
     let balance_before = svm.get_balance(&player_b.pubkey()).unwrap();
 
     let claim = |svm: &mut LiteSVM, entry: &Pubkey, player: &Pubkey| {

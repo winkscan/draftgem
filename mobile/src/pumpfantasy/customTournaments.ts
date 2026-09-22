@@ -16,8 +16,8 @@ export type PayoutChoice = "top1" | "top3" | "p30" | "p50" | "pvp";
 
 export const PAYOUT_CHOICES: { key: PayoutChoice; label: string; description: string }[] = [
   { key: "top1", label: "Top 1", description: "Winner takes all — only the best portfolio is paid." },
-  { key: "top3", label: "Top 3", description: "The three best portfolios split the pool equally." },
-  { key: "p30", label: "30%", description: "The top 30% of players split the pool equally." },
+  { key: "top3", label: "Top 3", description: "1st gets 50%, 2nd 30%, 3rd 15% of the pool." },
+  { key: "p30", label: "30%", description: "The top 30% of players place, earning less the further down they rank." },
   { key: "p50", label: "50%", description: "The top half of players split the pool equally." },
   { key: "pvp", label: "PvP", description: "Head-to-head: two players, the winner takes the pool." },
 ];

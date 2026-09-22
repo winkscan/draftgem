@@ -36,9 +36,10 @@ pub fn handle_close_entry(ctx: Context<CloseEntry>) -> Result<()> {
     let entry = &ctx.accounts.entry;
 
     require!(tournament.status == TournamentStatus::Finalized, PumpFantasyError::NotClosable);
+    require!(tournament.prizes_finalized, PumpFantasyError::NotClosable);
     require!(entry.settled, PumpFantasyError::EntryNotClosable);
     require!(
-        entry.claimed || entry.score_bps < tournament.threshold_score_bps,
+        entry.claimed || entry.prize_lamports == 0,
         PumpFantasyError::EntryNotClosable
     );
 

@@ -36,6 +36,8 @@ const WITHDRAW_FEES_DISC = Uint8Array.from([198, 212, 171, 109, 144, 215, 174, 8
 const CLOSE_ENTRY_DISC = Uint8Array.from([132, 26, 202, 145, 190, 37, 114, 67]);
 const CLOSE_ASSET_PRICE_DISC = Uint8Array.from([118, 156, 47, 26, 189, 189, 198, 129]);
 const CLOSE_TOURNAMENT_DISC = Uint8Array.from([14, 80, 54, 9, 221, 239, 201, 35]);
+const SET_PRIZE_DISC = Uint8Array.from([35, 194, 101, 36, 7, 240, 153, 200]);
+const FINISH_PRIZES_DISC = Uint8Array.from([39, 242, 54, 9, 187, 64, 153, 93]);
 
 // constants::CANCEL_GRACE_SECONDS — how long after end_ts the program refuses a cancel.
 // Until then, missing prices are just retried (history never expires).
@@ -58,9 +60,13 @@ interface EntryRow {
   settled: boolean;
   claimed: boolean;
   createdAt: number;
+  /** Set by `set_prize`; 0 until then (or if the entry never placed). */
+  prizeLamports: bigint;
 }
 
 // Byte offsets follow programs/pumpfantasy/src/state.rs (8-byte discriminator first).
+// prize_lamports is appended after bump (253..261) rather than inline, so every offset before
+// it — the ones every other reader already hardcodes — stays exactly where it was.
 function decodeEntry(pubkey: PublicKey, data: Uint8Array): EntryRow {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const picks: PublicKey[] = [];
@@ -75,6 +81,7 @@ function decodeEntry(pubkey: PublicKey, data: Uint8Array): EntryRow {
     settled: data[242] !== 0,
     claimed: data[243] !== 0,
     createdAt: Number(view.getBigInt64(244, true)),
+    prizeLamports: data.length >= 261 ? view.getBigUint64(253, true) : 0n,
   };
 }
 
@@ -310,7 +317,6 @@ function buildArchive(tdata: Uint8Array, entries: EntryRow[], assets: AssetRow[]
   const winners = v.getUint32(91, true);
   const threshold = v.getInt32(95, true);
   const distributed = v.getBigUint64(99, true);
-  const share = status === TOURNAMENT_FINALIZED && winners > 0 ? distributed / BigInt(winners) : 0n;
   return {
     tournament: {
       id: v.getBigUint64(40, true).toString(),
@@ -335,7 +341,7 @@ function buildArchive(tdata: Uint8Array, entries: EntryRow[], assets: AssetRow[]
       fpSpent: e.fpSpent,
       scoreBps: e.scoreBps,
       createdAt: e.createdAt,
-      prizeLamports: (e.settled && e.scoreBps >= threshold ? share : 0n).toString(),
+      prizeLamports: e.prizeLamports.toString(), // the real, possibly-tiered amount set_prize wrote
     })),
     assets: assets.map((a) => ({
       mint: a.mint.toBase58(),
@@ -362,7 +368,6 @@ async function closeOut(
   const tdata = info.data;
   const v = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const status = v.getUint8(90);
-  const threshold = v.getInt32(95, true);
 
   const entries = await readEntries(connection, tournament);
   const assets = await readAssetRows(connection, tournament);
@@ -373,9 +378,10 @@ async function closeOut(
 
   const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
   if (entries.length > 0) {
-    // (a cancelled tournament's entries are closed by their refunds, in refundAll)
+    // (a cancelled tournament's entries are closed by their refunds, in refundAll). Matches the
+    // contract's own close_entry gate exactly: settled, and either claimed or never placed.
     const closable =
-      status === TOURNAMENT_FINALIZED ? entries.filter((e) => e.settled && (e.claimed || e.scoreBps < threshold)) : [];
+      status === TOURNAMENT_FINALIZED ? entries.filter((e) => e.settled && (e.claimed || e.prizeLamports === 0n)) : [];
     if (closable.length === 0) return { note: `${entries.length} entr(ies) can't be closed yet`, done: false, progressed: false };
     const batch = closable.slice(0, CLOSES_PER_TX * MAX_CLOSE_TX_PER_STEP);
     const groups = chunk(batch, CLOSES_PER_TX).map((g) => g.map((e) => closeEntryIx(authority.publicKey, tournament, e)));
@@ -445,10 +451,15 @@ function refundIx(authority: PublicKey, tournament: PublicKey, vault: PublicKey,
   });
 }
 
-/** Prize structures a tournament can have. The program itself only knows "equal share for everyone at or above a threshold"; the structure is how many ranks that covers. */
+/** Prize structures a tournament can have. */
 export type Payout = "top1" | "top3" | "p30" | "p50" | "pvp";
 
-/** How many of `n` entrants win (before ties widen the set). Mirrored in the app's liveScore.ts. */
+/**
+ * How many of `n` entrants win, before ties widen the set. Only used for the app's PROJECTION
+ * (before a tournament is finalized — see mobile's liveScore.ts, its own copy of this). Once
+ * finalized, the real winner count comes from the actual prize plan (see `computePrizes`), which
+ * follows the same idea but works in relative SLOT WEIGHTS rather than a flat threshold.
+ */
 export function winnerTarget(payout: Payout, n: number): number {
   switch (payout) {
     case "top1":
@@ -464,17 +475,97 @@ export function winnerTarget(payout: Payout, n: number): number {
 }
 
 /**
- * The winners' cut-off. By default the top half of entrants win (player-made
- * tournaments can pick Top 1 / Top 3 / 30%); the program pays
- * every settled entry with score >= threshold an equal share, so
- * `winners_count` MUST equal how many entries clear the threshold (ties at the
- * cut-off all win) or the vault would be paid out more than it holds.
+ * Relative weights for each paid rank, best place first. The contract itself has no idea what
+ * these mean — it only ever sees the final lamport amount `computePrizes` works out per entry
+ * (see `set_prize`). User's spec (2026-09-22):
+ *   Top 1 — winner takes the whole distributable pool.
+ *   Top 3 — fixed 50 / 30 / 15 (of the pool; the remaining 5% is the platform's rake, or 10% with
+ *     a creator cut — either way the *ratio* between the three places stays 50:30:15, scaled to
+ *     whatever's actually distributable that tick).
+ *   30% — the top 30% of entrants place, earnings stepping down evenly from 1st to last (a plain
+ *     linear taper — not specified further, chosen as the simplest, most explainable curve).
+ *   50% / PvP — flat: every place is worth the same.
+ * Capped at `n` so a structure never asks for more paid places than there are entries.
  */
-export function winnersFromScores(scores: number[], payout: Payout = "p50"): { winners: number; thresholdBps: number } {
-  const sorted = [...scores].sort((a, b) => b - a);
-  const target = winnerTarget(payout, sorted.length);
-  const thresholdBps = sorted[target - 1];
-  return { winners: sorted.filter((s) => s >= thresholdBps).length, thresholdBps };
+export function slotsFor(payout: Payout, n: number): number[] {
+  switch (payout) {
+    case "top1":
+    case "pvp":
+      return [1];
+    case "top3":
+      return [50, 30, 15].slice(0, Math.min(3, Math.max(1, n)));
+    case "p30": {
+      const k = Math.max(1, Math.ceil(n * 0.3));
+      return Array.from({ length: k }, (_, i) => k - i); // k, k-1, ..., 1
+    }
+    case "p50": {
+      const k = Math.max(1, Math.ceil(n / 2));
+      return Array.from({ length: k }, () => 1);
+    }
+  }
+}
+
+/**
+ * Turns a set of scored entries into per-entry prize amounts, honouring `weights` (see
+ * `slotsFor`) and splitting fairly on ties: entries are grouped by exact score (descending), and
+ * each group claims as many of the remaining slots as it has members (capped by how many are
+ * left) — its share of those slots' combined weight, split evenly across every member of the
+ * group. A group bigger than the slots it claims still only earns what those slots are worth in
+ * total; a group that runs out of slots to claim (nothing left once earlier groups took them)
+ * gets nothing, and neither does anyone sorted below it. This is also what makes 50%/PvP (all
+ * weights equal) behave exactly like the old flat "everyone at the cut-off splits it" rule.
+ */
+export function computePrizes(
+  entries: { pubkey: PublicKey; scoreBps: number }[],
+  weights: number[],
+  distributable: bigint,
+): Map<string, bigint> {
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const out = new Map<string, bigint>();
+  if (totalWeight === 0 || distributable <= 0n) return out;
+
+  const sorted = [...entries].sort((a, b) => b.scoreBps - a.scoreBps);
+  const groups: { scoreBps: number; members: typeof sorted }[] = [];
+  for (const e of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && last.scoreBps === e.scoreBps) last.members.push(e);
+    else groups.push({ scoreBps: e.scoreBps, members: [e] });
+  }
+
+  let slotIndex = 0;
+  for (const g of groups) {
+    if (slotIndex >= weights.length) break;
+    const consumed = Math.min(g.members.length, weights.length - slotIndex);
+    const weightSum = weights.slice(slotIndex, slotIndex + consumed).reduce((a, b) => a + b, 0);
+    const groupTotal = (distributable * BigInt(weightSum)) / BigInt(totalWeight);
+    const share = groupTotal / BigInt(g.members.length);
+    if (share > 0n) for (const m of g.members) out.set(m.pubkey.toBase58(), share);
+    slotIndex += consumed;
+  }
+  return out;
+}
+
+function setPrizeIx(authority: PublicKey, tournament: PublicKey, entry: PublicKey, prizeLamports: bigint): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: false },
+      { pubkey: tournament, isSigner: false, isWritable: true },
+      { pubkey: entry, isSigner: false, isWritable: true },
+    ],
+    data: concatBytes(SET_PRIZE_DISC, u64le(prizeLamports)),
+  });
+}
+
+function finishPrizesIx(authority: PublicKey, tournament: PublicKey): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: authority, isSigner: true, isWritable: false },
+      { pubkey: tournament, isSigner: false, isWritable: true },
+    ],
+    data: Buffer.from(FINISH_PRIZES_DISC),
+  });
 }
 
 interface StepResult {
@@ -488,7 +579,12 @@ const TOURNAMENT_OPEN = 0;
 const TOURNAMENT_FINALIZED = 1;
 const TOURNAMENT_CANCELLED = 2;
 
-/** Settle every entry whose prices are in, finalize once all are scored, then pay the winners. */
+/**
+ * Settles every entry whose prices are in, then works through the rest of a tournament's life one
+ * phase per tick — finalize, write the prize plan (`set_prize`, one per winner), lock it
+ * (`finish_prizes`), pay it out (`claim_prize`) — always returning after whatever fit in this
+ * tick's budget so a big tournament just continues next time.
+ */
 async function settleAndPay(
   env: Env,
   connection: Connection,
@@ -500,11 +596,10 @@ async function settleAndPay(
   const { payout, creator } = info;
   const view = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
   const finalized = view.getUint8(90) === TOURNAMENT_FINALIZED;
+  const pool = view.getBigUint64(82, true);
+  let progressed = false;
 
   let entries = await readEntries(connection, tournament);
-  let winners = view.getUint32(91, true);
-  let thresholdBps = view.getInt32(95, true);
-  let progressed = false;
 
   if (!finalized) {
     const assets = await readAssets(connection, tournament);
@@ -525,22 +620,56 @@ async function settleAndPay(
       }
       entries = await readEntries(connection, tournament); // scores now come from chain, not from our own math
     }
-
     if (entries.some((e) => !e.settled)) return { note: "entries still settling", done: false, progressed };
-    ({ winners, thresholdBps } = winnersFromScores(entries.map((e) => e.scoreBps), payout));
-    const feeBps = creator ? RAKE_BPS + CREATOR_FEE_BPS : RAKE_BPS; // winners share 90% when the creator earns a cut
+  }
+
+  // The prize plan is a pure function of every entry's (now-settled) score plus the tournament's
+  // structure — the same every tick, so recomputing it costs nothing; only writing it on-chain
+  // (below) needs to continue across ticks.
+  const feeBps = creator ? RAKE_BPS + CREATOR_FEE_BPS : RAKE_BPS; // winners share 90% when the creator earns a cut
+  const distributable = (pool * BigInt(10_000 - feeBps)) / 10_000n;
+  const weights = slotsFor(payout, entries.length);
+  const prizes = computePrizes(entries, weights, distributable);
+  const winners = [...prizes.values()].filter((v) => v > 0n).length;
+  const winningScores = entries.filter((e) => (prizes.get(e.pubkey.toBase58()) ?? 0n) > 0n).map((e) => e.scoreBps);
+  const thresholdBps = winningScores.length ? Math.min(...winningScores) : 0;
+
+  if (!finalized) {
     const failed = await sendAll(connection, authority, [[finalizeIx(authority.publicKey, tournament, winners, thresholdBps, feeBps)]]);
-    if (failed > 0) return { note: "finalize failed, retrying next tick", done: false, progressed };
-    progressed = true;
+    return failed === 0
+      ? { note: `finalized (${winners} winner(s))`, done: false, progressed: true }
+      : { note: "finalize failed, retrying next tick", done: false, progressed };
+  }
+
+  const prizesFinalized = view.getUint8(126) !== 0;
+  if (!prizesFinalized) {
+    const needsSet = entries.filter((e) => {
+      const want = prizes.get(e.pubkey.toBase58()) ?? 0n;
+      return want > 0n && e.prizeLamports !== want;
+    });
+    if (needsSet.length > 0) {
+      const batch = needsSet.slice(0, MAX_TX_PER_STEP); // one set_prize per tx — it needs the whole tournament writable
+      const groups = batch.map((e) => [setPrizeIx(authority.publicKey, tournament, e.pubkey, prizes.get(e.pubkey.toBase58())!)]);
+      const failed = await sendAll(connection, authority, groups);
+      return {
+        note: `wrote ${batch.length}/${needsSet.length} prize(s)${failed ? `, ${failed} tx failed` : ""}`,
+        done: false,
+        progressed: failed < groups.length,
+      };
+    }
+    const failed = await sendAll(connection, authority, [[finishPrizesIx(authority.publicKey, tournament)]]);
+    return failed === 0
+      ? { note: "prize plan locked in", done: false, progressed: true }
+      : { note: "finish_prizes failed, retrying", done: false, progressed: false };
   }
 
   const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
-  const claimable = entries.filter((e) => e.settled && !e.claimed && e.scoreBps >= thresholdBps);
+  const claimable = entries.filter((e) => e.settled && !e.claimed && e.prizeLamports > 0n);
   if (claimable.length === 0) {
     // Every prize is out: now the fees can leave the vault (to the creator and to us).
     const fees = await withdrawFees(connection, authority, tournament, vault, creator);
     const feeNote = `finalized (${winners} winner(s)), all paid${fees.note ? `; ${fees.note}` : ""}`;
-    const feeProgress = progressed || fees.note.startsWith("fees withdrawn");
+    const feeProgress = fees.note.startsWith("fees withdrawn");
     if (!fees.ok) return { note: feeNote, done: false, progressed: feeProgress };
     // Then tidy up: results are archived and all the rent goes back (closeOut).
     const closing = await closeOut(env, connection, authority, tournament);
@@ -553,7 +682,7 @@ async function settleAndPay(
   // Not done yet even when every claim went through: the next pass finds nothing left to claim,
   // and only then withdraws the fees (creator's cut + ours) — so this tournament is revisited once more.
   const note = failed === 0 ? `paid ${batch.length}/${claimable.length} winner(s)` : `claims: ${failed} tx failed, retrying`;
-  return { note, done: false, progressed: progressed || failed < groups.length };
+  return { note, done: false, progressed: failed < groups.length };
 }
 
 /**

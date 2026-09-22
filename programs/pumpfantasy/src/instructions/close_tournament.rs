@@ -50,6 +50,7 @@ pub fn handle_close_tournament(ctx: Context<CloseTournament>) -> Result<()> {
         // Never had entries (they are locked from start_ts on): nothing to settle, nothing to pay.
         TournamentStatus::Open => require!(now >= tournament.start_ts, PumpFantasyError::TournamentNotClosable),
         TournamentStatus::Finalized => {
+            require!(tournament.prizes_finalized, PumpFantasyError::TournamentNotClosable);
             let unwithdrawn_fees = tournament
                 .prize_pool_lamports
                 .saturating_sub(tournament.distributed_pool_lamports);

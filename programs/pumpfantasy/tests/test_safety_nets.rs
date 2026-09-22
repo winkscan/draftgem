@@ -285,6 +285,8 @@ fn test_single_entry_can_claim_despite_vault_rent_minimum() {
             .to_account_metas(None),
     );
     send(&mut t.svm, &t.authority, vec![finalize]).expect("finalize failed");
+    // distributed_pool_lamports = 10_000_000 * 9500 / 10000 = 9_500_000, one winner takes it all.
+    t.pay_flat_equal(&[entry], 9_500_000);
 
     let before = t.svm.get_balance(&player.pubkey()).unwrap();
     let claim = t.claim_ix(entry, player.pubkey());
@@ -376,6 +378,36 @@ impl Mini {
         )
     }
 
+    fn set_prize_ix(&self, entry: Pubkey, prize_lamports: u64) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::SetPrize { prize_lamports }.data(),
+            pumpfantasy::accounts::SetPrize { authority: self.authority.pubkey(), tournament: self.tournament, entry }
+                .to_account_metas(None),
+        )
+    }
+
+    fn finish_prizes_ix(&self) -> Instruction {
+        Instruction::new_with_bytes(
+            self.program_id,
+            &pumpfantasy::instruction::FinishPrizes {}.data(),
+            pumpfantasy::accounts::FinishPrizes { authority: self.authority.pubkey(), tournament: self.tournament }
+                .to_account_metas(None),
+        )
+    }
+
+    /// What the worker would do off-chain after `finalize_ix`: write each winner's flat equal
+    /// share via `set_prize`, then lock the plan with `finish_prizes`. `entries` all win an equal cut.
+    fn pay_flat_equal(&mut self, entries: &[Pubkey], distributed_pool_lamports: u64) {
+        let share = distributed_pool_lamports / entries.len() as u64;
+        for &e in entries {
+            let ix = self.set_prize_ix(e, share);
+            send(&mut self.svm, &self.authority, vec![ix]).expect("set_prize failed");
+        }
+        let ix = self.finish_prizes_ix();
+        send(&mut self.svm, &self.authority, vec![ix]).expect("finish_prizes failed");
+    }
+
     fn withdraw_fees_ix(&self, signer: &Keypair, creator: Pubkey, creator_lamports: u64) -> Instruction {
         Instruction::new_with_bytes(
             self.program_id,
@@ -407,6 +439,9 @@ impl Mini {
         }
         let ix = self.finalize_ix(2, 1000, fee_bps);
         send(&mut self.svm, &self.authority, vec![ix]).expect("finalize failed");
+        let distributed = self.svm.get_account(&self.tournament).unwrap();
+        let distributed_pool_lamports = u64::from_le_bytes(distributed.data[99..107].try_into().unwrap());
+        self.pay_flat_equal(&[entry_a, entry_b], distributed_pool_lamports);
         ((a, entry_a), (b, entry_b))
     }
 }
@@ -564,7 +599,7 @@ fn test_rent_is_paid_by_players_and_fully_returned() {
         t.svm.airdrop(&kp.pubkey(), 1_000_000_000).unwrap();
     }
     let asset_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 32 + 8 + 8 + 1 + 1 + 32);
-    let entry_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 32 + 2 + 32 * 5 + 4 + 4 + 1 + 1 + 8 + 1);
+    let entry_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 32 + 2 + 32 * 5 + 4 + 4 + 1 + 1 + 8 + 1 + 8);
     let auth_before_entries = t.svm.get_balance(&t.authority.pubkey()).unwrap();
 
     // A picks five coins nobody has picked; B picks the same five.
@@ -588,12 +623,15 @@ fn test_rent_is_paid_by_players_and_fully_returned() {
     let ix = t.finalize_ix(2, 1000, pumpfantasy::RAKE_BPS);
     send(&mut t.svm, &t.authority, vec![ix]).expect("finalize");
 
-    // Too early to tidy up while prizes are unclaimed / fees not withdrawn.
+    // Too early to tidy up while the prize plan isn't locked in yet.
     let early = t.close_entry_ix(entry_a, a.pubkey());
     assert!(send(&mut t.svm, &t.authority, vec![early]).is_err(), "a winner's entry can't close before the claim");
     t.svm.expire_blockhash();
     let early_tournament = t.close_tournament_ix();
     assert!(send(&mut t.svm, &t.authority, vec![early_tournament]).is_err(), "not while entries and coins are open");
+
+    // pool 200_000_000, distributed 190_000_000 (5% rake), split evenly — same portfolio, tied score.
+    t.pay_flat_equal(&[entry_a, entry_b], 190_000_000);
 
     for (e, kp) in [(entry_a, &a), (entry_b, &b)] {
         let ix = t.claim_ix(e, kp.pubkey());
@@ -625,7 +663,8 @@ fn test_rent_is_paid_by_players_and_fully_returned() {
     assert!(send(&mut t.svm, &t.authority, vec![wrong_payer]).is_err(), "already closed, and never to the wrong wallet");
 
     // The tournament itself: our rent (and the vault's leftover) comes home.
-    let tournament_rent = t.svm.minimum_balance_for_rent_exemption(8 + 32 + 8 + 8 + 8 + 8 + 2 + 4 + 4 + 8 + 1 + 4 + 4 + 8 + 1 + 8 + 1 + 1);
+    let tournament_rent =
+        t.svm.minimum_balance_for_rent_exemption(8 + 32 + 8 + 8 + 8 + 8 + 2 + 4 + 4 + 8 + 1 + 4 + 4 + 8 + 1 + 8 + 1 + 1 + 8 + 1);
     let auth_before_close = t.svm.get_balance(&t.authority.pubkey()).unwrap();
     let ix = t.close_tournament_ix();
     send(&mut t.svm, &t.authority, vec![ix]).expect("close tournament");
@@ -678,4 +717,80 @@ fn test_close_tournament_guards() {
     let last = t.close_tournament_ix();
     send(&mut t.svm, &t.authority, vec![last]).expect("a fully wound-down cancelled tournament closes");
     assert!(t.gone(&t.tournament));
+}
+
+// ---------------------------------------------------------------------------
+// Tiered prizes (Top 1 / Top 3 / 30%): set_prize + finish_prizes.
+// ---------------------------------------------------------------------------
+
+/// The contract itself doesn't know about "Top 3" or rank curves — it just accepts whatever
+/// per-entry prize the authority writes via `set_prize`, and enforces that the total can never
+/// exceed the pool, and can never change once `finish_prizes` locks it. This mirrors exactly the
+/// scenario the user described: three entries, unequal prizes (50/30/15-style), and two of them
+/// tied on score so they split a combined slice evenly — which the CONTRACT sees simply as "two
+/// entries, each set to the same prize_lamports".
+#[test]
+fn test_tiered_prizes_uneven_and_ties() {
+    let mut t = mini_tournament(10_000_000); // 0.01 SOL entry
+    let (a, b, c) = (Keypair::new(), Keypair::new(), Keypair::new());
+    for kp in [&a, &b, &c] {
+        t.svm.airdrop(&kp.pubkey(), 1_000_000_000).unwrap();
+    }
+    // A and B end up tied for "2nd place"; C is clearly 3rd (a different, lower score) — same
+    // shape as the user's example, just 2-way instead of 10-way.
+    let entry_a = t.enter(&a);
+    let entry_b = t.enter_at(&b, 0);
+    let entry_c = t.enter_at(&c, 0);
+    t.register_and_resolve(1_100_000); // everyone scores the same +10% here; ties are simulated by the prize plan below, not by score
+
+    for e in [entry_a, entry_b, entry_c] {
+        let ix = t.settle_ix(e);
+        send(&mut t.svm, &t.authority, vec![ix]).expect("settle");
+    }
+    let ix = t.finalize_ix(3, 1000, pumpfantasy::RAKE_BPS);
+    send(&mut t.svm, &t.authority, vec![ix]).expect("finalize");
+    // pool 30_000_000, distributed = 30_000_000 * 9500/10000 = 28_500_000.
+    // A and B tied for the combined "2nd+3rd" slice (30+15=45/95 of distributable) split 2 ways;
+    // nobody else places (only 3 entries here) — mirrors the 50/30/15 Top-3 curve's shape.
+    let distributed: u64 = 28_500_000;
+    let tied_pair_total = distributed * 45 / 95;
+    let tied_share = tied_pair_total / 2;
+    let ix = t.set_prize_ix(entry_a, tied_share);
+    send(&mut t.svm, &t.authority, vec![ix]).expect("set_prize A");
+    let ix = t.set_prize_ix(entry_b, tied_share);
+    send(&mut t.svm, &t.authority, vec![ix]).expect("set_prize B");
+    // C gets nothing (never set — the default 0 from account init already means "didn't place").
+
+    // Over budget must fail: A+B+first-place-slot would exceed distributed_pool_lamports.
+    let too_much = t.set_prize_ix(entry_c, distributed); // alone already equals the whole distributable
+    assert!(send(&mut t.svm, &t.authority, vec![too_much]).is_err(), "can't assign more than the pool holds in total");
+    t.svm.expire_blockhash();
+
+    // Claiming is blocked until the plan is locked in.
+    let early_claim = t.claim_ix(entry_a, a.pubkey());
+    assert!(send(&mut t.svm, &t.authority, vec![early_claim]).is_err(), "can't claim before finish_prizes");
+
+    let ix = t.finish_prizes_ix();
+    send(&mut t.svm, &t.authority, vec![ix]).expect("finish_prizes");
+
+    // Locked: set_prize can no longer touch this tournament.
+    t.svm.expire_blockhash();
+    let locked = t.set_prize_ix(entry_a, 1);
+    assert!(send(&mut t.svm, &t.authority, vec![locked]).is_err(), "set_prize after finish_prizes must fail");
+
+    // A and B each get exactly the tied share; C, never assigned a prize, can't claim at all.
+    let (bal_a, bal_b) = (t.svm.get_balance(&a.pubkey()).unwrap(), t.svm.get_balance(&b.pubkey()).unwrap());
+    let claim_a = t.claim_ix(entry_a, a.pubkey());
+    send(&mut t.svm, &t.authority, vec![claim_a]).expect("claim A");
+    let claim_b = t.claim_ix(entry_b, b.pubkey());
+    send(&mut t.svm, &t.authority, vec![claim_b]).expect("claim B");
+    assert_eq!(t.svm.get_balance(&a.pubkey()).unwrap() - bal_a, tied_share, "A gets exactly the tied share");
+    assert_eq!(t.svm.get_balance(&b.pubkey()).unwrap() - bal_b, tied_share, "B gets exactly the tied share");
+    let claim_c = t.claim_ix(entry_c, c.pubkey());
+    assert!(send(&mut t.svm, &t.authority, vec![claim_c]).is_err(), "C never placed, nothing to claim");
+
+    // C's entry can still be closed for its rent (didn't win, isn't claimed) even though the
+    // winners' entries can't be closed yet (they're settled + claimed, so they CAN close too).
+    let close_c = t.close_entry_ix(entry_c, c.pubkey());
+    send(&mut t.svm, &t.authority, vec![close_c]).expect("a non-winner's entry closes for its rent");
 }

@@ -108,4 +108,12 @@ pub mod pumpfantasy {
     pub fn close_tournament(ctx: Context<CloseTournament>) -> Result<()> {
         instructions::close_tournament::handle_close_tournament(ctx)
     }
+
+    pub fn set_prize(ctx: Context<SetPrize>, prize_lamports: u64) -> Result<()> {
+        instructions::set_prize::handle_set_prize(ctx, prize_lamports)
+    }
+
+    pub fn finish_prizes(ctx: Context<FinishPrizes>) -> Result<()> {
+        instructions::finish_prizes::handle_finish_prizes(ctx)
+    }
 }

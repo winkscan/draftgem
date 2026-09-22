@@ -134,12 +134,13 @@ export function LeaderboardScreen() {
       if (b.scoreBps !== a.scoreBps) return b.scoreBps - a.scoreBps;
       return Number(a.entry.account.createdAt - b.entry.account.createdAt);
     });
-    const prizes = projectPrizes(
-      tournament,
-      scored.map((s) => s.scoreBps),
-      payout,
-      creatorFeeBps,
-    );
+    // Once finalized every entry's real prize is on chain (set_prize) — use that directly rather
+    // than projecting, since Top 3/30% pay different amounts per rank and only the real per-entry
+    // value can show that correctly. Still live: project from scores (see liveScore.ts).
+    const prizes =
+      tournament.status === "finalized"
+        ? scored.map((s) => s.entry.account.prizeLamports)
+        : projectPrizes(tournament, scored.map((s) => s.scoreBps), payout, creatorFeeBps);
     return scored.map((s, i) => ({
       key: s.entry.publicKey.toBase58(),
       rank: i + 1,

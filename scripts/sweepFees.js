@@ -19,7 +19,7 @@ const {
 
 const PROGRAM = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu");
 const WITHDRAW_FEES_DISC = Buffer.from([198, 212, 171, 109, 144, 215, 174, 89]);
-const TOURNAMENT_SIZE = 118;
+const TOURNAMENT_SIZE = 127; // +prizes_assigned_lamports(8) +prizes_finalized(1)
 const PER_TX = 6;
 const SEND = process.argv.includes("--send");
 

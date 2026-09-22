@@ -44,6 +44,13 @@ pub struct Tournament {
     pub guaranteed_amount_lamports: u64,
     pub vault_bump: u8,
     pub bump: u8,
+    /// Running total of every `set_prize` call so far — never allowed to exceed
+    /// `distributed_pool_lamports` (see `set_prize`'s own comment).
+    pub prizes_assigned_lamports: u64,
+    /// Set once by `finish_prizes`, after every winning entry has its `prize_lamports`
+    /// locked in. `claim_prize` and `close_entry` both require this — it is the line
+    /// between "the authority is still writing the prize plan" and "money can move".
+    pub prizes_finalized: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
@@ -109,4 +116,9 @@ pub struct Entry {
     /// input; doesn't affect anyone's score itself.
     pub created_at: i64,
     pub bump: u8,
+    /// What this entry is owed, set by `set_prize` once the tournament is finalized and the
+    /// off-chain ranking/tie-grouping is done — 0 if it didn't place. `claim_prize` pays out
+    /// exactly this (no more on-chain arithmetic): a flat equal share for a 50%/PvP structure,
+    /// a tiered amount for Top 1/Top 3/30%. See settlement.ts's `computePrizes`.
+    pub prize_lamports: u64,
 }

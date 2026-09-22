@@ -51,6 +51,7 @@ pub fn handle_withdraw_fees(ctx: Context<WithdrawFees>, creator_lamports: u64) -
         tournament.status == TournamentStatus::Finalized,
         PumpFantasyError::NotFinalized
     );
+    require!(tournament.prizes_finalized, PumpFantasyError::PrizesNotFinalized);
 
     let pool = tournament.prize_pool_lamports;
     let total_fees = pool.saturating_sub(tournament.distributed_pool_lamports);

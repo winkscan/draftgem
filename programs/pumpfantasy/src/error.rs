@@ -64,4 +64,10 @@ pub enum PumpFantasyError {
     EntryNotClosable,
     #[msg("Entries or asset accounts are still open, or funds are still in the vault")]
     TournamentNotClosable,
+    #[msg("The prize plan isn't finished yet — finish_prizes hasn't been called")]
+    PrizesNotFinalized,
+    #[msg("The prize plan is already locked in — set_prize can no longer change it")]
+    PrizesAlreadyFinalized,
+    #[msg("This would assign more than the tournament's distributable pool")]
+    PrizeBudgetExceeded,
 }

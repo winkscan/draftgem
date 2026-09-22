@@ -88,8 +88,8 @@ const SPLIT_ROWS = [
 
 const STRUCTURES = [
   { name: "Top 1", blurb: "Winner takes all — only the best portfolio is paid." },
-  { name: "Top 3", blurb: "The three best portfolios split the prize equally." },
-  { name: "30%", blurb: "The top 30% of players split the prize equally." },
+  { name: "Top 3", blurb: "1st place gets 50% of the prize pool, 2nd gets 30%, 3rd gets 15%." },
+  { name: "30%", blurb: "The top 30% of players place, earning less the further down they rank." },
   { name: "50%", blurb: "The top half of players split the prize equally." },
   { name: "PvP", blurb: "A duel: exactly two players, winner takes all." },
 ];
@@ -128,13 +128,14 @@ function TournamentTypes() {
         ))}
       </View>
       <Paragraph>
-        Players tied exactly at the cut-off score all win, so the winner count can end up a little wider than the
-        structure's number.
+        A tie is settled fairly: portfolios that end up with the exact same score split whatever place(s) they're tied
+        for evenly between themselves — never less than the plan holds, but a big tie near the cut-off can leave the
+        places below it with nothing.
       </Paragraph>
       <Paragraph>
-        Two portfolios with the exact same score are ranked by who entered first — checked by each entry's on-chain
-        timestamp. It only decides the order they're listed in; every winning score still gets an equal share of the
-        pool either way.
+        Among portfolios tied with each other, the one that entered first is listed higher in the standings — checked
+        by each entry's on-chain timestamp. That never changes how much any of them get; tied entries always split
+        their combined prize equally.
       </Paragraph>
     </View>
   );
@@ -184,8 +185,8 @@ function CreateYourOwn() {
         ))}
       </View>
       <Paragraph>
-        Players with exactly the same score at the cut-off all win. A PvP duel is single-entry and closes as soon as two
-        players are in.
+        A tie splits whatever place(s) it's tied for evenly among the players in it. A PvP duel is single-entry and
+        closes as soon as two players are in.
       </Paragraph>
 
       <Heading>Sharing</Heading>

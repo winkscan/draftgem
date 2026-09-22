@@ -14,21 +14,20 @@ export type Pumpfantasy = {
   },
   "instructions": [
     {
-      "name": "addAsset",
+      "name": "cancelTournament",
       "discriminator": [
-        81,
-        53,
-        134,
+        249,
+        227,
+        133,
+        5,
+        9,
         142,
-        243,
-        73,
-        42,
-        179
+        29,
+        122
       ],
       "accounts": [
         {
           "name": "authority",
-          "writable": true,
           "signer": true,
           "relations": [
             "tournament"
@@ -61,52 +60,9 @@ export type Pumpfantasy = {
               }
             ]
           }
-        },
-        {
-          "name": "asset",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  115,
-                  115,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tournament"
-              },
-              {
-                "kind": "arg",
-                "path": "mint"
-              }
-            ]
-          }
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
         }
       ],
-      "args": [
-        {
-          "name": "mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "fpCost",
-          "type": "u32"
-        },
-        {
-          "name": "startPriceMicros",
-          "type": "u64"
-        }
-      ]
+      "args": []
     },
     {
       "name": "claimPrize",
@@ -186,6 +142,206 @@ export type Pumpfantasy = {
         {
           "name": "player",
           "writable": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeAssetPrice",
+      "discriminator": [
+        118,
+        156,
+        47,
+        26,
+        189,
+        189,
+        198,
+        129
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless: anyone can tidy up, the rent can only go to whoever paid it."
+          ],
+          "signer": true
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeEntry",
+      "discriminator": [
+        132,
+        26,
+        202,
+        145,
+        190,
+        37,
+        114,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless: anyone can tidy up, the rent can only go to the player."
+          ],
+          "signer": true
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true
+        },
+        {
+          "name": "player",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeTournament",
+      "discriminator": [
+        14,
+        80,
+        54,
+        9,
+        221,
+        239,
+        201,
+        35
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Signs, and gets back the rent it paid to create the tournament (plus whatever",
+            "dust is left in the vault)."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              }
+            ]
+          }
         },
         {
           "name": "systemProgram",
@@ -286,6 +442,18 @@ export type Pumpfantasy = {
         {
           "name": "endTs",
           "type": "i64"
+        },
+        {
+          "name": "entryMode",
+          "type": {
+            "defined": {
+              "name": "entryMode"
+            }
+          }
+        },
+        {
+          "name": "guaranteedAmountLamports",
+          "type": "u64"
         }
       ]
     },
@@ -379,16 +547,55 @@ export type Pumpfantasy = {
               {
                 "kind": "account",
                 "path": "player"
+              },
+              {
+                "kind": "arg",
+                "path": "entryIndex"
               }
             ]
           }
+        },
+        {
+          "name": "instructionsSysvar",
+          "docs": [
+            "ed25519_program attestation instruction — pinned to the real",
+            "Instructions sysvar address, never any other account."
+          ],
+          "address": "Sysvar1nstructions1111111111111111111111111"
         },
         {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "entryIndex",
+          "type": "u16"
+        },
+        {
+          "name": "picks",
+          "type": {
+            "array": [
+              "pubkey",
+              5
+            ]
+          }
+        },
+        {
+          "name": "fpCosts",
+          "type": {
+            "array": [
+              "u32",
+              5
+            ]
+          }
+        },
+        {
+          "name": "attestationExpiry",
+          "type": "i64"
+        }
+      ]
     },
     {
       "name": "finalizeTournament",
@@ -447,6 +654,296 @@ export type Pumpfantasy = {
         {
           "name": "thresholdScoreBps",
           "type": "i32"
+        },
+        {
+          "name": "feeBps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "finishPrizes",
+      "discriminator": [
+        39,
+        242,
+        54,
+        9,
+        187,
+        64,
+        153,
+        93
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "refundEntry",
+      "discriminator": [
+        214,
+        5,
+        136,
+        23,
+        253,
+        7,
+        230,
+        81
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless, like `claim_prize`: anyone can trigger the refund, but",
+            "the destination is locked to `entry.player` below."
+          ],
+          "signer": true
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true
+        },
+        {
+          "name": "player",
+          "writable": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "registerAssetPrice",
+      "discriminator": [
+        43,
+        245,
+        161,
+        178,
+        99,
+        48,
+        249,
+        125
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset",
+          "docs": [
+            "Created (and its rent paid) by the first player to pick this coin, inside",
+            "`enter_tournament`; here the authority only records the start price on it."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  115,
+                  115,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "startPriceMicros",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "setPrize",
+      "discriminator": [
+        35,
+        194,
+        101,
+        36,
+        7,
+        240,
+        153,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "prizeLamports",
+          "type": "u64"
         }
       ]
     },
@@ -565,9 +1062,116 @@ export type Pumpfantasy = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "withdrawFees",
+      "discriminator": [
+        198,
+        212,
+        171,
+        109,
+        144,
+        215,
+        174,
+        89
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Signs, and receives the platform's share."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "tournament"
+          ]
+        },
+        {
+          "name": "tournament",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  117,
+                  114,
+                  110,
+                  97,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament.id",
+                "account": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tournament"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "docs": [
+            "Receives the creator's share (the tournament's creator; may be the same",
+            "account as `authority` when `creator_lamports` is 0)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "creatorLamports",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
+    {
+      "name": "assetPrice",
+      "discriminator": [
+        197,
+        106,
+        216,
+        207,
+        155,
+        172,
+        40,
+        245
+      ]
+    },
     {
       "name": "entry",
       "discriminator": [
@@ -592,19 +1196,6 @@ export type Pumpfantasy = {
         194,
         57,
         92
-      ]
-    },
-    {
-      "name": "tournamentAsset",
-      "discriminator": [
-        52,
-        102,
-        230,
-        140,
-        17,
-        232,
-        148,
-        75
       ]
     }
   ],
@@ -693,9 +1284,142 @@ export type Pumpfantasy = {
       "code": 6016,
       "name": "invalidWinnersCount",
       "msg": "Winners count must be greater than zero"
+    },
+    {
+      "code": 6017,
+      "name": "singleEntryOnly",
+      "msg": "This tournament only allows a single entry per wallet"
+    },
+    {
+      "code": 6018,
+      "name": "missingAttestation",
+      "msg": "Missing or invalid fp_cost attestation for this entry's picks"
+    },
+    {
+      "code": 6019,
+      "name": "attestationExpired",
+      "msg": "Attestation has expired — request a fresh one and retry"
+    },
+    {
+      "code": 6020,
+      "name": "tooEarlyToRegisterPrice",
+      "msg": "Asset prices can only be registered once the entry window has closed"
+    },
+    {
+      "code": 6021,
+      "name": "tooEarlyToCancel",
+      "msg": "A tournament can only be cancelled a while after it ended"
+    },
+    {
+      "code": 6022,
+      "name": "nothingToCancel",
+      "msg": "Every entry is already settled - finalize instead of cancelling"
+    },
+    {
+      "code": 6023,
+      "name": "notCancelled",
+      "msg": "Tournament has not been cancelled"
+    },
+    {
+      "code": 6024,
+      "name": "invalidFee",
+      "msg": "Fee must be the platform rake, or the rake plus the creator cut"
+    },
+    {
+      "code": 6025,
+      "name": "nothingToWithdraw",
+      "msg": "There are no fees to withdraw (yet, or any more)"
+    },
+    {
+      "code": 6026,
+      "name": "creatorShareTooLarge",
+      "msg": "The creator share is larger than this tournament's creator cut"
+    },
+    {
+      "code": 6027,
+      "name": "assetAlreadyRegistered",
+      "msg": "This asset already has its start price"
+    },
+    {
+      "code": 6028,
+      "name": "notClosable",
+      "msg": "Accounts can only be closed once the tournament is finalized or cancelled"
+    },
+    {
+      "code": 6029,
+      "name": "entryNotClosable",
+      "msg": "This entry cannot be closed yet (unclaimed prize or not settled)"
+    },
+    {
+      "code": 6030,
+      "name": "tournamentNotClosable",
+      "msg": "Entries or asset accounts are still open, or funds are still in the vault"
+    },
+    {
+      "code": 6031,
+      "name": "prizesNotFinalized",
+      "msg": "The prize plan isn't finished yet — finish_prizes hasn't been called"
+    },
+    {
+      "code": 6032,
+      "name": "prizesAlreadyFinalized",
+      "msg": "The prize plan is already locked in — set_prize can no longer change it"
+    },
+    {
+      "code": 6033,
+      "name": "prizeBudgetExceeded",
+      "msg": "This would assign more than the tournament's distributable pool"
     }
   ],
   "types": [
+    {
+      "name": "assetPrice",
+      "docs": [
+        "One shared start/end price per (tournament, mint) — deliberately NOT",
+        "per-entry. Every player who picked this mint, whenever during the entry",
+        "window they actually clicked \"enter\", scores from the exact same",
+        "reference price, captured once at (or after) `start_ts`. Registered",
+        "lazily by `register_asset_price`, not pre-created for every candidate a",
+        "player might browse — see that instruction's comment for why."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tournament",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "startPriceMicros",
+            "type": "u64"
+          },
+          {
+            "name": "endPriceMicros",
+            "type": "u64"
+          },
+          {
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "payer",
+            "docs": [
+              "Who paid this account's rent — the first player to pick the coin (created inside",
+              "`enter_tournament`). `close_asset_price` gives it back to them after the tournament."
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
     {
       "name": "entry",
       "type": {
@@ -710,7 +1434,23 @@ export type Pumpfantasy = {
             "type": "pubkey"
           },
           {
+            "name": "entryIndex",
+            "docs": [
+              "Which of this player's entries in this tournament this is — 0 for",
+              "every Single-mode entry (there's only ever one), 0..N for Multiple",
+              "mode. Part of this account's own PDA seeds, also stored here so",
+              "clients can display/sort a player's entries without re-deriving it."
+            ],
+            "type": "u16"
+          },
+          {
             "name": "picks",
+            "docs": [
+              "Raw mint addresses the player picked — NOT references to a",
+              "pre-registered on-chain asset account (there isn't one at pick",
+              "time; see `enter_tournament`'s Ed25519-attestation comment for why",
+              "that's no longer needed)."
+            ],
             "type": {
               "array": [
                 "pubkey",
@@ -735,8 +1475,43 @@ export type Pumpfantasy = {
             "type": "bool"
           },
           {
+            "name": "createdAt",
+            "docs": [
+              "Unix timestamp this entry was created — the tiebreaker when two",
+              "entries land on the exact same score_bps: the earlier `created_at`",
+              "ranks higher, since drafting first (with less information about",
+              "what everyone else is doing) is the harder feat. Purely a ranking",
+              "input; doesn't affect anyone's score itself."
+            ],
+            "type": "i64"
+          },
+          {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "prizeLamports",
+            "docs": [
+              "What this entry is owed, set by `set_prize` once the tournament is finalized and the",
+              "off-chain ranking/tie-grouping is done — 0 if it didn't place. `claim_prize` pays out",
+              "exactly this (no more on-chain arithmetic): a flat equal share for a 50%/PvP structure,",
+              "a tiered amount for Top 1/Top 3/30%. See settlement.ts's `computePrizes`."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "entryMode",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "single"
+          },
+          {
+            "name": "multiple"
           }
         ]
       }
@@ -749,12 +1524,12 @@ export type Pumpfantasy = {
           {
             "name": "authority",
             "docs": [
-              "Backend/admin key allowed to add assets and submit price results.",
-              "This is the trust boundary: there is no free, reliable on-chain",
-              "price feed for freshly-launched Solana coins, so final prices are",
-              "attested by our own backend the same way SwapKings attests",
-              "pump.fun founder wallets — the score math itself still happens",
-              "on-chain and can't be faked once a price is submitted."
+              "Backend/admin key allowed to register post-start asset prices and",
+              "finalize the tournament. This is the trust boundary: there is no",
+              "free, reliable on-chain price feed for freshly-launched Solana",
+              "coins, so prices are attested by our own backend the same way",
+              "SwapKings attests pump.fun founder wallets — the score math itself",
+              "still happens on-chain and can't be faked once a price is submitted."
             ],
             "type": "pubkey"
           },
@@ -776,6 +1551,12 @@ export type Pumpfantasy = {
           },
           {
             "name": "assetCount",
+            "docs": [
+              "Number of distinct picked mints that have had a start price",
+              "registered via `register_asset_price` — set lazily, after",
+              "`start_ts`, only for mints someone actually picked (see that",
+              "instruction's own comment), not a pre-registered catalog."
+            ],
             "type": "u16"
           },
           {
@@ -814,52 +1595,56 @@ export type Pumpfantasy = {
             "type": "u64"
           },
           {
+            "name": "entryMode",
+            "docs": [
+              "Single: one entry per wallet, enforced on-chain (see",
+              "`enter_tournament`'s explicit check — PDA uniqueness alone only",
+              "blocks a *second* entry at the same index, not a first entry at a",
+              "non-zero index). Multiple: a wallet may hold any number of entries,",
+              "each its own portfolio, competing independently (including against",
+              "its own other entries)."
+            ],
+            "type": {
+              "defined": {
+                "name": "entryMode"
+              }
+            }
+          },
+          {
+            "name": "guaranteedAmountLamports",
+            "docs": [
+              "0 = not a guaranteed-prize tournament. Nonzero = the house has",
+              "committed to a payout pool of at least this many lamports regardless",
+              "of how many entries actually land — just the flag/amount for now,",
+              "display-only (the \"G\" badge); the actual house top-up instruction",
+              "(fund the vault up to this floor before finalize) isn't built yet."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "vaultBump",
             "type": "u8"
           },
           {
             "name": "bump",
             "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "tournamentAsset",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "tournament",
-            "type": "pubkey"
           },
           {
-            "name": "mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "fpCost",
+            "name": "prizesAssignedLamports",
             "docs": [
-              "Fantasy-point cost, derived off-chain from the coin's age (younger =",
-              "pricier, since it can swing much harder — see design notes)."
+              "Running total of every `set_prize` call so far — never allowed to exceed",
+              "`distributed_pool_lamports` (see `set_prize`'s own comment)."
             ],
-            "type": "u32"
-          },
-          {
-            "name": "startPriceMicros",
             "type": "u64"
           },
           {
-            "name": "endPriceMicros",
-            "type": "u64"
-          },
-          {
-            "name": "resolved",
+            "name": "prizesFinalized",
+            "docs": [
+              "Set once by `finish_prizes`, after every winning entry has its `prize_lamports`",
+              "locked in. `claim_prize` and `close_entry` both require this — it is the line",
+              "between \"the authority is still writing the prize plan\" and \"money can move\"."
+            ],
             "type": "bool"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
           }
         ]
       }
@@ -874,12 +1659,24 @@ export type Pumpfantasy = {
           },
           {
             "name": "finalized"
+          },
+          {
+            "name": "cancelled"
           }
         ]
       }
     }
   ],
   "constants": [
+    {
+      "name": "creatorFeeBps",
+      "docs": [
+        "Extra cut, ON TOP of RAKE_BPS, that goes to the player who created the tournament",
+        "(tournaments made from the app's \"+\" screen). Winners then share 90% of the pool."
+      ],
+      "type": "u16",
+      "value": "500"
+    },
     {
       "name": "maxBudgetFp",
       "docs": [

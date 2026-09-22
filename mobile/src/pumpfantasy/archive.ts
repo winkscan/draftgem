@@ -97,6 +97,9 @@ export function toTournamentAccount(a: ArchivedTournament): TournamentAccount {
     guaranteedAmountLamports: BigInt(a.guaranteedAmountLamports),
     vaultBump: 0,
     bump: 0,
+    // Archived = fully wound down already, so the prize plan was necessarily locked in and fully spent.
+    prizesAssignedLamports: BigInt(a.distributedPoolLamports),
+    prizesFinalized: true,
   };
 }
 
@@ -117,6 +120,7 @@ export function toEntryRows(r: ArchivedResult): { publicKey: PublicKey; account:
         claimed: BigInt(e.prizeLamports) > 0n,
         createdAt: BigInt(e.createdAt),
         bump: 0,
+        prizeLamports: BigInt(e.prizeLamports),
       },
     };
   });

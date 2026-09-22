@@ -8,7 +8,7 @@ import type { TournamentAccount, EntryAccount } from "../pumpfantasy/hooks";
 import { useMyEntries, useTournamentEntries, isArchivedTournament } from "../pumpfantasy/hooks";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
 import { useAuthorization } from "../utils/useAuthorization";
-import { winnerTarget } from "../pumpfantasy/liveScore";
+import { slotsFor } from "../pumpfantasy/liveScore";
 import { PAYOUT_CHOICES, type PayoutChoice, type TournamentMeta } from "../pumpfantasy/customTournaments";
 import { poolOf } from "../pumpfantasy/tournamentFilters";
 import { tournamentDisplayName } from "../pumpfantasy/tournamentNames";
@@ -135,7 +135,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
             entryMode={t.entryMode}
           />
         ) : tab === "prizes" ? (
-          <PrizesTab tournament={t} meta={meta} payout={payout} />
+          <PrizesTab tournament={t} meta={meta} payout={payout} entries={allEntries ?? []} />
         ) : tab === "players" ? (
           <PlayersTab entries={allEntries ?? []} entryMode={t.entryMode} />
         ) : (
@@ -220,10 +220,12 @@ function PrizesTab({
   tournament,
   meta,
   payout,
+  entries,
 }: {
   tournament: TournamentAccount;
   meta: TournamentMeta | undefined;
   payout: PayoutChoice;
+  entries: { account: EntryAccount }[];
 }) {
   if (tournament.status === "cancelled") {
     return <EmptyState icon="rotate-left" label="Cancelled" hint="Every entry fee was refunded." />;
@@ -233,32 +235,49 @@ function PrizesTab({
   }
 
   const finalized = tournament.status === "finalized";
-  const winners = finalized ? tournament.winnersCount : winnerTarget(payout, tournament.entryCount);
-  const distributable = finalized
-    ? tournament.distributedPoolLamports
-    : (poolOf(tournament) * BigInt(10_000 - RAKE_BPS - (meta?.creatorFeeBps ?? 0))) / 10_000n;
-  const share = winners > 0 ? distributable / BigInt(winners) : 0n;
+  let rows: { rank: number; amount: bigint }[];
+  if (finalized) {
+    // The real, possibly-tiered amounts set_prize wrote — grouped so a tie shows as one row
+    // ("2 players Ã— 0.045 SOL") instead of two identical lines.
+    const winning = entries.map((e) => e.account.prizeLamports).filter((p) => p > 0n).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    rows = [];
+    let rank = 1;
+    for (let i = 0; i < winning.length; ) {
+      let j = i;
+      while (j < winning.length && winning[j] === winning[i]) j++;
+      rows.push({ rank, amount: winning[i] });
+      rank += j - i;
+      i = j;
+    }
+  } else {
+    // Projected: what each rank SLOT is worth, assuming nobody ties for it — real ties (and the
+    // final amounts) are only known once the round ends.
+    const distributable = (poolOf(tournament) * BigInt(10_000 - RAKE_BPS - (meta?.creatorFeeBps ?? 0))) / 10_000n;
+    const weights = slotsFor(payout, tournament.entryCount);
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    rows = weights.map((w, i) => ({ rank: i + 1, amount: (distributable * BigInt(w)) / BigInt(totalWeight) }));
+  }
 
   return (
     <FlatList
       style={styles.tabBody}
       contentContainerStyle={styles.listContent}
-      data={Array.from({ length: winners }, (_, i) => i)}
-      keyExtractor={(i) => String(i)}
+      data={rows}
+      keyExtractor={(r) => String(r.rank)}
       // Same row shape as the Players tab, for a consistent look between the two lists.
       renderItem={({ item }) => (
         <View style={styles.playerRow}>
           <FontAwesome6 name="trophy" size={12} color={C.textSecondary} />
-          <Text style={styles.playerAddress}>{formatSol(share, 4)} SOL</Text>
-          <Text style={styles.playerIndex}>#{item + 1}</Text>
+          <Text style={styles.playerAddress}>{formatSol(item.amount, 4)} SOL</Text>
+          <Text style={styles.playerIndex}>#{item.rank}</Text>
         </View>
       )}
       ListFooterComponent={
-        !finalized ? (
-          <Text style={styles.prizeHint}>
-            Projected from the current pool — every score at the cut-off wins, so the final count can widen on a tie.
-          </Text>
-        ) : null
+        <Text style={styles.prizeHint}>
+          {finalized
+            ? "A tie splits its place's prize evenly between everyone in it."
+            : "Projected per place from the current pool — the final amounts depend on how the round actually ends, including any ties."}
+        </Text>
       }
     />
   );
@@ -318,7 +337,7 @@ function RulesTab({
     {
       id: "winners",
       title: "Who wins",
-      body: `${payoutDescription} A tie right at the cut-off widens the winner set, so it never pays out less than it holds. If two portfolios end up with the exact same score, the one that entered first ranks higher in the standings — checked by each entry's on-chain timestamp, not by when it was picked. Every winning score still gets an equal share, so this only changes the order they're listed in, not who wins or how much.`,
+      body: `${payoutDescription} If two or more portfolios tie exactly, they split the prize for the place(s) they're tied for evenly between themselves — so the tournament never pays out more than its plan holds, and a large tie near the cut-off can leave lower places with nothing. Among portfolios tied with each other, the one that entered first is listed higher in the standings — checked by each entry's on-chain timestamp — but that never changes how much any of them actually get; tied entries always split their combined prize equally.`,
     },
     {
       id: "refunds",
