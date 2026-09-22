@@ -177,18 +177,20 @@ function MyEntriesTab({
     );
   }
   if (entries.length === 0) {
-    return <EmptyState icon="ghost" label="No Entries" />;
+    return <EmptyState icon="ghost" label="No Entries" hint="Enter this tournament to see your portfolio here." />;
   }
+  // Full width, one row per entry — Multiple mode can hold several, so this scrolls
+  // vertically rather than spending the whole screen height on one wide card.
   return (
-    <ScrollView
-      style={styles.tabBody}
-      contentContainerStyle={styles.entriesScrollContent}
-      horizontal={entryMode === "multiple"}
-      showsHorizontalScrollIndicator={false}
-    >
+    <ScrollView style={styles.tabBody} contentContainerStyle={styles.listContent}>
       {entries.map((e) => (
-        <View key={e.publicKey.toBase58()} style={[styles.entryCard, entryMode === "multiple" ? styles.entryCardWide : undefined]}>
-          <Text style={styles.entryTitle}>Portfolio #{e.account.entryIndex + 1}</Text>
+        <View key={e.publicKey.toBase58()} style={styles.entryCard}>
+          <View style={styles.entryHead}>
+            <Text style={styles.entryTitle}>Portfolio #{e.account.entryIndex + 1}</Text>
+            <Text style={styles.entryFoot}>
+              {e.account.fpSpent} FP · {e.account.settled ? `Score ${(e.account.scoreBps / 100).toFixed(2)}%` : "Awaiting results"}
+            </Text>
+          </View>
           <View style={styles.entryPicksRow}>
             {e.account.picks.map((pick, i) => {
               const c = candidatesByMint.get(pick.toBase58());
@@ -196,12 +198,9 @@ function MyEntriesTab({
                 <View key={i} style={styles.pickCell}>
                   {c ? (
                     <>
-                      <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={22} />
+                      <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={20} />
                       <Text style={styles.pickSymbol} numberOfLines={1}>
                         {c.symbol}
-                      </Text>
-                      <Text style={styles.pickTier} numberOfLines={1}>
-                        {c.tier}
                       </Text>
                     </>
                   ) : (
@@ -211,9 +210,6 @@ function MyEntriesTab({
               );
             })}
           </View>
-          <Text style={styles.entryFoot}>
-            Spent {e.account.fpSpent} FP · {e.account.settled ? `Score ${(e.account.scoreBps / 100).toFixed(2)}%` : "Awaiting results"}
-          </Text>
         </View>
       ))}
     </ScrollView>
@@ -249,26 +245,28 @@ function PrizesTab({
       contentContainerStyle={styles.listContent}
       data={Array.from({ length: winners }, (_, i) => i)}
       keyExtractor={(i) => String(i)}
-      ListHeaderComponent={
+      // Same row shape as the Players tab, for a consistent look between the two lists.
+      renderItem={({ item }) => (
+        <View style={styles.playerRow}>
+          <FontAwesome6 name="trophy" size={12} color={C.textSecondary} />
+          <Text style={styles.playerAddress}>{formatSol(share, 4)} SOL</Text>
+          <Text style={styles.playerIndex}>#{item + 1}</Text>
+        </View>
+      )}
+      ListFooterComponent={
         !finalized ? (
           <Text style={styles.prizeHint}>
             Projected from the current pool — every score at the cut-off wins, so the final count can widen on a tie.
           </Text>
         ) : null
       }
-      renderItem={({ item }) => (
-        <View style={styles.prizeRow}>
-          <Text style={styles.prizeRank}>{item + 1}</Text>
-          <Text style={styles.prizeAmount}>{formatSol(share, 4)} SOL</Text>
-        </View>
-      )}
     />
   );
 }
 
 function PlayersTab({ entries, entryMode }: { entries: { account: EntryAccount }[]; entryMode: "single" | "multiple" }) {
   if (entries.length === 0) {
-    return <EmptyState icon="user-group" label="No Players" />;
+    return <EmptyState icon="user-group" label="No Players" hint="Be the first to enter this tournament." />;
   }
   return (
     <FlatList
@@ -355,15 +353,23 @@ function RulesTab({
   );
 }
 
-// Both header buttons share this exact box (react-native-paper's TouchableRipple can grow
-// past a bare `height` when its label wraps, so the height is fixed AND clipped).
-const HEADER_BUTTON_HEIGHT = 40;
+// Both header buttons share this exact box, the same one the card's own link/entry buttons
+// use — react-native-paper's TouchableRipple can grow past a bare `height` when its label
+// wraps, so the height is fixed AND clipped.
+const HEADER_BUTTON_HEIGHT = 34;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   // Same shape as the tab screens' own TopBar panel: panel colour, rounded only at the
   // bottom, the tabs living inside it rather than in a separate strip below.
-  panel: { backgroundColor: C.headerPanel, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  panel: {
+    backgroundColor: C.headerPanel,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    // Clips the active tab's underline so it can never poke out past the rounded corners
+    // when the leftmost/rightmost tab (flush against the edge) is the active one.
+    overflow: "hidden",
+  },
   header: { paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
   headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -382,15 +388,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   ctaButton: {
+    minWidth: 76,
     height: HEADER_BUTTON_HEIGHT,
-    paddingHorizontal: 18,
-    borderRadius: HEADER_BUTTON_HEIGHT / 2,
+    paddingHorizontal: 14,
+    borderRadius: 999,
     backgroundColor: C.accent,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  ctaText: { color: C.accentTextOn, fontWeight: "800", fontSize: 13, includeFontPadding: false },
+  ctaText: { color: C.accentTextOn, fontWeight: "800", fontSize: 12.5, includeFontPadding: false },
 
   divider: { height: 1, backgroundColor: C.cardBorder },
   tabRow: { flexDirection: "row" },
@@ -408,30 +415,15 @@ const styles = StyleSheet.create({
   tabBody: { flex: 1 },
   listContent: { padding: 16, gap: 10 },
 
-  entriesScrollContent: { padding: 16, gap: 12 },
-  entryCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 14 },
-  entryCardWide: { width: 260 },
-  entryTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 14, marginBottom: 10 },
+  entryCard: { backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, padding: 10 },
+  entryHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6, gap: 8 },
+  entryTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 13 },
   entryPicksRow: { flexDirection: "row", gap: 6 },
   pickCell: { flex: 1, alignItems: "center", gap: 2 },
   pickSymbol: { color: C.textPrimary, fontWeight: "700", fontSize: 10 },
-  pickTier: { color: C.textSecondary, fontSize: 8 },
-  entryFoot: { color: C.textSecondary, fontSize: 11, marginTop: 10 },
+  entryFoot: { color: C.textSecondary, fontSize: 11 },
 
-  prizeHint: { color: C.textSecondary, fontSize: 11, marginBottom: 4 },
-  prizeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    backgroundColor: C.card,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  prizeRank: { color: C.textSecondary, fontWeight: "700", fontSize: 13, width: 20 },
-  prizeAmount: { color: C.textPrimary, fontWeight: "800", fontSize: 15, flex: 1, textAlign: "center" },
+  prizeHint: { color: C.textSecondary, fontSize: 11, textAlign: "center", marginTop: 6 },
 
   playerRow: {
     flexDirection: "row",
