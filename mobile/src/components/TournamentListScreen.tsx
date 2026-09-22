@@ -47,14 +47,20 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   const { data: meta } = useTournamentMeta();
   const me = selectedAccount?.publicKey.toBase58();
 
-  // "Mine" = tournaments I entered plus the ones I created.
+  // Tournaments I actually drafted a portfolio into — distinct from "mine" below, which also
+  // counts ones I only created. Driving the card's Enter/View button off "mine" would show
+  // "View" on a tournament's own creator before they've entered it themselves.
+  const entered = useMemo(() => new Set<string>(enteredTournaments ?? []), [enteredTournaments]);
+
+  // "Mine" = tournaments I entered plus the ones I created — for visibility (seeing my own
+  // private tournaments) and the "mine" filter scope, not for the per-card Enter/View state.
   const mine = useMemo(() => {
-    const s = new Set<string>(enteredTournaments ?? []);
+    const s = new Set<string>(entered);
     for (const row of tournaments ?? []) {
       if (me && meta?.[row.account.id.toString()]?.creator === me) s.add(row.publicKey.toBase58());
     }
     return s;
-  }, [enteredTournaments, tournaments, meta, me]);
+  }, [entered, tournaments, meta, me]);
 
   const inPhase = useMemo(
     () =>
@@ -105,7 +111,7 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   }
 
   const infoMeta = infoRow ? meta?.[infoRow.account.id.toString()] : undefined;
-  const infoShowView = infoRow ? phase !== "upcoming" || (infoRow.account.entryMode === "single" && mine.has(infoRow.publicKey.toBase58())) : false;
+  const infoShowView = infoRow ? phase !== "upcoming" || (infoRow.account.entryMode === "single" && entered.has(infoRow.publicKey.toBase58())) : false;
 
   return (
     <>
@@ -149,7 +155,7 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
             phase={phase}
             now={now}
             meta={meta?.[item.account.id.toString()]}
-            alreadyIn={mine.has(item.publicKey.toBase58())}
+            alreadyIn={entered.has(item.publicKey.toBase58())}
             onOpenInfo={() => setInfoRow(item)}
             onPressCta={() => goTo(item.account)}
           />
