@@ -131,6 +131,11 @@ function TournamentTypes() {
         Players tied exactly at the cut-off score all win, so the winner count can end up a little wider than the
         structure's number.
       </Paragraph>
+      <Paragraph>
+        Two portfolios with the exact same score are ranked by who entered first — checked by each entry's on-chain
+        timestamp. It only decides the order they're listed in; every winning score still gets an equal share of the
+        pool either way.
+      </Paragraph>
     </View>
   );
 }

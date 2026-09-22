@@ -315,7 +315,11 @@ function RulesTab({
         tournament.entryMode === "multiple" ? "Multiple — enter it as many times as you like." : "Single — one entry per wallet."
       } Every portfolio picks 5 coins within a 4,000 FP budget.`,
     },
-    { id: "winners", title: "Who wins", body: `${payoutDescription} A tie right at the cut-off widens the winner set, so it never pays out less than it holds.` },
+    {
+      id: "winners",
+      title: "Who wins",
+      body: `${payoutDescription} A tie right at the cut-off widens the winner set, so it never pays out less than it holds. If two portfolios end up with the exact same score, the one that entered first ranks higher in the standings — checked by each entry's on-chain timestamp, not by when it was picked. Every winning score still gets an equal share, so this only changes the order they're listed in, not who wins or how much.`,
+    },
     {
       id: "refunds",
       title: "Refunds & cancellations",
