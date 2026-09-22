@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
-import Svg, { Circle, Defs, Filter, FeGaussianBlur, FeColorMatrix, G, RadialGradient, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, Filter, FeGaussianBlur, FeColorMatrix, G, LinearGradient, Stop } from "react-native-svg";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -43,18 +43,20 @@ export function BlobMorph({ size = 108 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
       <Defs>
-        {/* A glossy-sphere look, like the mark itself: an off-centre highlight (upper-left,
-            the light source) fading through the flat colour to a darker rim for volume. */}
-        <RadialGradient id="tealGradient" cx="35%" cy="28%" r="75%">
+        {/* Each blob's own gradient runs from its base colour (outer side, away from the other
+            blob) to the mark's neck blue (inner side, facing the other blob) — since both blobs
+            always travel the same straight line through the centre, a fixed diagonal direction
+            is correct for every position along the animation, not just at rest. */}
+        <LinearGradient id="tealGradient" x1="100%" y1="0%" x2="0%" y2="100%">
           <Stop offset="0%" stopColor="#D6FFF0" />
-          <Stop offset="45%" stopColor="#40F4B8" />
-          <Stop offset="100%" stopColor="#13B87E" />
-        </RadialGradient>
-        <RadialGradient id="purpleGradient" cx="35%" cy="28%" r="75%">
+          <Stop offset="55%" stopColor="#40F4B8" />
+          <Stop offset="100%" stopColor="#4A83F3" />
+        </LinearGradient>
+        <LinearGradient id="purpleGradient" x1="0%" y1="100%" x2="100%" y2="0%">
           <Stop offset="0%" stopColor="#D9C4FF" />
-          <Stop offset="45%" stopColor="#7527F0" />
-          <Stop offset="100%" stopColor="#440F99" />
-        </RadialGradient>
+          <Stop offset="55%" stopColor="#7527F0" />
+          <Stop offset="100%" stopColor="#4A83F3" />
+        </LinearGradient>
         <Filter id="goo" x="-50%" y="-50%" width="200%" height="200%">
           <FeGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur" />
           <FeColorMatrix
@@ -67,10 +69,6 @@ export function BlobMorph({ size = 108 }: { size?: number }) {
       <G filter="url(#goo)">
         <AnimatedCircle cx={teal.cx} cy={teal.cy} r={r} fill="url(#tealGradient)" />
         <AnimatedCircle cx={purple.cx} cy={purple.cy} r={r} fill="url(#purpleGradient)" />
-        {/* Sits exactly where the two blobs meet (their midpoint is always the centre, whatever
-            s is) — the mark's own neck colour, so the join reads as that blue, not a blur-muddy
-            teal/purple smear. */}
-        <Circle cx={CENTER.x} cy={CENTER.y} r={24} fill="#4A83F3" />
       </G>
     </Svg>
   );
