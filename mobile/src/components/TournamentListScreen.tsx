@@ -234,38 +234,43 @@ function TournamentCard({
     }
   };
 
+  // The whole card navigates to the tournament — a nested TouchableRipple (the link and
+  // info buttons) claims the touch first, so tapping either of those still does its own
+  // thing instead of also navigating.
   return (
-    <View style={styles.card}>
-      <View style={styles.row1}>
-        <View style={styles.titleWrap}>
-          <ModeBadges tournament={t} />
-          <PayoutBadge label={payoutLabel} />
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {formatSolCompact(pool)} SOL {name}
-          </Text>
-          {meta?.visibility === "private" ? <FontAwesome6 name="lock" size={11} color={C.textSecondary} /> : null}
+    <TouchableRipple style={styles.card} onPress={onPressCta}>
+      <View style={styles.cardInner}>
+        <View style={styles.row1}>
+          <View style={styles.titleWrap}>
+            <ModeBadges tournament={t} />
+            <PayoutBadge label={payoutLabel} />
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {formatSolCompact(pool)} SOL {name}
+            </Text>
+            {meta?.visibility === "private" ? <FontAwesome6 name="lock" size={11} color={C.textSecondary} /> : null}
+          </View>
+          <TouchableRipple style={styles.infoButton} borderless onPress={onOpenInfo}>
+            <FontAwesome6 name="circle-info" size={17} color={C.textSecondary} />
+          </TouchableRipple>
         </View>
-        <TouchableRipple style={styles.infoButton} borderless onPress={onOpenInfo}>
-          <FontAwesome6 name="circle-info" size={17} color={C.textSecondary} />
-        </TouchableRipple>
-      </View>
 
-      <View style={styles.row2}>
-        <View style={styles.statsRow}>
-          <StatCell value={String(t.entryCount)} label="Players" />
-          <StatCell value={formatDuration(Number(t.endTs - t.startTs))} label="Duration" />
-          <StatCell value={thirdValue} label={thirdLabel} />
+        <View style={styles.row2}>
+          <View style={styles.statsRow}>
+            <StatCell value={String(t.entryCount)} label="Players" />
+            <StatCell value={formatDuration(Number(t.endTs - t.startTs))} label="Duration" />
+            <StatCell value={thirdValue} label={thirdLabel} />
+          </View>
+          <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
+            <FontAwesome6 name={copied ? "check" : "link"} size={13} color={copied ? C.accent2 : C.textSecondary} />
+          </TouchableRipple>
+          <View style={styles.ctaButton}>
+            <Text style={styles.ctaViewText} numberOfLines={1}>
+              {showView ? "View" : `${formatSolCompact(t.entryFeeLamports)} SOL`}
+            </Text>
+          </View>
         </View>
-        <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
-          <FontAwesome6 name={copied ? "check" : "link"} size={13} color={copied ? C.accent2 : C.textSecondary} />
-        </TouchableRipple>
-        <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
-          <Text style={styles.ctaViewText} numberOfLines={1}>
-            {showView ? "View" : `${formatSolCompact(t.entryFeeLamports)} SOL`}
-          </Text>
-        </TouchableRipple>
       </View>
-    </View>
+    </TouchableRipple>
   );
 }
 
@@ -289,8 +294,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.cardBorder,
     padding: 14,
-    gap: 12,
   },
+  cardInner: { gap: 12 },
   row1: { flexDirection: "row", alignItems: "center", gap: 8 },
   titleWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
   cardTitle: { color: C.textPrimary, fontWeight: "700", fontSize: 14, flexShrink: 1 },

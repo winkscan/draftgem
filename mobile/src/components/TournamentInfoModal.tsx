@@ -310,11 +310,10 @@ function RulesTab({
   const sections = [
     {
       id: "format",
-      title: "Format",
-      body:
-        tournament.entryMode === "multiple"
-          ? "Multiple entries: build as many portfolios as you like, each its own entry fee. Every entry picks 5 coins within a 4,000 FP budget."
-          : "Single entry: one portfolio per wallet. Pick 5 coins within a 4,000 FP budget.",
+      title: "Entry types: Single vs Multiple",
+      body: `Single tournaments allow one portfolio per wallet. Multiple tournaments let you build as many portfolios as you like, each paying its own entry fee and scoring on its own. This tournament is ${
+        tournament.entryMode === "multiple" ? "Multiple — enter it as many times as you like." : "Single — one entry per wallet."
+      } Every portfolio picks 5 coins within a 4,000 FP budget.`,
     },
     { id: "winners", title: "Who wins", body: `${payoutDescription} A tie right at the cut-off widens the winner set, so it never pays out less than it holds.` },
     {

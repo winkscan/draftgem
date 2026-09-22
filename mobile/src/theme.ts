@@ -4,8 +4,9 @@ import { MD3DarkTheme } from "react-native-paper";
 // art, 2026-09-21): true black canvas with near-black violet-tinted surfaces,
 // hairline lavender borders, white type with a soft grey for secondary text.
 //
-// Two accents — Solana purple and Solana green — and red is reserved for
-// ERRORS ONLY (user's rule): gains are green, losses are magenta, never red.
+// Two accents — Solana purple and Solana green. Red (#f11212, 2026-09-22) marks both
+// errors and losses — an explicit reversal of the original "red is errors only, losses
+// are magenta" rule from 2026-09-21.
 export const PF_COLORS = {
   // canvas + surfaces
   bg: "#000000",
@@ -47,11 +48,10 @@ export const PF_COLORS = {
 
   // outcomes
   positive: "#14f195",
-  negative: "#e879f9", // losses: magenta, deliberately not red
+  negative: "#f11212", // losses, same red as errors
 
-  // errors — the ONLY place red is used
-  error: "#ff5c6c",
-  errorTint: "rgba(255,92,108,0.12)",
+  error: "#f11212",
+  errorTint: "rgba(241,18,18,0.12)",
 };
 
 const c = PF_COLORS;
