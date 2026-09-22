@@ -260,16 +260,9 @@ function TournamentCard({
           <FontAwesome6 name={copied ? "check" : "link"} size={13} color={copied ? C.accent2 : C.textSecondary} />
         </TouchableRipple>
         <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
-          {showView ? (
-            <Text style={styles.ctaViewText}>View</Text>
-          ) : (
-            <View style={{ alignItems: "center" }}>
-              <Text style={styles.ctaAmount} numberOfLines={1}>
-                {formatSolCompact(t.entryFeeLamports)} SOL
-              </Text>
-              <Text style={styles.ctaLabel}>Entry</Text>
-            </View>
-          )}
+          <Text style={styles.ctaViewText} numberOfLines={1}>
+            {showView ? "View" : `${formatSolCompact(t.entryFeeLamports)} SOL`}
+          </Text>
         </TouchableRipple>
       </View>
     </View>
@@ -316,17 +309,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaButton: {
-    minWidth: 84,
+    minWidth: 76,
     paddingHorizontal: 14,
-    height: 44,
+    height: 34,
     borderRadius: 999,
     backgroundColor: C.glassStrong,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  ctaViewText: { color: C.textPrimary, fontWeight: "800", fontSize: 13 },
-  ctaAmount: { color: C.textPrimary, fontWeight: "800", fontSize: 12 },
-  ctaLabel: { color: C.textSecondary, fontSize: 9, marginTop: 1 },
+  ctaViewText: { color: C.textPrimary, fontWeight: "800", fontSize: 12.5, includeFontPadding: false },
   debugBox: {
     backgroundColor: C.errorTint,
     borderColor: C.error,

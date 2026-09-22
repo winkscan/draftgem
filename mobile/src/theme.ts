@@ -42,8 +42,8 @@ export const PF_COLORS = {
 
   // Single-entry mode badge — a third, cooler accent so it reads apart from
   // Multiple (purple) and Guaranteed (green) at a glance.
-  modeSingle: "#12c1f1",
-  modeSingleTextOn: "#04222b",
+  modeSingle: "#c1f112",
+  modeSingleTextOn: "#1a2200",
 
   // outcomes
   positive: "#14f195",
