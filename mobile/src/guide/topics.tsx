@@ -94,6 +94,47 @@ const STRUCTURES = [
   { name: "PvP", blurb: "A duel: exactly two players, winner takes all." },
 ];
 
+const ENTRY_MODES = [
+  { name: "Single", blurb: "One portfolio per wallet. You can enter this tournament exactly once." },
+  { name: "Multiple", blurb: "Build as many portfolios as you like, each paying its own entry fee and scoring on its own — including against your own other entries." },
+];
+
+function TournamentTypes() {
+  return (
+    <View>
+      <Paragraph>
+        Every tournament has two settings that decide how it plays: its entry mode (who can enter, and how many times)
+        and its prize structure (how many places get paid). Both are shown as badges on the tournament's card.
+      </Paragraph>
+
+      <Heading>Entry mode: Single vs Multiple</Heading>
+      <View style={styles.table}>
+        {ENTRY_MODES.map((m, i) => (
+          <View key={m.name} style={[styles.row, i === ENTRY_MODES.length - 1 ? styles.rowLast : undefined]}>
+            <Text style={styles.catName}>{m.name}</Text>
+            <Text style={styles.catBlurb}>{m.blurb}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Heading>Prize structure</Heading>
+      <Paragraph>How many of the best portfolios split the pool.</Paragraph>
+      <View style={styles.table}>
+        {STRUCTURES.map((s, i) => (
+          <View key={s.name} style={[styles.row, i === STRUCTURES.length - 1 ? styles.rowLast : undefined]}>
+            <Text style={styles.catName}>{s.name}</Text>
+            <Text style={styles.catBlurb}>{s.blurb}</Text>
+          </View>
+        ))}
+      </View>
+      <Paragraph>
+        Players tied exactly at the cut-off score all win, so the winner count can end up a little wider than the
+        structure's number.
+      </Paragraph>
+    </View>
+  );
+}
+
 function CreateYourOwn() {
   return (
     <View>
@@ -183,6 +224,7 @@ function EntryDeposit() {
 
 export const GUIDE_TOPICS: GuideTopic[] = [
   { id: "coin-categories", title: "Coin categories", icon: "layer-group", body: <CoinCategories /> },
+  { id: "tournament-types", title: "Tournament types", icon: "shuffle", body: <TournamentTypes /> },
   { id: "create-tournament", title: "Create your own tournament", icon: "circle-plus", body: <CreateYourOwn /> },
   { id: "entry-deposit", title: "Entry deposit & refunds", icon: "rotate-left", body: <EntryDeposit /> },
 ];
