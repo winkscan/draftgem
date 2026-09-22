@@ -13,9 +13,8 @@
     "android": {
       "package": "com.pumpfantasy.app",
       "adaptiveIcon": {
-        "backgroundColor": "#2b2c86",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -34,6 +33,17 @@
     },
     "updates": {
       "url": "https://u.expo.dev/a4885204-8881-4b9f-b5cf-9ff93808c4ce"
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ]
+    ]
   }
 }

@@ -9,6 +9,7 @@ import { ConnectionProvider } from "./src/utils/ConnectionProvider";
 import { ClusterProvider } from "./src/components/cluster/cluster-data-access";
 import { Shell } from "./src/utils/Chrome";
 import { AppNavigator } from "./src/navigators/AppNavigator";
+import { AnimatedSplash } from "./src/components/AnimatedSplash";
 import { pumpFantasyTheme, PF_COLORS } from "./src/theme";
 
 const queryClient = new QueryClient();
@@ -36,7 +37,9 @@ export default function App() {
           <SafeAreaProvider>
             <Shell>
               <PaperProvider theme={pumpFantasyTheme}>
-                <AppNavigator navTheme={combinedNavTheme} />
+                <AnimatedSplash>
+                  <AppNavigator navTheme={combinedNavTheme} />
+                </AnimatedSplash>
               </PaperProvider>
             </Shell>
           </SafeAreaProvider>

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { Text, TouchableRipple, ActivityIndicator } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { ellipsify, formatSol } from "../../pumpfantasy/format";
 import { UpdateBadge } from "./UpdateBadge";
 import { WalletMenu, type Anchor, type WalletMenuItem } from "./WalletMenu";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
+import { DraftJamWordmark } from "./DraftJamWordmark";
 import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { PF_COLORS as C } from "../../theme";
 
@@ -50,10 +51,8 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
       <View style={styles.panel}>
         <View style={styles.bar}>
           <View style={styles.left}>
-            <FontAwesome6 name="chart-line" size={16} color={C.textOnHeader} />
-            <Text variant="titleMedium" style={styles.title}>
-              DraftJam
-            </Text>
+            <Image source={require("../../../assets/header-mark.png")} style={styles.mark} resizeMode="contain" />
+            <DraftJamWordmark height={18} />
           </View>
           <View style={styles.right}>
             <UpdateBadge />
@@ -100,8 +99,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  left: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { color: C.textOnHeader, fontWeight: "700" },
+  left: { flexDirection: "row", alignItems: "center", gap: 6 },
+  mark: { width: 22, height: 22 },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
   pill: {
     backgroundColor: C.glassStrong,
