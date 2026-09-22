@@ -1,34 +1,44 @@
 import { useEffect, useRef } from "react";
-import { Animated } from "react-native";
+import { Animated, Easing } from "react-native";
 import Svg, { Circle, Defs, Filter, FeGaussianBlur, FeColorMatrix, G } from "react-native-svg";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-const CYCLE_MS = 2200;
+const HALF_CYCLE_MS = 1400;
 
-// Two blobs (the mark's own mint/purple) drifting apart into the mark's resting dumbbell pose,
-// then flowing back together into one — a "goo" filter (blur + contrast) fuses them into a single
-// liquid shape whenever they're close, instead of two circles simply overlapping.
+// Centre of the mark's own diagonal, and each blob's offset from it at rest (matches the
+// static mark's pose: teal top-right, purple bottom-left).
+const CENTER = { x: 100, y: 100 };
+const OFFSET = { x: 32, y: -30 };
+
+// The two blobs slide toward each other along the mark's diagonal, fuse into one shape as they
+// cross, and keep going — landing swapped (teal where purple was, and back) — then slide back
+// the same way. A "goo" filter (blur + contrast) is what turns the crossing into a real liquid
+// merge instead of two circles just passing behind one another.
 export function BlobMorph({ size = 108 }: { size?: number }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const s = useRef(new Animated.Value(1)).current; // +1 = resting pose, -1 = swapped, 0 = mid-cross
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(t, { toValue: 1, duration: CYCLE_MS / 2, useNativeDriver: false }),
-        Animated.timing(t, { toValue: 0, duration: CYCLE_MS / 2, useNativeDriver: false }),
+        Animated.timing(s, { toValue: -1, duration: HALF_CYCLE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+        Animated.timing(s, { toValue: 1, duration: HALF_CYCLE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [t]);
+  }, [s]);
 
-  // 0 = merged into one blob at centre, 1 = separated into the mark's resting pose.
-  // At t=0 the two circles still sit a little apart (not exactly on top of each other), so the
-  // merged blob keeps a visible teal-into-purple blend instead of one colour fully hiding the other.
-  const teal = { cx: t.interpolate({ inputRange: [0, 1], outputRange: [110, 132] }), cy: t.interpolate({ inputRange: [0, 1], outputRange: [90, 70] }) };
-  const purple = { cx: t.interpolate({ inputRange: [0, 1], outputRange: [90, 68] }), cy: t.interpolate({ inputRange: [0, 1], outputRange: [110, 130] }) };
-  const r = t.interpolate({ inputRange: [0, 1], outputRange: [58, 46] });
+  const teal = {
+    cx: s.interpolate({ inputRange: [-1, 1], outputRange: [CENTER.x - OFFSET.x, CENTER.x + OFFSET.x] }),
+    cy: s.interpolate({ inputRange: [-1, 1], outputRange: [CENTER.y - OFFSET.y, CENTER.y + OFFSET.y] }),
+  };
+  const purple = {
+    cx: s.interpolate({ inputRange: [-1, 1], outputRange: [CENTER.x + OFFSET.x, CENTER.x - OFFSET.x] }),
+    cy: s.interpolate({ inputRange: [-1, 1], outputRange: [CENTER.y + OFFSET.y, CENTER.y - OFFSET.y] }),
+  };
+  // Bigger while crossing (reads as one fused blob), smaller at rest — same range as before.
+  const r = s.interpolate({ inputRange: [-1, 0, 1], outputRange: [46, 58, 46] });
 
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">

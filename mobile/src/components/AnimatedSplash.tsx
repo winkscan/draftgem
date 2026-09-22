@@ -5,7 +5,7 @@ import { BlobMorph } from "./BlobMorph";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const MIN_VISIBLE_MS = 2400; // a little over one full merge/separate cycle (BlobMorph's CYCLE_MS)
+const MIN_VISIBLE_MS = 3000; // a little over one full swap-and-back cycle (BlobMorph's 2 * HALF_CYCLE_MS)
 
 // Shown right after the native splash (same black background, so the handoff is invisible):
 // the two blobs from the mark flow into and out of each other to read as "loading", then the

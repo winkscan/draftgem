@@ -36,11 +36,11 @@ export default function App() {
         <ConnectionProvider config={{ commitment: "confirmed" }}>
           <SafeAreaProvider>
             <Shell>
-              <PaperProvider theme={pumpFantasyTheme}>
-                <AnimatedSplash>
+              <AnimatedSplash>
+                <PaperProvider theme={pumpFantasyTheme}>
                   <AppNavigator navTheme={combinedNavTheme} />
-                </AnimatedSplash>
-              </PaperProvider>
+                </PaperProvider>
+              </AnimatedSplash>
             </Shell>
           </SafeAreaProvider>
         </ConnectionProvider>
