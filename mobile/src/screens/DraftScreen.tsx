@@ -24,7 +24,7 @@ import { ChartModal } from "../components/ChartModal";
 import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard, SlotCard, entryBadge } from "../components/PortfolioCard";
 import { EntrySuccess } from "../components/EntrySuccess";
-import { useDraftTab } from "./draftTabStore";
+import { useDraftTab, useEntrySuccess } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
 
 export function DraftScreen() {
@@ -78,6 +78,11 @@ export function DraftScreen() {
   // Set right after a successful entry: shows the congratulation page until dismissed.
   const [justEntered, setJustEntered] = useState<{ entryNo: number; picks: Candidate[] } | null>(null);
   useEffect(() => setJustEntered(null), [tab]);
+  const [, setSuccessShown] = useEntrySuccess(tournamentId);
+  useEffect(() => {
+    setSuccessShown(justEntered != null);
+    return () => setSuccessShown(false);
+  }, [justEntered]);
 
   const spentFp = useMemo(() => picked.reduce((sum, c) => sum + c.fpCost, 0), [picked]);
   const remainingFp = MAX_BUDGET_FP - spentFp;
@@ -335,10 +340,11 @@ export function DraftHeader({ tournamentId, standings }: { tournamentId: string;
   const { data: meta } = useTournamentMeta();
   const [infoOpen, setInfoOpen] = useState(false);
   const { setPanelHeader } = useChrome();
+  const [successShown] = useEntrySuccess(tournamentId);
   useEffect(() => {
-    setPanelHeader(true);
+    setPanelHeader(!successShown);
     return () => setPanelHeader(false);
-  }, [setPanelHeader]);
+  }, [setPanelHeader, successShown]);
   const pubkey = useMemo(() => tournamentPda(id)[0], [tournamentId]);
   const tournamentMeta = meta?.[tournamentId];
   const { selectedAccount } = useAuthorization();
@@ -361,6 +367,7 @@ export function DraftHeader({ tournamentId, standings }: { tournamentId: string;
         onChange: (k: string) => setTab(k as "draft" | "mine"),
       }
     : undefined;
+  if (successShown) return null; // the Congratulations page has no header
   return (
     <>
       <TopBar

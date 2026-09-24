@@ -66,14 +66,14 @@ export function EntrySuccess({
       </TouchableRipple>
       <Text style={styles.copyHint}>{copied ? "Link copied" : "Tap the link to copy it"}</Text>
 
-      <TouchableRipple style={styles.whiteButton} borderless onPress={onGoToLobby}>
-        <Text style={styles.whiteButtonText}>Go to lobby</Text>
-      </TouchableRipple>
       {onAnother ? (
-        <TouchableRipple style={styles.secondary} borderless onPress={onAnother}>
-          <Text style={styles.secondaryText}>Create one more portfolio</Text>
+        <TouchableRipple style={styles.primary} borderless onPress={onAnother}>
+          <Text style={styles.primaryText}>Create one more portfolio</Text>
         </TouchableRipple>
       ) : null}
+      <TouchableRipple style={[styles.whiteButton, onAnother ? { marginTop: 12 } : undefined]} borderless onPress={onGoToLobby}>
+        <Text style={styles.whiteButtonText}>Go to lobby</Text>
+      </TouchableRipple>
     </ScrollView>
   );
 }
@@ -99,14 +99,6 @@ const styles = StyleSheet.create({
   copyHint: { color: C.textSecondary, fontSize: 11, textAlign: "center", marginTop: 8 },
   whiteButton: { marginTop: 32, height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
   whiteButtonText: { color: "#000000", fontWeight: "800", fontSize: 15 },
-  secondary: {
-    marginTop: 12,
-    height: 52,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  secondaryText: { color: C.textPrimary, fontWeight: "700", fontSize: 15 },
+  primary: { marginTop: 32, height: 52, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center", alignItems: "center" },
+  primaryText: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15 },
 });

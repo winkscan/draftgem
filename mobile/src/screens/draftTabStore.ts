@@ -7,6 +7,24 @@ export type DraftTab = "draft" | "mine";
 const tabs: Record<string, DraftTab> = {};
 const listeners = new Set<() => void>();
 
+// True while a tournament's "Congratulations!" page is showing: the header hides for it.
+const successShown: Record<string, boolean> = {};
+
+export function useEntrySuccess(tournamentId: string): [boolean, (on: boolean) => void] {
+  const on = useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => successShown[tournamentId] ?? false,
+  );
+  const set = (v: boolean) => {
+    successShown[tournamentId] = v;
+    listeners.forEach((l) => l());
+  };
+  return [on, set];
+}
+
 export function useDraftTab(tournamentId: string): [DraftTab, (t: DraftTab) => void] {
   const tab = useSyncExternalStore(
     (cb) => {
