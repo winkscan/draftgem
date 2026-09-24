@@ -28,6 +28,7 @@ import {
   type Visibility,
 } from "../pumpfantasy/customTournaments";
 import { formatAmount, parseAmount, type Currency } from "../pumpfantasy/currency";
+import { BottomBar } from "../components/BottomBar";
 import { PulseBadge } from "../components/PulseBadge";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
@@ -161,7 +162,8 @@ export function CreateTournamentScreen() {
 
   if (failed) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <View style={styles.screen}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <PulseBadge style={[styles.doneBadge, styles.failBadge]}>
           <FontAwesome6 name="xmark" size={28} color={C.textPrimary} />
         </PulseBadge>
@@ -171,17 +173,21 @@ export function CreateTournamentScreen() {
             ? "You cancelled the payment in your wallet, so nothing was charged and no tournament was created."
             : failed.message}
         </Text>
+      </ScrollView>
+      <BottomBar>
         <TouchableRipple style={styles.whiteButton} borderless onPress={() => setFailed(null)}>
           <Text style={styles.whiteButtonText}>Back to tournament</Text>
         </TouchableRipple>
-      </ScrollView>
+      </BottomBar>
+      </View>
     );
   }
 
   if (created) {
     const { result } = created;
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <View style={styles.screen}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <PulseBadge style={styles.doneBadge}>
           <FontAwesome6 name="check" size={26} color={C.accent2TextOn} />
         </PulseBadge>
@@ -205,8 +211,10 @@ export function CreateTournamentScreen() {
         </TouchableRipple>
         <Text style={styles.copyHint}>{copied ? "Link copied" : "Tap the link to copy it"}</Text>
 
+      </ScrollView>
+      <BottomBar>
         <TouchableRipple
-          style={styles.primary}
+          style={[styles.primary, styles.createButton]}
           borderless
           onPress={() => Share.share({ message: `Join my DraftGem tournament "${created.name}"\n${result.url}` })}
         >
@@ -216,13 +224,14 @@ export function CreateTournamentScreen() {
           </View>
         </TouchableRipple>
         <TouchableRipple
-          style={[styles.whiteButton, { marginTop: 12 }]}
+          style={styles.whiteButton}
           borderless
           onPress={() => navigation.replace("Draft", { tournamentId: result.id })}
         >
           <Text style={styles.whiteButtonText}>Open tournament</Text>
         </TouchableRipple>
-      </ScrollView>
+      </BottomBar>
+      </View>
     );
   }
 
@@ -539,7 +548,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: C.textPrimary, fontWeight: "700", fontSize: 15 },
   failBadge: { backgroundColor: C.error },
-  whiteButton: { marginTop: 32, height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
+  whiteButton: { height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
   whiteButtonText: { color: "#000000", fontWeight: "800", fontSize: 15 },
   doneBadge: {
     alignSelf: "center",

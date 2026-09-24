@@ -1,6 +1,7 @@
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { BottomBar } from "./BottomBar";
 import { PulseBadge } from "./PulseBadge";
 import { PF_COLORS as C } from "../theme";
 
@@ -18,7 +19,8 @@ export function EntryFailure({
   onBack: () => void;
 }) {
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <View style={styles.screen}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <PulseBadge style={styles.badge}>
         <FontAwesome6 name="xmark" size={28} color={C.textPrimary} />
       </PulseBadge>
@@ -28,15 +30,19 @@ export function EntryFailure({
           ? "You cancelled the payment in your wallet, so nothing was charged and you didn't enter. Your portfolio is still there."
           : message}
       </Text>
+    </ScrollView>
+    <BottomBar>
       <TouchableRipple style={styles.whiteButton} borderless onPress={onBack}>
         <Text style={styles.whiteButtonText}>{buttonLabel}</Text>
       </TouchableRipple>
-    </ScrollView>
+    </BottomBar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
+  scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32 },
   badge: {
     alignSelf: "center",
@@ -50,6 +56,6 @@ const styles = StyleSheet.create({
   },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 22, textAlign: "center", marginTop: 16 },
   hint: { color: C.textSecondary, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 12 },
-  whiteButton: { marginTop: 32, height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
+  whiteButton: { height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
   whiteButtonText: { color: "#000000", fontWeight: "800", fontSize: 15 },
 });

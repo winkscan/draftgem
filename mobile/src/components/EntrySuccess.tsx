@@ -6,6 +6,7 @@ import type { Candidate } from "../pumpfantasy/candidates";
 import type { TournamentAccount } from "../pumpfantasy/accounts";
 import { WORKER_URL } from "../pumpfantasy/config";
 import { PortfolioCard, entryBadge } from "./PortfolioCard";
+import { BottomBar } from "./BottomBar";
 import { PulseBadge } from "./PulseBadge";
 import { PF_COLORS as C } from "../theme";
 
@@ -41,7 +42,8 @@ export function EntrySuccess({
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <View style={styles.screen}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <PulseBadge style={styles.badge}>
         <FontAwesome6 name="check" size={26} color={C.accent2TextOn} />
       </PulseBadge>
@@ -66,20 +68,24 @@ export function EntrySuccess({
       </TouchableRipple>
       <Text style={styles.copyHint}>{copied ? "Link copied" : "Tap the link to copy it"}</Text>
 
+    </ScrollView>
+    <BottomBar>
       {onAnother ? (
         <TouchableRipple style={styles.primary} borderless onPress={onAnother}>
           <Text style={styles.primaryText}>Create one more portfolio</Text>
         </TouchableRipple>
       ) : null}
-      <TouchableRipple style={[styles.whiteButton, onAnother ? { marginTop: 12 } : undefined]} borderless onPress={onGoToLobby}>
+      <TouchableRipple style={styles.whiteButton} borderless onPress={onGoToLobby}>
         <Text style={styles.whiteButtonText}>Go to lobby</Text>
       </TouchableRipple>
-    </ScrollView>
+    </BottomBar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
+  scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32 },
   badge: {
     alignSelf: "center",
@@ -97,8 +103,8 @@ const styles = StyleSheet.create({
   linkInner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
   linkText: { color: C.textPrimary, fontSize: 13, flex: 1 },
   copyHint: { color: C.textSecondary, fontSize: 11, textAlign: "center", marginTop: 8 },
-  whiteButton: { marginTop: 32, height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
+  whiteButton: { height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
   whiteButtonText: { color: "#000000", fontWeight: "800", fontSize: 15 },
-  primary: { marginTop: 32, height: 52, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center", alignItems: "center" },
+  primary: { height: 52, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center", alignItems: "center" },
   primaryText: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15 },
 });
