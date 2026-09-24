@@ -24,6 +24,7 @@ import { ChartModal } from "../components/ChartModal";
 import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard, SlotCard, entryBadge } from "../components/PortfolioCard";
 import { EntrySuccess } from "../components/EntrySuccess";
+import { EntryFailure } from "../components/EntryFailure";
 import { useDraftTab, useEntrySuccess } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
 
@@ -77,12 +78,17 @@ export function DraftScreen() {
   const [chartCandidate, setChartCandidate] = useState<Candidate | null>(null);
   // Set right after a successful entry: shows the congratulation page until dismissed.
   const [justEntered, setJustEntered] = useState<{ entryNo: number; picks: Candidate[] } | null>(null);
-  useEffect(() => setJustEntered(null), [tab]);
+  // Set when the entry fails (wallet approval cancelled, or an error): shows the failure page.
+  const [failed, setFailed] = useState<{ cancelled: boolean; message: string } | null>(null);
+  useEffect(() => {
+    setJustEntered(null);
+    setFailed(null);
+  }, [tab]);
   const [, setSuccessShown] = useEntrySuccess(tournamentId);
   useEffect(() => {
-    setSuccessShown(justEntered != null);
+    setSuccessShown(justEntered != null || failed != null);
     return () => setSuccessShown(false);
-  }, [justEntered]);
+  }, [justEntered, failed]);
 
   const spentFp = useMemo(() => picked.reduce((sum, c) => sum + c.fpCost, 0), [picked]);
   const remainingFp = MAX_BUDGET_FP - spentFp;
@@ -139,7 +145,8 @@ export function DraftScreen() {
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
       await queryClient.invalidateQueries({ queryKey: ["tournament"] });
     } catch (e: any) {
-      setError(e?.message ?? "Entry failed — see wallet for details.");
+      const message: string = e?.message ?? "Entry failed — see wallet for details.";
+      setFailed({ cancelled: /declin|cancel|reject|denied/i.test(message), message });
     } finally {
       setSubmitting(false);
     }
@@ -151,6 +158,10 @@ export function DraftScreen() {
         <ActivityIndicator color={C.accent} />
       </View>
     );
+  }
+
+  if (failed) {
+    return <EntryFailure cancelled={failed.cancelled} message={failed.message} onBack={() => setFailed(null)} />;
   }
 
   if (justEntered) {
