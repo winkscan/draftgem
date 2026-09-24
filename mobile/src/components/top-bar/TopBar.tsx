@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Text, TouchableRipple, ActivityIndicator } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -8,7 +7,6 @@ import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useConnection } from "../../utils/ConnectionProvider";
 import { ellipsify, formatSol } from "../../pumpfantasy/format";
 import { UpdateBadge } from "./UpdateBadge";
-import { WalletMenu, type Anchor, type WalletMenuItem } from "./WalletMenu";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
 import { TournamentDetails } from "./TournamentDetails";
 import { useNavigation } from "@react-navigation/native";
@@ -19,8 +17,8 @@ import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { PF_COLORS as C } from "../../theme";
 
 // Matches the reference mockup's header: short address + SOL balance pill on
-// the right: tapping it connects when there's no wallet yet, and opens a small
-// dropdown (just "Sign out" for now) once connected.
+// the right: tapping it connects when there's no wallet yet, and opens the My Profile
+// page once connected.
 export function TopBar({
   phase,
   tournament,
@@ -35,8 +33,8 @@ export function TopBar({
   };
 }) {
   const navigation = useNavigation();
-  const { selectedAccount, clearAuthorization } = useAuthorization();
-  const { connect, disconnect } = useMobileWallet();
+  const { selectedAccount } = useAuthorization();
+  const { connect } = useMobileWallet();
   const { connection } = useConnection();
 
   const { data: balanceLamports, isFetching } = useQuery({
@@ -45,23 +43,6 @@ export function TopBar({
     enabled: !!selectedAccount,
     refetchInterval: 15_000,
   });
-
-  // Dropdown under the wallet pill; add entries here to grow it.
-  const pillRef = useRef<View>(null);
-  const [menuAnchor, setMenuAnchor] = useState<Anchor | null>(null);
-  const openMenu = () =>
-    pillRef.current?.measureInWindow((x, y, width, height) => setMenuAnchor({ x, y, width, height }));
-
-  const signOut = async () => {
-    setMenuAnchor(null);
-    try {
-      await disconnect();
-    } catch {
-      // Wallet app unreachable or cancelled the request: still forget it here.
-      await clearAuthorization();
-    }
-  };
-  const menuItems: WalletMenuItem[] = [{ key: "sign-out", label: "Sign out", icon: "right-from-bracket", onPress: signOut }];
 
   return (
     <View>
@@ -73,8 +54,8 @@ export function TopBar({
             </View>
             <View style={styles.right}>
               <UpdateBadge />
-              <View ref={pillRef} collapsable={false}>
-                <TouchableRipple style={styles.pill} onPress={selectedAccount ? openMenu : connect} borderless>
+              <View>
+                <TouchableRipple style={styles.pill} onPress={selectedAccount ? () => navigation.navigate("Profile") : connect} borderless>
                   {selectedAccount ? (
                     <View style={styles.pillContent}>
                       <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
@@ -110,7 +91,6 @@ export function TopBar({
         ) : null}
       </View>
       {phase ? <TournamentFilterSelects phase={phase} /> : null}
-      <WalletMenu anchor={menuAnchor} items={menuItems} onClose={() => setMenuAnchor(null)} />
     </View>
   );
 }
