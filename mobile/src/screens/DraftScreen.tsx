@@ -241,7 +241,7 @@ export function DraftScreen() {
 
           <FlatList
             style={styles.list}
-            contentContainerStyle={{ padding: 16, gap: 10 }}
+            contentContainerStyle={{ padding: 16, paddingTop: 6, gap: 10 }}
             data={blockedBySingleEntry || entriesClosed ? [] : filteredCandidates}
             keyExtractor={(c) => c.mint}
             ListEmptyComponent={
@@ -300,8 +300,8 @@ export function DraftScreen() {
               onPress={onSubmit}
             >
               <View style={styles.enterInner}>
-                {submitting ? <ActivityIndicator size={16} color={C.accent2TextOn} /> : null}
-                <Text style={styles.enterText}>
+                {submitting ? <ActivityIndicator size={16} color={C.accentTextOn} /> : null}
+                <Text style={[styles.enterText, !canSubmit ? styles.enterTextDisabled : undefined]}>
                   {blockedBySingleEntry
                     ? "Already Entered"
                     : entriesClosed
@@ -381,26 +381,31 @@ function BudgetBar({ spent, max }: { spent: number; max: number }) {
 // category; the coin's icon sits on the card's corner. Under it: x to remove, or + while empty.
 function SlotCard({ candidate: c, readonly, onRemove }: { candidate: Candidate | undefined; readonly: boolean; onRemove: () => void }) {
   return (
-    <View style={styles.slot}>
-      {c ? (
-        <>
-          <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={28} />
-          <Text style={styles.slotName} numberOfLines={1} ellipsizeMode="tail">
-            {c.symbol}
-          </Text>
-          <Text style={styles.slotFp}>{c.fpCost} FP</Text>
-          <Text style={styles.slotCategory} numberOfLines={1}>
-            {c.tier}
-          </Text>
-          {readonly ? null : (
-            <TouchableRipple style={styles.slotRemove} borderless onPress={onRemove}>
-              <FontAwesome6 name="xmark" size={11} color="#fff" />
-            </TouchableRipple>
-          )}
-        </>
-      ) : (
-        <Text style={styles.slotEmpty}>Empty</Text>
-      )}
+    // The wrapper reserves room for the remove button, which overhangs the card's top-right corner
+    // (Android ignores taps outside a parent's bounds, so the overhang must stay inside the wrapper).
+    <View style={styles.slotWrap}>
+      <View style={styles.slot}>
+        {c ? (
+          <>
+            <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={28} />
+            <Text style={styles.slotName} numberOfLines={1} ellipsizeMode="tail">
+              {c.symbol}
+            </Text>
+            <Text style={styles.slotFp}>{c.fpCost} FP</Text>
+            <View style={styles.slotDivider} />
+            <Text style={styles.slotCategory} numberOfLines={1}>
+              {c.tier}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.slotEmpty}>Empty</Text>
+        )}
+      </View>
+      {c && !readonly ? (
+        <TouchableRipple style={styles.slotRemove} borderless onPress={onRemove}>
+          <FontAwesome6 name="xmark" size={11} color="#fff" />
+        </TouchableRipple>
+      ) : null}
     </View>
   );
 }
@@ -489,10 +494,11 @@ const styles = StyleSheet.create({
   budgetTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 16 },
   budgetValue: { color: C.positive, fontWeight: "800", fontSize: 16 },
   barTrack: { height: 4, borderRadius: 2, marginHorizontal: 16, marginTop: 10, backgroundColor: C.glass, overflow: "hidden" },
-  slotsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 16 },
+  slotsRow: { flexDirection: "row", gap: 2, paddingLeft: 16, paddingRight: 10, paddingTop: 8 },
+  slotWrap: { flex: 1, paddingTop: 8, paddingRight: 6 },
   slot: {
     flex: 1,
-    height: 92,
+    minHeight: 96,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.cardBorder,
@@ -500,23 +506,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
+    paddingTop: 8,
+    paddingBottom: 8,
     gap: 1,
   },
   slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center", marginTop: 3 },
   slotEmpty: { color: C.textSecondary, fontSize: 12 },
   slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
-  slotCategory: { color: C.textSecondary, fontSize: 11 },
+  slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
+  slotCategory: { color: C.textSecondary, fontSize: 11, marginBottom: 4 },
   slotRemove: {
     position: "absolute",
-    top: 5, // inside the card: Android ignores taps outside a parent's bounds
-    right: 5,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: C.negative,
     alignItems: "center",
     justifyContent: "center",
   },
+
   slotMint: { fontSize: 10, color: C.textPrimary, fontWeight: "600" },
   error: { color: C.error, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
   alreadyIn: {
@@ -539,7 +549,7 @@ const styles = StyleSheet.create({
   // 2026-09-18: a flex-row ScrollView content container defaults every
   // child to align-items:stretch on its cross axis unless told otherwise).
   // Underlined tabs, same look as the tournament popup's (TournamentInfoModal).
-  categoryRow: { flexDirection: "row", paddingHorizontal: 16, marginTop: 8 },
+  categoryRow: { flexDirection: "row", paddingHorizontal: 16, marginTop: 8, marginBottom: 10 },
   categoryTab: { flex: 1 },
   categoryTabInner: { alignItems: "center", paddingTop: 10 },
   categoryTabText: { color: C.textSecondary, fontWeight: "700", fontSize: 13.5, paddingBottom: 9, paddingHorizontal: 2 },
@@ -592,10 +602,11 @@ const styles = StyleSheet.create({
   assetFp: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
   assetTier: { color: C.textSecondary, fontSize: 10, marginTop: 2 },
   // Same size and look as the primary button on the tournament-created screen.
-  enterButton: { height: 52, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center" },
-  enterDisabled: { opacity: 0.6 },
+  enterButton: { height: 52, borderRadius: 999, backgroundColor: C.accent, justifyContent: "center" },
+  enterDisabled: { backgroundColor: C.glassStrong },
   enterInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  enterText: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15 },
+  enterText: { color: C.accentTextOn, fontWeight: "800", fontSize: 15 },
+  enterTextDisabled: { color: C.textSecondary },
   footer: {
     padding: 16,
     borderTopWidth: 1,
