@@ -170,11 +170,8 @@ export function DraftScreen() {
         <>
           <View style={styles.budgetBar}>
             <Text style={styles.budgetTitle}>{viewingExistingSingleEntry ? "Your Portfolio" : "Portfolio Budget"}</Text>
-            <Text style={styles.budgetLabel}>
-              {viewingExistingSingleEntry ? "Spent: " : "Available: "}
-              <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
-                {viewingExistingSingleEntry ? myEntry!.fpSpent : remainingFp} FP
-              </Text>
+            <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
+              {viewingExistingSingleEntry ? myEntry!.fpSpent : remainingFp} FP
             </Text>
           </View>
           <BudgetBar spent={viewingExistingSingleEntry ? myEntry!.fpSpent : spentFp} max={MAX_BUDGET_FP} />
@@ -215,19 +212,18 @@ export function DraftScreen() {
             <>
               <View style={styles.categoryRow}>
                 {CATEGORY_TABS.map((cat) => (
-                  <TouchableRipple
-                    key={cat}
-                    style={[styles.categoryPill, categoryTab === cat ? styles.categoryPillActive : undefined]}
-                    onPress={() => setCategoryTab(cat)}
-                  >
-                    <Text
-                      style={[styles.categoryPillText, categoryTab === cat ? styles.categoryPillTextActive : undefined]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.75}
-                    >
-                      {cat}
-                    </Text>
+                  <TouchableRipple key={cat} style={styles.categoryTab} onPress={() => setCategoryTab(cat)}>
+                    <View style={styles.categoryTabInner}>
+                      <Text
+                        style={[styles.categoryTabText, categoryTab === cat ? styles.categoryTabTextActive : undefined]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.75}
+                      >
+                        {cat}
+                      </Text>
+                      <View style={[styles.categoryUnderline, categoryTab === cat ? styles.categoryUnderlineActive : undefined]} />
+                    </View>
                   </TouchableRipple>
                 ))}
               </View>
@@ -369,14 +365,14 @@ function BudgetBar({ spent, max }: { spent: number; max: number }) {
   return (
     <View style={styles.barTrack} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {width > 0 ? (
-        <Svg width={width} height={8}>
+        <Svg width={width} height={4}>
           <Defs>
             <LinearGradient id="budgetGradient" x1="0" y1="0" x2={width} y2="0" gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor={C.accent} />
-              <Stop offset="1" stopColor={C.negative} />
+              <Stop offset="0" stopColor={C.positive} />
+              <Stop offset="1" stopColor={C.accent} />
             </LinearGradient>
           </Defs>
-          <Rect x="0" y="0" width={fill} height="8" rx="4" fill="url(#budgetGradient)" />
+          <Rect x="0" y="0" width={fill} height="4" rx="2" fill="url(#budgetGradient)" />
         </Svg>
       ) : null}
     </View>
@@ -387,30 +383,25 @@ function BudgetBar({ spent, max }: { spent: number; max: number }) {
 // category; the coin's icon sits on the card's corner. Under it: x to remove, or + while empty.
 function SlotCard({ candidate: c, readonly, onRemove }: { candidate: Candidate | undefined; readonly: boolean; onRemove: () => void }) {
   return (
-    <View style={styles.slotWrap}>
-      <View style={styles.slot}>
-        {c ? (
-          <View style={styles.slotIcon}>
-            <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={26} />
-          </View>
-        ) : null}
-        <Text style={c ? styles.slotName : styles.slotAdd} numberOfLines={1} ellipsizeMode="tail">
-          {c ? c.symbol : "ADD"}
-        </Text>
-        <Text style={styles.slotFp}>{c ? `${c.fpCost} FP` : " "}</Text>
-        <View style={styles.slotDivider} />
-        <Text style={styles.slotCategory} numberOfLines={1}>
-          {c ? c.tier : " "}
-        </Text>
-      </View>
-      {readonly ? null : c ? (
-        <TouchableRipple style={[styles.slotButton, { backgroundColor: C.negative }]} borderless onPress={onRemove}>
-          <FontAwesome6 name="xmark" size={13} color="#fff" />
-        </TouchableRipple>
+    <View style={styles.slot}>
+      {c ? (
+        <>
+          <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={28} />
+          <Text style={styles.slotName} numberOfLines={1} ellipsizeMode="tail">
+            {c.symbol}
+          </Text>
+          <Text style={styles.slotFp}>{c.fpCost} FP</Text>
+          <Text style={styles.slotCategory} numberOfLines={1}>
+            {c.tier}
+          </Text>
+          {readonly ? null : (
+            <TouchableRipple style={styles.slotRemove} borderless onPress={onRemove}>
+              <FontAwesome6 name="xmark" size={11} color="#fff" />
+            </TouchableRipple>
+          )}
+        </>
       ) : (
-        <View style={[styles.slotButton, { backgroundColor: C.glassStrong }]}>
-          <FontAwesome6 name="plus" size={13} color={C.textPrimary} />
-        </View>
+        <Text style={styles.slotEmpty}>Empty</Text>
       )}
     </View>
   );
@@ -498,14 +489,12 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   budgetTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 16 },
-  budgetLabel: { color: C.textPrimary, fontWeight: "700", fontSize: 14 },
-  budgetValue: { color: C.accentText, fontWeight: "400", fontSize: 14 },
-  barTrack: { height: 8, borderRadius: 4, marginHorizontal: 16, marginTop: 12, backgroundColor: C.glass, overflow: "hidden" },
+  budgetValue: { color: C.positive, fontWeight: "800", fontSize: 16 },
+  barTrack: { height: 4, borderRadius: 2, marginHorizontal: 16, marginTop: 10, backgroundColor: C.glass, overflow: "hidden" },
   slotsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 16 },
-  slotWrap: { flex: 1, alignItems: "center", gap: 8 },
   slot: {
-    alignSelf: "stretch",
-    height: 104,
+    flex: 1,
+    height: 92,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.cardBorder,
@@ -513,15 +502,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
-    gap: 2,
+    gap: 1,
   },
-  slotIcon: { position: "absolute", top: -8, left: -6 },
-  slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center" },
-  slotAdd: { color: C.textSecondary, fontWeight: "800", fontSize: 14 },
+  slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center", marginTop: 3 },
+  slotEmpty: { color: C.textSecondary, fontSize: 12 },
   slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
-  slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
   slotCategory: { color: C.textSecondary, fontSize: 11 },
-  slotButton: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  slotRemove: {
+    position: "absolute",
+    top: 5, // inside the card: Android ignores taps outside a parent's bounds
+    right: 5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: C.negative,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   slotMint: { fontSize: 10, color: C.textPrimary, fontWeight: "600" },
   error: { color: C.error, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
   alreadyIn: {
@@ -543,24 +540,18 @@ const styles = StyleSheet.create({
   // the row's height instead of sizing to its text, confirmed live
   // 2026-09-18: a flex-row ScrollView content container defaults every
   // child to align-items:stretch on its cross axis unless told otherwise).
-  categoryRow: { flexDirection: "row", gap: 4, paddingHorizontal: 16, marginTop: 12 },
-  categoryPill: {
-    flex: 1,
-    height: 30,
-    paddingHorizontal: 2,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-  },
-  categoryPillActive: { backgroundColor: C.accent, borderColor: C.accent },
-  categoryPillText: { color: C.textSecondary, fontWeight: "700", fontSize: 11 },
-  categoryPillTextActive: { color: C.accentTextOn },
+  // Underlined tabs, same look as the tournament popup's (TournamentInfoModal).
+  categoryRow: { flexDirection: "row", paddingHorizontal: 16, marginTop: 8 },
+  categoryTab: { flex: 1 },
+  categoryTabInner: { alignItems: "center", paddingTop: 10 },
+  categoryTabText: { color: C.textSecondary, fontWeight: "700", fontSize: 13.5, paddingBottom: 9, paddingHorizontal: 2 },
+  categoryTabTextActive: { color: C.textPrimary },
+  categoryUnderline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
+  categoryUnderlineActive: { backgroundColor: C.accent },
   searchbar: {
     marginHorizontal: 16,
     marginTop: 8,
+    height: 38,
     backgroundColor: C.card,
     borderWidth: 1,
     borderColor: C.cardBorder,
