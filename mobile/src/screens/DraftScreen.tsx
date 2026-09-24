@@ -156,7 +156,7 @@ export function DraftScreen() {
           {viewingExistingSingleEntry ? (
             <View style={styles.portfolioWrap}>
               <PortfolioCard
-                title={"Portfolio #" + (myEntry!.entryIndex + 1)}
+                portfolioNo={myEntry!.entryIndex + 1}
                 badge={entryBadge(tournament)}
                 slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
               />
@@ -418,7 +418,7 @@ function MyEntriesList({
       keyExtractor={(row) => row.publicKey.toBase58()}
       renderItem={({ item }) => (
         <PortfolioCard
-          title={"Portfolio #" + (item.account.entryIndex + 1)}
+          portfolioNo={item.account.entryIndex + 1}
           badge={entryBadge(tournament)}
           slots={item.account.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
         />

@@ -118,12 +118,16 @@ function Badge({ label, tone, icon }: { label: string; tone: BadgeTone; icon?: s
  */
 export function PortfolioCard({
   title,
+  portfolioNo,
   titleBadges,
   badge,
   slots,
   onPress,
 }: {
-  title: string;
+  /** A text title (e.g. a player's address). Ignored when `portfolioNo` is given. */
+  title?: string;
+  /** Shown as a white briefcase icon and "#n" instead of the words "Portfolio #n". */
+  portfolioNo?: number;
   /** Small badges right after the title (place, prize). */
   titleBadges?: { label: string; tone: BadgeTone; icon?: string }[];
   badge: { label: string; tone: BadgeTone };
@@ -134,8 +138,9 @@ export function PortfolioCard({
     <View style={styles.card}>
       <View style={styles.head}>
         <View style={styles.titleWrap}>
+          {portfolioNo != null ? <FontAwesome6 name="briefcase" size={14} color="#ffffff" /> : null}
           <Text style={styles.title} numberOfLines={1}>
-            {title}
+            {portfolioNo != null ? "#" + portfolioNo : title}
           </Text>
           {titleBadges?.map((b) => (
             <Badge key={b.label} label={b.label} tone={b.tone} icon={b.icon} />

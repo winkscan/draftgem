@@ -221,8 +221,8 @@ export function LeaderboardScreen() {
               getItemLayout={(_, i) => ({ length: pagerWidth, offset: pagerWidth * i, index: i })}
               onMomentumScrollEnd={(e) => setMyIndex(Math.round(e.nativeEvent.contentOffset.x / pagerWidth))}
               renderItem={({ item }) => (
-                <View style={{ width: pagerWidth, paddingHorizontal: 16 }}>
-                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} title={"Portfolio #" + (item.entryIndex + 1)} />
+                <View style={{ width: pagerWidth, paddingHorizontal: 16, paddingTop: 10 }}>
+                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} portfolioNo={item.entryIndex + 1} />
                 </View>
               )}
             />
@@ -318,12 +318,14 @@ function StandingCard({
   tournament,
   candidatesByMint,
   title,
+  portfolioNo,
   onPress,
 }: {
   row: Row;
   tournament: import("../pumpfantasy/accounts").TournamentAccount;
   candidatesByMint: Map<string, Candidate>;
-  title: string;
+  title?: string;
+  portfolioNo?: number;
   onPress?: () => void;
 }) {
   const titleBadges: { label: string; tone: "accent" | "live"; icon: string }[] = [{ label: "Nr. " + row.rank, tone: "accent", icon: "medal" }];
@@ -337,6 +339,7 @@ function StandingCard({
   return (
     <PortfolioCard
       title={title}
+      portfolioNo={portfolioNo}
       titleBadges={titleBadges}
       badge={
         row.scoreBps == null

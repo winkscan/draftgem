@@ -182,7 +182,7 @@ function MyEntriesTab({
       {entries.map((e) => (
         <PortfolioCard
           key={e.publicKey.toBase58()}
-          title={"Portfolio #" + (e.account.entryIndex + 1)}
+          portfolioNo={e.account.entryIndex + 1}
           badge={entryBadge(tournament)}
           slots={e.account.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
         />
