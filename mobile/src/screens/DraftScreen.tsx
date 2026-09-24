@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { ActivityIndicator, Button, Searchbar, Text, TouchableRipple } from "react-native-paper";
+import { ActivityIndicator, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -293,29 +293,27 @@ export function DraftScreen() {
           />
 
           <View style={styles.footer}>
-            {!entriesClosed && !blockedBySingleEntry ? (
-              <Text style={styles.depositNote}>
-                Plus a refundable deposit of about 0.002–0.008 SOL (account rent), returned to you when the tournament ends.
-              </Text>
-            ) : null}
-            <Button
-              mode="contained"
-              buttonColor={C.accent}
-              textColor={C.accentTextOn}
+            <TouchableRipple
+              style={[styles.enterButton, !canSubmit ? styles.enterDisabled : undefined]}
+              borderless
               disabled={!canSubmit}
-              loading={submitting}
               onPress={onSubmit}
             >
-              {blockedBySingleEntry
-                ? "Already Entered"
-                : entriesClosed
-                  ? duelFull && !timeClosed
-                    ? "Duel Full"
-                    : "Entries Closed"
-                  : selectedAccount
-                    ? `Enter for ${formatAmountCompact(tournament.entryFeeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
-                    : "Connect & Enter"}
-            </Button>
+              <View style={styles.enterInner}>
+                {submitting ? <ActivityIndicator size={16} color={C.accent2TextOn} /> : null}
+                <Text style={styles.enterText}>
+                  {blockedBySingleEntry
+                    ? "Already Entered"
+                    : entriesClosed
+                      ? duelFull && !timeClosed
+                        ? "Duel Full"
+                        : "Entries Closed"
+                      : selectedAccount
+                        ? `Enter for ${formatAmountCompact(tournament.entryFeeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
+                        : "Connect & Enter"}
+                </Text>
+              </View>
+            </TouchableRipple>
           </View>
         </>
       )}
@@ -593,7 +591,11 @@ const styles = StyleSheet.create({
   assetName: { color: C.textSecondary, fontSize: 11, maxWidth: 160 },
   assetFp: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
   assetTier: { color: C.textSecondary, fontSize: 10, marginTop: 2 },
-  depositNote: { color: C.textSecondary, fontSize: 11, textAlign: "center", marginBottom: 10 },
+  // Same size and look as the primary button on the tournament-created screen.
+  enterButton: { height: 52, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center" },
+  enterDisabled: { opacity: 0.6 },
+  enterInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  enterText: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15 },
   footer: {
     padding: 16,
     borderTopWidth: 1,

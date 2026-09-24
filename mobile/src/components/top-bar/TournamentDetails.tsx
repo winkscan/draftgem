@@ -19,10 +19,12 @@ export function TournamentDetails({
   tournament: t,
   meta,
   onOpenInfo,
+  onBack,
 }: {
   tournament: TournamentAccount;
   meta: TournamentMeta | undefined;
   onOpenInfo: () => void;
+  onBack: () => void;
 }) {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [copied, setCopied] = useState(false);
@@ -58,10 +60,12 @@ export function TournamentDetails({
 
   return (
     <View>
-      <View style={styles.divider} />
       <View style={styles.body}>
         <View style={styles.row1}>
           <View style={styles.titleWrap}>
+            <TouchableRipple style={styles.back} borderless onPress={onBack}>
+              <FontAwesome6 name="chevron-left" size={16} color={C.textOnHeader} />
+            </TouchableRipple>
             <ModeBadges tournament={t} />
             <PayoutBadge label={payoutLabel} />
             <Text style={styles.title} numberOfLines={1}>
@@ -101,7 +105,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
-  divider: { height: 1, backgroundColor: C.cardBorder },
+  back: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   body: { paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
   row1: { flexDirection: "row", alignItems: "center", gap: 8 },
   titleWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },

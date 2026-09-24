@@ -348,7 +348,13 @@ function RulesTab({
       id: "refunds",
       title: "Refunds & cancellations",
       body:
-        "If a tournament can't be scored (a coin's price never comes in), it is cancelled and every entry fee is refunded automatically. Either way, the small refundable deposit each entry pays for its on-chain storage (about 0.002–0.008 SOL) comes back to your wallet once the round is wrapped up.",
+        "If a tournament can't be scored (a coin's price never comes in), it is cancelled and every entry fee is refunded automatically.",
+    },
+    {
+      id: "deposit",
+      title: "Refundable deposit",
+      body:
+        "On top of the entry fee, each entry pays a small refundable deposit of about 0.002–0.008 SOL. It is the rent for the entry's on-chain storage, not a fee: it comes back to your wallet once the tournament ends (or is cancelled) and the round is wrapped up.",
     },
     {
       id: "fees",

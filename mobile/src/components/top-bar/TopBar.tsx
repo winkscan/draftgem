@@ -61,42 +61,44 @@ export function TopBar({
   return (
     <View>
       <View style={styles.panel}>
-        <View style={styles.bar}>
-          <View style={styles.left}>
-            {tournament ? (
-              <TouchableRipple style={styles.back} borderless onPress={() => navigation.goBack()}>
-                <FontAwesome6 name="chevron-left" size={16} color={C.textOnHeader} />
-              </TouchableRipple>
-            ) : null}
-            <DraftGemLogo height={28} />
-          </View>
-          <View style={styles.right}>
-            <UpdateBadge />
-            <View ref={pillRef} collapsable={false}>
-              <TouchableRipple style={styles.pill} onPress={selectedAccount ? openMenu : connect} borderless>
-                {selectedAccount ? (
-                  <View style={styles.pillContent}>
-                    <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
-                    <View style={styles.divider} />
-                    {isFetching && balanceLamports == null ? (
-                      <ActivityIndicator size={10} color={C.textOnHeader} />
-                    ) : (
-                      <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
-                    )}
-                    <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
-                  </View>
-                ) : (
-                  <View style={styles.pillContent}>
-                    <Text style={styles.balance}>Connect</Text>
-                    <FontAwesome6 name="wallet" size={12} color={C.textOnHeader} />
-                  </View>
-                )}
-              </TouchableRipple>
+        {tournament ? null : (
+          <View style={styles.bar}>
+            <View style={styles.left}>
+              <DraftGemLogo height={28} />
+            </View>
+            <View style={styles.right}>
+              <UpdateBadge />
+              <View ref={pillRef} collapsable={false}>
+                <TouchableRipple style={styles.pill} onPress={selectedAccount ? openMenu : connect} borderless>
+                  {selectedAccount ? (
+                    <View style={styles.pillContent}>
+                      <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
+                      <View style={styles.divider} />
+                      {isFetching && balanceLamports == null ? (
+                        <ActivityIndicator size={10} color={C.textOnHeader} />
+                      ) : (
+                        <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
+                      )}
+                      <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
+                    </View>
+                  ) : (
+                    <View style={styles.pillContent}>
+                      <Text style={styles.balance}>Connect</Text>
+                      <FontAwesome6 name="wallet" size={12} color={C.textOnHeader} />
+                    </View>
+                  )}
+                </TouchableRipple>
+              </View>
             </View>
           </View>
-        </View>
+        )}
         {tournament ? (
-          <TournamentDetails tournament={tournament.account} meta={tournament.meta} onOpenInfo={tournament.onOpenInfo} />
+          <TournamentDetails
+            tournament={tournament.account}
+            meta={tournament.meta}
+            onOpenInfo={tournament.onOpenInfo}
+            onBack={() => navigation.goBack()}
+          />
         ) : phase ? (
           <TournamentFilterTabs />
         ) : null}
@@ -120,7 +122,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   left: { flexDirection: "row", alignItems: "center", gap: 6 },
-  back: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
   pill: {
     backgroundColor: C.glassStrong,
