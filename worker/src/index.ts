@@ -2,7 +2,7 @@ import { Connection, Keypair, PublicKey, SystemProgram, Transaction, Transaction
 import { getAllCandidates } from "./tokenDiscovery";
 import { signAttestation, UnknownMintError, BudgetExceededError } from "./attestation";
 import { loadUnderlyingMarketCaps } from "./bridgedAssets";
-import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, ROUND_SECONDS } from "./syncPrices";
+import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, CREATE_EVERY_TICKS, ROUND_SECONDS } from "./syncPrices";
 import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
@@ -240,11 +240,16 @@ function json(body: unknown, status = 200): Response {
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const tick = BigInt(Math.floor(event.scheduledTime / TICK_MS));
-    ctx.waitUntil(
-      createTournament(env, tick * BigInt(TICK_MS), tick)
-        .then((result) => console.log(`Created tournament ${result}`))
-        .catch((err) => console.error("Tournament creation failed:", err)),
-    );
+    // The cron still fires every 5 min (prices, settlement), but a new tournament is only minted on
+    // every CREATE_EVERY_TICKS-th tick (every 30 min). The rotation seed counts creations, not
+    // ticks — otherwise ticks that are all multiples of 6 could never land on the ORE slot (% 4 == 3).
+    if (tick % BigInt(CREATE_EVERY_TICKS) === 0n) {
+      ctx.waitUntil(
+        createTournament(env, tick * BigInt(TICK_MS), tick / BigInt(CREATE_EVERY_TICKS))
+          .then((result) => console.log(`Created tournament ${result}`))
+          .catch((err) => console.error("Tournament creation failed:", err)),
+      );
+    }
     ctx.waitUntil(loadUnderlyingMarketCaps(env).catch((err) => console.error("Market-cap refresh failed:", err)));
     ctx.waitUntil(
       runMaintenance(env, {})
