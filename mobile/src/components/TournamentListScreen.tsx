@@ -26,6 +26,17 @@ type Row = { publicKey: PublicKey; account: TournamentAccount };
 // Shared by Lobby/Live/Results — same card list, filtered to one time-based
 // phase (see tournamentPhase.ts). A tournament moves phases purely by
 // start_ts/end_ts, not by whether an admin has run finalize_tournament yet.
+// Same empty look as the tournament popup's tabs: a big muted icon, a short bold title, a small hint.
+function EmptyBlock({ icon, label, hint }: { icon: string; label: string; hint: string }) {
+  return (
+    <>
+      <FontAwesome6 name={icon} size={44} color={C.disabled} />
+      <Text style={styles.emptyText}>{label}</Text>
+      <Text style={styles.emptyHint}>{hint}</Text>
+    </>
+  );
+}
+
 export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPhase; emptyText: string }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { data: tournaments, isLoading, isError, error, refetch } = useTournaments();
@@ -133,11 +144,11 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
           <View style={styles.center}>
             {inPhase.length > 0 || !isDefaultFilters(filters) ? (
               <>
-                <Text style={styles.emptyText}>
-                  {filters.scope === "mine" && !selectedAccount
-                    ? "Connect your wallet to see the tournaments you entered."
-                    : "No tournaments match these filters."}
-                </Text>
+                {filters.scope === "mine" && !selectedAccount ? (
+                  <EmptyBlock icon="wallet" label="Wallet Not Connected" hint="Connect your wallet to see the tournaments you entered." />
+                ) : (
+                  <EmptyBlock icon="filter" label="No Tournaments" hint="Nothing matches these filters." />
+                )}
                 {!isDefaultFilters(filters) ? (
                   <TouchableRipple style={styles.resetButton} borderless onPress={reset}>
                     <Text style={styles.resetText}>Reset filters</Text>
@@ -145,7 +156,7 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
                 ) : null}
               </>
             ) : (
-              <Text style={styles.emptyText}>{emptyText}</Text>
+              <EmptyBlock icon="trophy" label="No Tournaments" hint={emptyText} />
             )}
           </View>
         }
@@ -289,16 +300,18 @@ function TournamentCard({
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
-  emptyText: { color: C.textSecondary, textAlign: "center" },
+  emptyText: { color: C.textSecondary, fontWeight: "700", fontSize: 14, textAlign: "center", marginTop: 10 },
+  emptyHint: { color: C.textSecondary, fontSize: 12, textAlign: "center", marginTop: 6 },
   resetButton: {
-    marginTop: 16,
+    marginTop: 20,
+    height: 44,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.accent,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
+    backgroundColor: C.textPrimary,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  resetText: { color: C.accentText, fontWeight: "700", fontSize: 13 },
+  resetText: { color: "#000000", fontWeight: "800", fontSize: 14 },
   list: { flex: 1, backgroundColor: C.bg },
   listContent: { padding: 16, gap: 12, flexGrow: 1 },
   card: {
