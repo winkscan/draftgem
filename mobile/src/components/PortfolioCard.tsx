@@ -129,7 +129,7 @@ export function PortfolioCard({
 }: {
   /** A player's address, shown as a white badge with a user icon. Ignored when `portfolioNo` is given. */
   title?: string;
-  /** Shown as a white badge: briefcase icon and "#n". */
+  /** Shown as a white badge: briefcase icon and the number. */
   portfolioNo?: number;
   /** Small badges right after the title (place, prize). */
   titleBadges?: { label: string; tone: BadgeTone; icon?: string }[];
@@ -144,7 +144,7 @@ export function PortfolioCard({
       <View style={styles.head}>
         <View style={styles.titleWrap}>
           {portfolioNo != null ? (
-            <Badge label={"#" + portfolioNo} tone="white" icon="briefcase" />
+            <Badge label={String(portfolioNo)} tone="white" icon="briefcase" />
           ) : title ? (
             <Badge label={title} tone="white" icon="user" />
           ) : null}

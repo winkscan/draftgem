@@ -314,7 +314,7 @@ function StandingCard({
   openPayout: (entryKey: string) => void;
   openingPayout: string | null;
 }) {
-  const titleBadges: { label: string; tone: "accent" | "live"; icon: string }[] = [{ label: "Nr. " + row.rank, tone: "accent", icon: "medal" }];
+  const titleBadges: { label: string; tone: "accent" | "live"; icon: string }[] = [{ label: String(row.rank), tone: "accent", icon: "medal" }];
   if (row.prizeLamports > 0n) {
     titleBadges.push({
       label: formatAmountCompact(row.prizeLamports, decimalsForMint(tournament.mint)) + " " + currencyForMint(tournament.mint),
