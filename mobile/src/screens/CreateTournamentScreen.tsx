@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, ScrollView, Share, StyleSheet, TextInput, View } from "react-native";
+import { useState } from "react";
+import { ScrollView, Share, StyleSheet, TextInput, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -28,6 +28,7 @@ import {
   type Visibility,
 } from "../pumpfantasy/customTournaments";
 import { formatAmount, parseAmount, type Currency } from "../pumpfantasy/currency";
+import { PulseBadge } from "../components/PulseBadge";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
 
@@ -43,18 +44,6 @@ function hasControlChars(s: string): boolean {
     if (c < 32 || c === 127) return true;
   }
   return false;
-}
-
-// The round icon on the result screens: pops up bigger, then settles, for a bit of life.
-function PulseBadge({ children, style }: { children: React.ReactNode; style: object }) {
-  const scale = useRef(new Animated.Value(0.5)).current;
-  useEffect(() => {
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 1.35, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 1, duration: 320, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-    ]).start();
-  }, [scale]);
-  return <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>;
 }
 
 type Step = "idle" | "wallet" | "creating";

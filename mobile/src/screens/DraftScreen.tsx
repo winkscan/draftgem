@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, FlatList, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ActivityIndicator, Searchbar, Text, TouchableRipple } from "react-native-paper";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useConnection } from "../utils/ConnectionProvider";
@@ -23,11 +23,13 @@ import { TournamentInfoModal } from "../components/TournamentInfoModal";
 import { ChartModal } from "../components/ChartModal";
 import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard, SlotCard, entryBadge } from "../components/PortfolioCard";
+import { EntrySuccess } from "../components/EntrySuccess";
 import { useDraftTab } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
 
 export function DraftScreen() {
   const route = useRoute();
+  const navigation = useNavigation();
   const { tournamentId } = route.params as { tournamentId: string };
   const id = BigInt(tournamentId);
 
@@ -73,6 +75,9 @@ export function DraftScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartCandidate, setChartCandidate] = useState<Candidate | null>(null);
+  // Set right after a successful entry: shows the congratulation page until dismissed.
+  const [justEntered, setJustEntered] = useState<{ entryNo: number; picks: Candidate[] } | null>(null);
+  useEffect(() => setJustEntered(null), [tab]);
 
   const spentFp = useMemo(() => picked.reduce((sum, c) => sum + c.fpCost, 0), [picked]);
   const remainingFp = MAX_BUDGET_FP - spentFp;
@@ -123,6 +128,7 @@ export function DraftScreen() {
       const attestation = await fetchAttestation(picked.map((p) => p.mint));
       const entryIndex = isMultiple ? myEntries?.length ?? 0 : 0;
       await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex, tournament?.mint);
+      setJustEntered({ entryNo: entryIndex + 1, picks: picked });
       setPicked([]); // clear the drafted picks so Multiple mode can start the next entry right away
       await queryClient.invalidateQueries({ queryKey: ["entry"] });
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
@@ -139,6 +145,18 @@ export function DraftScreen() {
       <View style={styles.center}>
         <ActivityIndicator color={C.accent} />
       </View>
+    );
+  }
+
+  if (justEntered) {
+    return (
+      <EntrySuccess
+        tournament={tournament}
+        entryNo={justEntered.entryNo}
+        picks={justEntered.picks}
+        onGoToLobby={() => navigation.navigate("HomeStack")}
+        onAnother={isMultiple ? () => setJustEntered(null) : undefined}
+      />
     );
   }
 
