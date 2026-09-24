@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Linking, Modal, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePoolAddress } from "../pumpfantasy/poolAddress";
 import { CHART_RANGES, usePriceSeries, useTokenAbout, type ChartRange } from "../pumpfantasy/chartData";
 import type { Candidate } from "../pumpfantasy/candidates";
@@ -17,6 +18,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
   const [tab, setTab] = useState<"chart" | "about">("chart");
   const [range, setRange] = useState<ChartRange>("24H");
   const mint = candidate?.mint ?? null;
+  const insets = useSafeAreaInsets();
 
   const { data: pool, isLoading: poolLoading } = usePoolAddress(mint);
   const { data: points, isLoading: seriesLoading, isError } = usePriceSeries(pool, range);
@@ -31,35 +33,39 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
   return (
     <Modal visible={!!candidate} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {candidate ? (
-              <TokenIcon mint={candidate.mint} icon={candidate.icon} symbol={candidate.symbol} size={32} />
-            ) : null}
-            <View>
-              <Text style={styles.title}>{candidate?.symbol}</Text>
-              <Text style={styles.subtitle} numberOfLines={1}>
-                {candidate?.name}
-              </Text>
+        {/* Header + tabs share one panel, same as the tournament popup: panel colour, rounded only at
+            the bottom, content pushed below the status bar. */}
+        <View style={styles.panel}>
+          <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+            <View style={styles.headerLeft}>
+              {candidate ? (
+                <TokenIcon mint={candidate.mint} icon={candidate.icon} symbol={candidate.symbol} size={32} />
+              ) : null}
+              <View>
+                <Text style={styles.title}>{candidate?.symbol}</Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {candidate?.name}
+                </Text>
+              </View>
             </View>
-          </View>
-          <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
-            <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
-          </TouchableRipple>
-        </View>
-
-        <View style={styles.tabRow}>
-          {(["chart", "about"] as const).map((t) => (
-            <TouchableRipple
-              key={t}
-              style={[styles.tab, tab === t ? styles.tabActive : undefined]}
-              onPress={() => setTab(t)}
-            >
-              <Text style={[styles.tabText, tab === t ? styles.tabTextActive : undefined]}>
-                {t === "chart" ? "Chart" : "About"}
-              </Text>
+            <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
+              <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
             </TouchableRipple>
-          ))}
+          </View>
+
+          <View style={styles.divider} />
+          <View style={styles.tabRow}>
+            {(["chart", "about"] as const).map((t) => (
+              <TouchableRipple key={t} style={styles.tab} onPress={() => setTab(t)}>
+                <View style={styles.tabInner}>
+                  <Text style={[styles.tabText, tab === t ? styles.tabTextActive : undefined]}>
+                    {t === "chart" ? "Chart" : "About"}
+                  </Text>
+                  <View style={[styles.tabUnderline, tab === t ? styles.tabUnderlineActive : undefined]} />
+                </View>
+              </TouchableRipple>
+            ))}
+          </View>
         </View>
 
         {tab === "chart" ? (
@@ -76,12 +82,11 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
 
             <View style={styles.rangeRow}>
               {(Object.keys(CHART_RANGES) as ChartRange[]).map((r) => (
-                <TouchableRipple
-                  key={r}
-                  style={[styles.rangePill, range === r ? styles.rangePillActive : undefined]}
-                  onPress={() => setRange(r)}
-                >
-                  <Text style={[styles.rangeText, range === r ? styles.rangeTextActive : undefined]}>{r}</Text>
+                <TouchableRipple key={r} style={styles.tab} onPress={() => setRange(r)}>
+                  <View style={styles.tabInner}>
+                    <Text style={[styles.tabText, range === r ? styles.tabTextActive : undefined]}>{r}</Text>
+                    <View style={[styles.tabUnderline, range === r ? styles.tabUnderlineActive : undefined]} />
+                  </View>
                 </TouchableRipple>
               ))}
             </View>
@@ -151,49 +156,36 @@ function StatRow({ label, value, last }: { label: string; value: string; last?: 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  panel: {
+    backgroundColor: C.headerPanel,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: "hidden", // keeps the active underline inside the rounded corners
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 14,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
   subtitle: { color: C.textSecondary, fontSize: 12, maxWidth: 220 },
-  closeButton: { padding: 10, borderRadius: 999 },
-  tabRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 4 },
-  tab: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 999,
-    alignItems: "center",
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-  },
-  tabActive: { backgroundColor: C.accent, borderColor: C.accent },
-  tabText: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
-  tabTextActive: { color: C.textOnHeader },
+  closeButton: { padding: 6, borderRadius: 999 },
+  divider: { height: 1, backgroundColor: C.cardBorder },
+  tabRow: { flexDirection: "row" },
+  tab: { flex: 1 },
+  tabInner: { alignItems: "center", paddingTop: 12 },
+  tabText: { color: C.textSecondary, fontSize: 12.5, fontWeight: "700", paddingBottom: 10 },
+  tabTextActive: { color: C.textPrimary },
+  tabUnderline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
+  tabUnderlineActive: { backgroundColor: C.accent },
   body: { padding: 16, gap: 12 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
   price: { color: C.textPrimary, fontWeight: "800", fontSize: 26 },
   change: { fontWeight: "700", fontSize: 14 },
-  rangeRow: { flexDirection: "row", gap: 8 },
-  rangePill: {
-    flex: 1,
-    height: 32,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-  },
-  rangePillActive: { backgroundColor: C.accent, borderColor: C.accent },
-  rangeText: { color: C.textSecondary, fontWeight: "700", fontSize: 12 },
-  rangeTextActive: { color: C.accentTextOn },
+  rangeRow: { flexDirection: "row", marginHorizontal: -16, marginTop: -4 },
   chartCard: {
     backgroundColor: C.card,
     borderRadius: 20,
