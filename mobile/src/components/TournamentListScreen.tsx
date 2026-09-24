@@ -10,7 +10,7 @@ import { useTournamentMeta, PAYOUT_CHOICES, type TournamentMeta } from "../pumpf
 import { useAuthorization } from "../utils/useAuthorization";
 import { formatDuration, formatCountdown } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
-import { tournamentDisplayName } from "../pumpfantasy/tournamentNames";
+import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { payoutStructureOf, poolOf } from "../pumpfantasy/tournamentFilters";
 import { WORKER_URL } from "../pumpfantasy/config";
@@ -258,7 +258,7 @@ function TournamentCard({
             <ModeBadges tournament={t} />
             <PayoutBadge label={payoutLabel} />
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {formatAmountCompact(pool, decimals)} {currency} {name}
+              {formatAmountCompact(pool, decimals)} {currency} {tournamentDayLabel(t.startTs)} {name}
             </Text>
             {meta?.visibility === "private" ? <FontAwesome6 name="lock" size={11} color={C.textSecondary} /> : null}
           </View>

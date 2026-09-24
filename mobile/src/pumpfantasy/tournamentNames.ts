@@ -28,20 +28,19 @@ function splitmix64(seed: bigint): bigint {
   return (n ^ (n >> 33n)) & MASK64;
 }
 
-// 900 word pairs alone would collide constantly at real tournament counts (cron makes 288/day) —
-// a 4-character tag from a different slice of the hash brings the collision odds low enough to
-// call it unique in practice, and doubles as a short human-readable code for the tournament.
-const CODE_SPACE = 36 ** 4; // 1,679,616
-
 export function generatedTournamentName(id: bigint | number | string): string {
   const hash = splitmix64(BigInt(id));
   const a = ADJECTIVES[Number(hash % BigInt(ADJECTIVES.length))];
   const b = NOUNS[Number((hash / BigInt(ADJECTIVES.length)) % BigInt(NOUNS.length))];
-  const code = Number((hash >> 20n) % BigInt(CODE_SPACE))
-    .toString(36)
-    .toUpperCase()
-    .padStart(4, "0");
-  return `${a} ${b} #${code}`;
+  // No unique tag: the card shows the start date next to the name (see tournamentDayLabel), which
+  // is what actually tells tournaments apart in a long history.
+  return a + ' ' + b;
+}
+
+/** Start day as DD.MM in the player's own timezone — shown on cards so runs are told apart. */
+export function tournamentDayLabel(startTs: bigint | number): string {
+  const d = new Date(Number(startTs) * 1000);
+  return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
 /** What the app shows for a tournament: its own name if a player set one, otherwise a generated one. */

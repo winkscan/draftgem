@@ -11,7 +11,7 @@ import { useAuthorization } from "../utils/useAuthorization";
 import { slotsFor } from "../pumpfantasy/liveScore";
 import { PAYOUT_CHOICES, type PayoutChoice, type TournamentMeta } from "../pumpfantasy/customTournaments";
 import { poolOf } from "../pumpfantasy/tournamentFilters";
-import { tournamentDisplayName } from "../pumpfantasy/tournamentNames";
+import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { ellipsify } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { RAKE_BPS, WORKER_URL } from "../pumpfantasy/config";
@@ -99,7 +99,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
                   {name}
                 </Text>
                 <Text style={styles.subtitle}>
-                  Prize pool: {formatAmountCompact(pool, t ? decimalsForMint(t.mint) : 9)} {t ? currencyForMint(t.mint) : "SOL"}
+                  {t ? tournamentDayLabel(t.startTs) + " · " : ""}Prize pool: {formatAmountCompact(pool, t ? decimalsForMint(t.mint) : 9)} {t ? currencyForMint(t.mint) : "SOL"}
                 </Text>
               </View>
               <View style={styles.headerActions}>
