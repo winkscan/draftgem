@@ -20,6 +20,8 @@ const REGISTER_ASSET_PRICE_DISCRIMINATOR = Uint8Array.from([43, 245, 161, 178, 9
 const SUBMIT_RESULT_DISCRIMINATOR = Uint8Array.from([240, 42, 89, 180, 10, 239, 9, 214]);
 
 const PRICE_SCALE = 1_000_000; // matches constants::PRICE_SCALE in the Rust program
+/** History vs live price beyond this factor (either way) is treated as bad data, not a market move. */
+const MAX_PRICE_DRIFT = 50;
 const LIVE_FALLBACK_SECONDS = 900; // how long after a timestamp a live price may stand in for missing history
 /**
  * GeckoTerminal calls the whole tick may make (its free tier 429s quickly).
@@ -101,6 +103,16 @@ async function resolvePrice(
   live: () => Promise<Map<string, number>>,
 ): Promise<bigint | null> {
   let price = await priceAtTimestamp(env, mint, ts, budget);
+  // Outlier guard: a history price wildly off the live one is a bad source (e.g. candles quoted
+  // in the wrong direction: a WBTC start of ~9 micros scored +946,000,000,000%), not a real move —
+  // discard it and retry later instead of writing it on chain, where it can't be corrected.
+  if (price != null) {
+    const liveNow = (await live()).get(mint);
+    if (liveNow != null && liveNow > 0 && (price > liveNow * MAX_PRICE_DRIFT || price < liveNow / MAX_PRICE_DRIFT)) {
+      console.error(`Rejected outlier history price for ${mint}: ${price} vs live ${liveNow}`);
+      price = null;
+    }
+  }
   if (price == null && nowSec - ts <= LIVE_FALLBACK_SECONDS) price = (await live()).get(mint) ?? null;
   if (price == null) return null;
   const micros = Math.round(price * PRICE_SCALE);
