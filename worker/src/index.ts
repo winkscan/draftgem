@@ -2,7 +2,7 @@ import { Connection, Keypair, PublicKey, SystemProgram, Transaction, Transaction
 import { getAllCandidates } from "./tokenDiscovery";
 import { signAttestation, UnknownMintError, BudgetExceededError } from "./attestation";
 import { loadUnderlyingMarketCaps } from "./bridgedAssets";
-import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, CREATE_EVERY_TICKS, ROUND_SECONDS } from "./syncPrices";
+import { findCandidates, syncPrices, GECKO_CALLS_PER_TICK, TICK_MS, CREATE_EVERY_TICKS, ROUND_SECONDS, ENTRY_WINDOW_SECONDS } from "./syncPrices";
 import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
@@ -37,7 +37,6 @@ const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL
 // real market for either, so these aren't price-derived, just "a normal-looking amount".
 const ORE_ENTRY_FEE = 5_000_00000000; // 5 ORE (11 decimals)
 const ROUND_DURATION_SECONDS = ROUND_SECONDS;
-const ENTRY_WINDOW_SECONDS = ROUND_SECONDS; // syncPrices.ts derives tournament ids from this — change both together
 
 // idl/pumpfantasy.json → instructions[].find(i => i.name === "...").discriminator
 const CREATE_TOURNAMENT_DISCRIMINATOR = Uint8Array.from([158, 137, 233, 231, 73, 132, 191, 68]);

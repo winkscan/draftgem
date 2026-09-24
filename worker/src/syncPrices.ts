@@ -203,7 +203,10 @@ async function submitMissingEndPrices(
 export const TICK_MS = 300_000; // must match wrangler.toml's cron cadence
 /** A new tournament is minted every this-many ticks (6 x 5 min = 30 min); the maintenance pass still runs every tick. */
 export const CREATE_EVERY_TICKS = 6;
-export const ROUND_SECONDS = 600; // entry window and round length (index.ts)
+export const ROUND_SECONDS = 600; // round length (index.ts)
+/** How long a tournament stays open for entries: one full creation interval, so the next one is
+ * created exactly as this one starts and the lobby is never empty. */
+export const ENTRY_WINDOW_SECONDS = CREATE_EVERY_TICKS * (TICK_MS / 1000);
 /** How long after a tournament ends the Worker keeps working on it (prices, settlement, refund). */
 export const HISTORY_WINDOW_SECONDS = 3 * 3600;
 const TOURNAMENT_SEED = new TextEncoder().encode("tournament");
@@ -245,10 +248,10 @@ export async function findCandidates(
   const nowSec = Math.floor(Date.now() / 1000);
   const tickSec = (TICK_MS / 1000) * CREATE_EVERY_TICKS; // ids only exist on the creation grid
   const nowAligned = Math.floor(nowSec / tickSec) * tickSec;
-  // minted at tick T: starts at T+ROUND, ends at T+2*ROUND
+  // minted at tick T: starts at T+ENTRY_WINDOW, ends at T+ENTRY_WINDOW+ROUND
   const pdas: PublicKey[] = [];
-  const firstT = Math.floor((nowAligned - 2 * ROUND_SECONDS - HISTORY_WINDOW_SECONDS) / tickSec) * tickSec; // stay on the grid
-  for (let t = firstT; t <= nowAligned - ROUND_SECONDS; t += tickSec) {
+  const firstT = Math.floor((nowAligned - ENTRY_WINDOW_SECONDS - ROUND_SECONDS - HISTORY_WINDOW_SECONDS) / tickSec) * tickSec; // stay on the grid
+  for (let t = firstT; t <= nowAligned - ENTRY_WINDOW_SECONDS; t += tickSec) {
     if (!states[String(t * 1000)]?.settled) pdas.push(tournamentPdaFor(BigInt(t) * 1000n));
   }
   // Player-made tournaments (customTournaments.ts) have arbitrary ids, so the caller passes the live ones.
