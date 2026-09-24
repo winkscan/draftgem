@@ -72,7 +72,7 @@ export function SlotCard({
   );
 }
 
-export type BadgeTone = "neutral" | "positive" | "negative" | "live" | "accent";
+export type BadgeTone = "neutral" | "positive" | "negative" | "live" | "accent" | "white";
 
 /** The status badge of an entry: Live while the round runs, grey while waiting, green once paid out. */
 export function entryBadge(t: Pick<TournamentAccount, "status" | "startTs" | "endTs">): { label: string; tone: BadgeTone } {
@@ -92,6 +92,8 @@ function toneStyles(tone: BadgeTone): { bg: object | undefined; text: object | u
       return { bg: { backgroundColor: C.negative }, text: { color: "#fff" } };
     case "live":
       return { bg: { backgroundColor: C.accent2Tint }, text: { color: C.accent2 } };
+    case "white":
+      return { bg: { backgroundColor: "#ffffff" }, text: { color: "#000000" } };
     case "accent":
       return { bg: { backgroundColor: C.accentTint }, text: { color: C.accentText } };
     default:
@@ -124,9 +126,9 @@ export function PortfolioCard({
   slots,
   onPress,
 }: {
-  /** A text title (e.g. a player's address). Ignored when `portfolioNo` is given. */
+  /** A player's address, shown as a white badge with a user icon. Ignored when `portfolioNo` is given. */
   title?: string;
-  /** Shown as a white briefcase icon and "#n" instead of the words "Portfolio #n". */
+  /** Shown as a white badge: briefcase icon and "#n". */
   portfolioNo?: number;
   /** Small badges right after the title (place, prize). */
   titleBadges?: { label: string; tone: BadgeTone; icon?: string }[];
@@ -138,10 +140,11 @@ export function PortfolioCard({
     <View style={styles.card}>
       <View style={styles.head}>
         <View style={styles.titleWrap}>
-          {portfolioNo != null ? <FontAwesome6 name="briefcase" size={14} color="#ffffff" /> : null}
-          <Text style={styles.title} numberOfLines={1}>
-            {portfolioNo != null ? "#" + portfolioNo : title}
-          </Text>
+          {portfolioNo != null ? (
+            <Badge label={"#" + portfolioNo} tone="white" icon="briefcase" />
+          ) : title ? (
+            <Badge label={title} tone="white" icon="user" />
+          ) : null}
           {titleBadges?.map((b) => (
             <Badge key={b.label} label={b.label} tone={b.tone} icon={b.icon} />
           ))}
