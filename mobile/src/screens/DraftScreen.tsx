@@ -241,7 +241,7 @@ export function DraftScreen() {
 
           <FlatList
             style={styles.list}
-            contentContainerStyle={{ padding: 16, paddingTop: 6, gap: 10 }}
+            contentContainerStyle={{ padding: 16, paddingTop: 12, gap: 10 }}
             data={blockedBySingleEntry || entriesClosed ? [] : filteredCandidates}
             keyExtractor={(c) => c.mint}
             ListEmptyComponent={
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
-    paddingTop: 8,
+    paddingTop: 18,
     paddingBottom: 8,
     gap: 1,
   },
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
   slotEmpty: { color: C.textSecondary, fontSize: 12 },
   slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
   slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
-  slotCategory: { color: C.textSecondary, fontSize: 11, marginBottom: 4 },
+  slotCategory: { color: C.textSecondary, fontSize: 11, marginBottom: 12 },
   slotRemove: {
     position: "absolute",
     top: 0,
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
   categoryUnderlineActive: { backgroundColor: C.accent },
   searchbar: {
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 2, // plus the tabs' 10 below: 12 above the field, 12 below it (list padding)
     height: 38,
     backgroundColor: C.card,
     borderWidth: 1,
