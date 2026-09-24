@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Text, TouchableRipple, ActivityIndicator } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { TournamentDetails } from "./TournamentDetails";
 import { useNavigation } from "@react-navigation/native";
 import type { TournamentAccount } from "../../pumpfantasy/accounts";
 import type { TournamentMeta } from "../../pumpfantasy/customTournaments";
-import { DraftJamWordmark } from "./DraftJamWordmark";
+import { DraftGemLogo } from "../brand/DraftGemLogo";
 import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { PF_COLORS as C } from "../../theme";
 
@@ -68,8 +68,7 @@ export function TopBar({
                 <FontAwesome6 name="chevron-left" size={16} color={C.textOnHeader} />
               </TouchableRipple>
             ) : null}
-            <Image source={require("../../../assets/header-mark.png")} style={styles.mark} resizeMode="contain" />
-            <DraftJamWordmark height={18} />
+            <DraftGemLogo height={28} />
           </View>
           <View style={styles.right}>
             <UpdateBadge />
@@ -121,7 +120,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   left: { flexDirection: "row", alignItems: "center", gap: 6 },
-  mark: { width: 22, height: 22 },
   back: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
   pill: {

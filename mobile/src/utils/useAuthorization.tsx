@@ -90,7 +90,7 @@ async function persistAuthorization(auth: WalletAuthorization | null): Promise<v
 export const APP_IDENTITY = {
   // Shown in the wallet's connect prompt. The uri stays as-is: changing it can
   // invalidate wallets' cached authorization and force everyone to reconnect.
-  name: "DraftJam",
+  name: "DraftGem",
   uri: "https://pumpfantasy.app",
   icon: "favicon.ico",
 };

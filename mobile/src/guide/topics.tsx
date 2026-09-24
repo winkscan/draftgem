@@ -124,7 +124,7 @@ function CoinCategories() {
 const SPLIT_ROWS = [
   { who: "Winners", value: "90%", note: "Shared by the players who finish in the prize places." },
   { who: "You, the creator", value: "5%", note: "Paid straight to your wallet once the tournament pays out." },
-  { who: "Platform", value: "5%", note: "Keeps DraftJam running." },
+  { who: "Platform", value: "5%", note: "Keeps DraftGem running." },
 ];
 
 const STRUCTURES = [

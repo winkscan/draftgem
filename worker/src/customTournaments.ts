@@ -90,7 +90,7 @@ const MEMO_PROGRAM = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 /** The exact text put in the payment's Memo. Mirrored in the app (createTournamentMessage). */
 export function createMessage(p: Omit<CreateRequest, "signature">): string {
   return [
-    "DraftJam: create tournament",
+    "DraftGem: create tournament",
     `name=${p.name}`,
     `visibility=${p.visibility}`,
     `payout=${p.payout}`,
@@ -346,14 +346,14 @@ export async function landingPage(env: Env, id: string): Promise<Response> {
   const meta = (await loadIndex(env)).find((m) => m.id === id);
   const title = meta ? esc(meta.name) : `Tournament #${esc(id)}`;
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · DraftJam</title>
-<meta property="og:title" content="${title} · DraftJam"><meta property="og:description" content="You're invited to a DraftJam fantasy crypto tournament.">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · DraftGem</title>
+<meta property="og:title" content="${title} · DraftGem"><meta property="og:description" content="You're invited to a DraftGem fantasy crypto tournament.">
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center}
 .card{max-width:360px;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
 h1{font-size:22px;margin:0 0 8px}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
 a.btn{display:block;background:#14f195;color:#04140d;font-weight:700;text-decoration:none;padding:14px;border-radius:999px}
 small{display:block;margin-top:16px;color:#ababba}</style></head><body><div class="card">
-<h1>${title}</h1><p>${meta ? (meta.visibility === "private" ? "A private tournament — you were invited." : "A public tournament.") : "A DraftJam tournament."} Pick 5 coins and compete.</p>
-<a class="btn" href="pumpfantasy://t/${esc(id)}">Open in DraftJam</a><small>Don't have the app yet? Install DraftJam first, then tap this link again.</small></div></body></html>`;
+<h1>${title}</h1><p>${meta ? (meta.visibility === "private" ? "A private tournament — you were invited." : "A public tournament.") : "A DraftGem tournament."} Pick 5 coins and compete.</p>
+<a class="btn" href="pumpfantasy://t/${esc(id)}">Open in DraftGem</a><small>Don't have the app yet? Install DraftGem first, then tap this link again.</small></div></body></html>`;
   return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

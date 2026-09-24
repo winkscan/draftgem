@@ -205,7 +205,7 @@ export function CreateTournamentScreen() {
         <TouchableRipple
           style={styles.primary}
           borderless
-          onPress={() => Share.share({ message: `Join my DraftJam tournament "${created.name}"\n${result.url}` })}
+          onPress={() => Share.share({ message: `Join my DraftGem tournament "${created.name}"\n${result.url}` })}
         >
           <View style={styles.primaryInner}>
             <FontAwesome6 name="share-nodes" size={15} color={C.accent2TextOn} />

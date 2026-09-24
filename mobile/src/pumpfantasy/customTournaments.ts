@@ -86,7 +86,7 @@ const MEMO_PROGRAM = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 /** The exact text the worker expects in the payment's Memo (worker: createMessage). */
 export function createTournamentMessage(p: CreateParams & { ts: number; creator: string }): string {
   return [
-    "DraftJam: create tournament",
+    "DraftGem: create tournament",
     `name=${p.name}`,
     `visibility=${p.visibility}`,
     `payout=${p.payout}`,

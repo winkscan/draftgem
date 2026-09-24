@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
-import { BlobMorph } from "./BlobMorph";
+import { MarkReveal, MARK_REVEAL_MS } from "./brand/MarkReveal";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const MIN_VISIBLE_MS = 3000; // a little over one full swap-and-back cycle (BlobMorph's 2 * HALF_CYCLE_MS)
+const MIN_VISIBLE_MS = MARK_REVEAL_MS + 900; // the reveal, then a short hold on the finished mark
 
 // Shown right after the native splash (same black background, so the handoff is invisible):
-// the two blobs from the mark flow into and out of each other to read as "loading", then the
-// whole thing fades out to reveal the app underneath.
+// the gem draws itself facet by facet clockwise, the G appears in the middle, then the whole thing
+// fades out to reveal the app underneath.
 export function AnimatedSplash({ children }: { children: React.ReactNode }) {
   const [hidden, setHidden] = useState(false);
   const opacity = useRef(new Animated.Value(1)).current;
@@ -29,7 +29,7 @@ export function AnimatedSplash({ children }: { children: React.ReactNode }) {
       {children}
       {hidden ? null : (
         <Animated.View style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]} pointerEvents="none">
-          <BlobMorph size={108} />
+          <MarkReveal size={120} />
         </Animated.View>
       )}
     </>
