@@ -11,9 +11,11 @@ interface ChromeState {
   /** True while the home tabs (header + tab bar) are the visible screen. */
   homeFocused: boolean;
   setHomeFocused: (focused: boolean) => void;
+  /** A stack screen that draws the panel-coloured header (a tournament's page) tints just the status-bar strip. */
+  setPanelHeader: (on: boolean) => void;
 }
 
-const ChromeContext = createContext<ChromeState>({ homeFocused: false, setHomeFocused: () => {} });
+const ChromeContext = createContext<ChromeState>({ homeFocused: false, setHomeFocused: () => {}, setPanelHeader: () => {} });
 
 export function useChrome(): ChromeState {
   return useContext(ChromeContext);
@@ -22,8 +24,9 @@ export function useChrome(): ChromeState {
 export function Shell({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [homeFocused, setHomeFocused] = useState(false);
-  const value = useMemo(() => ({ homeFocused, setHomeFocused }), [homeFocused]);
-  const band = homeFocused ? C.headerPanel : C.header;
+  const [panelHeader, setPanelHeader] = useState(false);
+  const value = useMemo(() => ({ homeFocused, setHomeFocused, setPanelHeader }), [homeFocused]);
+  const band = homeFocused || panelHeader ? C.headerPanel : C.header;
   return (
     <ChromeContext.Provider value={value}>
       <View style={styles.shell}>

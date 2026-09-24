@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
 import { CreateTournamentScreen, DraftScreen, LeaderboardScreen } from "../screens";
+import { DraftHeader } from "../screens/DraftScreen";
 import { PF_COLORS as C } from "../theme";
 
 export type RootStackParamList = {
@@ -27,9 +28,8 @@ const AppStack = () => (
       name="Draft"
       component={DraftScreen}
       options={{
-        title: "Build Your Portfolio",
-        headerStyle: { backgroundColor: C.header },
-        headerTintColor: C.textOnHeader,
+        // The header is the lobby's panel with this tournament's details (DraftHeader).
+        header: ({ route }) => <DraftHeader tournamentId={(route.params as { tournamentId: string }).tournamentId} />,
       }}
     />
     <Stack.Screen

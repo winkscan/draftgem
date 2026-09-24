@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ActivityIndicator, Button, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,7 +17,9 @@ import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { useTournamentMeta } from "../pumpfantasy/customTournaments";
 import { TokenIcon } from "../components/TokenIcon";
-import { ModeBadges } from "../components/ModeBadge";
+import { useChrome } from "../utils/Chrome";
+import { TopBar } from "../components/top-bar/TopBar";
+import { TournamentInfoModal } from "../components/TournamentInfoModal";
 import { ChartModal } from "../components/ChartModal";
 import { PF_COLORS as C } from "../theme";
 
@@ -138,15 +141,6 @@ export function DraftScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.badgeRow}>
-        <ModeBadges tournament={tournament} />
-        {tournament.guaranteedAmountLamports > 0n ? (
-          <Text style={styles.guaranteedText}>
-            {formatAmountCompact(tournament.guaranteedAmountLamports, decimalsForMint(tournament.mint))} {currencyForMint(tournament.mint)} guaranteed
-          </Text>
-        ) : null}
-      </View>
-
       {isMultiple && !entriesClosed ? (
         <View style={styles.tabRow}>
           <TouchableRipple
@@ -175,29 +169,24 @@ export function DraftScreen() {
       ) : (
         <>
           <View style={styles.budgetBar}>
-            <Text style={styles.budgetLabel}>{viewingExistingSingleEntry ? "Your portfolio" : "Budget left"}</Text>
-            {!viewingExistingSingleEntry ? (
+            <Text style={styles.budgetTitle}>{viewingExistingSingleEntry ? "Your Portfolio" : "Portfolio Budget"}</Text>
+            <Text style={styles.budgetLabel}>
+              {viewingExistingSingleEntry ? "Spent: " : "Available: "}
               <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
-                {remainingFp} / {MAX_BUDGET_FP} FP
+                {viewingExistingSingleEntry ? myEntry!.fpSpent : remainingFp} FP
               </Text>
-            ) : null}
+            </Text>
           </View>
+          <BudgetBar spent={viewingExistingSingleEntry ? myEntry!.fpSpent : spentFp} max={MAX_BUDGET_FP} />
 
           <View style={styles.slotsRow}>
             {displayedSlots.map((c, i) => (
-              <View key={i} style={styles.slot}>
-                {c ? (
-                  <>
-                    <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={22} />
-                    <Text style={styles.slotMint} numberOfLines={1}>
-                      {c.symbol}
-                    </Text>
-                    <Text style={styles.slotFp}>{c.fpCost} FP</Text>
-                  </>
-                ) : (
-                  <FontAwesome6 name="plus" size={14} color={C.disabled} />
-                )}
-              </View>
+              <SlotCard
+                key={i}
+                candidate={c}
+                readonly={viewingExistingSingleEntry || entriesClosed}
+                onRemove={() => c && togglePick(c)}
+              />
             ))}
           </View>
 
@@ -340,6 +329,93 @@ export function DraftScreen() {
   );
 }
 
+// The tournament page's header: the same panel as the lobby's, with this tournament's details in
+// place of the filters (see components/top-bar/TournamentDetails.tsx).
+export function DraftHeader({ tournamentId }: { tournamentId: string }) {
+  const id = BigInt(tournamentId);
+  const { data: tournament } = useTournament(id);
+  const { data: meta } = useTournamentMeta();
+  const [infoOpen, setInfoOpen] = useState(false);
+  const { setPanelHeader } = useChrome();
+  useEffect(() => {
+    setPanelHeader(true);
+    return () => setPanelHeader(false);
+  }, [setPanelHeader]);
+  const pubkey = useMemo(() => tournamentPda(id)[0], [tournamentId]);
+  const tournamentMeta = meta?.[tournamentId];
+  return (
+    <>
+      <TopBar
+        tournament={tournament ? { account: tournament, meta: tournamentMeta, onOpenInfo: () => setInfoOpen(true) } : undefined}
+      />
+      {tournament && infoOpen ? (
+        <TournamentInfoModal
+          row={{ publicKey: pubkey, account: tournament }}
+          meta={tournamentMeta}
+          onClose={() => setInfoOpen(false)}
+          ctaLabel="Draft"
+          onPressCta={() => setInfoOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+// How much of the budget is spent: the bar fills left to right and its colour runs from calm to
+// alarm across the FULL track, so the colour at the fill's edge itself says how close you are to the cap.
+function BudgetBar({ spent, max }: { spent: number; max: number }) {
+  const [width, setWidth] = useState(0);
+  const fill = Math.max(0, Math.min(1, spent / max)) * width;
+  return (
+    <View style={styles.barTrack} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {width > 0 ? (
+        <Svg width={width} height={8}>
+          <Defs>
+            <LinearGradient id="budgetGradient" x1="0" y1="0" x2={width} y2="0" gradientUnits="userSpaceOnUse">
+              <Stop offset="0" stopColor={C.accent} />
+              <Stop offset="1" stopColor={C.negative} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={fill} height="8" rx="4" fill="url(#budgetGradient)" />
+        </Svg>
+      ) : null}
+    </View>
+  );
+}
+
+// One of the five portfolio slots: coin (name cut with "..." if too long), what it cost, its
+// category; the coin's icon sits on the card's corner. Under it: x to remove, or + while empty.
+function SlotCard({ candidate: c, readonly, onRemove }: { candidate: Candidate | undefined; readonly: boolean; onRemove: () => void }) {
+  return (
+    <View style={styles.slotWrap}>
+      <View style={styles.slot}>
+        {c ? (
+          <View style={styles.slotIcon}>
+            <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={26} />
+          </View>
+        ) : null}
+        <Text style={c ? styles.slotName : styles.slotAdd} numberOfLines={1} ellipsizeMode="tail">
+          {c ? c.symbol : "ADD"}
+        </Text>
+        <Text style={styles.slotFp}>{c ? `${c.fpCost} FP` : " "}</Text>
+        <View style={styles.slotDivider} />
+        <Text style={styles.slotCategory} numberOfLines={1}>
+          {c ? c.tier : " "}
+        </Text>
+      </View>
+      {readonly ? null : c ? (
+        <TouchableRipple style={[styles.slotButton, { backgroundColor: C.negative }]} borderless onPress={onRemove}>
+          <FontAwesome6 name="xmark" size={13} color="#fff" />
+        </TouchableRipple>
+      ) : (
+        <View style={[styles.slotButton, { backgroundColor: C.glassStrong }]}>
+          <FontAwesome6 name="plus" size={13} color={C.textPrimary} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 function MyEntriesList({
   entries,
   candidatesByMint,
@@ -401,8 +477,6 @@ function MyEntriesList({
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   screen: { flex: 1, backgroundColor: C.bg },
-  badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
-  guaranteedText: { color: C.positive, fontWeight: "700", fontSize: 12 },
   tabRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10 },
   tab: {
     flex: 1,
@@ -419,26 +493,36 @@ const styles = StyleSheet.create({
   budgetBar: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 20,
   },
-  budgetLabel: { color: C.textSecondary, fontSize: 13 },
-  budgetValue: { color: C.textPrimary, fontWeight: "700", fontSize: 13 },
-  slotsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
+  budgetTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 16 },
+  budgetLabel: { color: C.textPrimary, fontWeight: "700", fontSize: 14 },
+  budgetValue: { color: C.accentText, fontWeight: "400", fontSize: 14 },
+  barTrack: { height: 8, borderRadius: 4, marginHorizontal: 16, marginTop: 12, backgroundColor: C.glass, overflow: "hidden" },
+  slotsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 16 },
+  slotWrap: { flex: 1, alignItems: "center", gap: 8 },
   slot: {
-    flex: 1,
-    height: 56,
-    borderRadius: 12,
+    alignSelf: "stretch",
+    height: 104,
+    borderRadius: 16,
     borderWidth: 1,
-    borderStyle: "dashed",
     borderColor: C.cardBorder,
     backgroundColor: C.card,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
+    gap: 2,
   },
+  slotIcon: { position: "absolute", top: -8, left: -6 },
+  slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center" },
+  slotAdd: { color: C.textSecondary, fontWeight: "800", fontSize: 14 },
+  slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
+  slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
+  slotCategory: { color: C.textSecondary, fontSize: 11 },
+  slotButton: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   slotMint: { fontSize: 10, color: C.textPrimary, fontWeight: "600" },
-  slotFp: { fontSize: 10, color: C.accentText, fontWeight: "700" },
   error: { color: C.error, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
   alreadyIn: {
     marginHorizontal: 16,

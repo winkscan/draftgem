@@ -10,6 +10,10 @@ import { ellipsify, formatSol } from "../../pumpfantasy/format";
 import { UpdateBadge } from "./UpdateBadge";
 import { WalletMenu, type Anchor, type WalletMenuItem } from "./WalletMenu";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
+import { TournamentDetails } from "./TournamentDetails";
+import { useNavigation } from "@react-navigation/native";
+import type { TournamentAccount } from "../../pumpfantasy/accounts";
+import type { TournamentMeta } from "../../pumpfantasy/customTournaments";
 import { DraftJamWordmark } from "./DraftJamWordmark";
 import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { PF_COLORS as C } from "../../theme";
@@ -17,7 +21,15 @@ import { PF_COLORS as C } from "../../theme";
 // Matches the reference mockup's header: short address + SOL balance pill on
 // the right: tapping it connects when there's no wallet yet, and opens a small
 // dropdown (just "Sign out" for now) once connected.
-export function TopBar({ phase }: { phase?: TournamentPhase }) {
+export function TopBar({
+  phase,
+  tournament,
+}: {
+  phase?: TournamentPhase;
+  /** A tournament's own page: shows its details (and a back button) instead of the lobby's filters. */
+  tournament?: { account: TournamentAccount; meta: TournamentMeta | undefined; onOpenInfo: () => void };
+}) {
+  const navigation = useNavigation();
   const { selectedAccount, clearAuthorization } = useAuthorization();
   const { connect, disconnect } = useMobileWallet();
   const { connection } = useConnection();
@@ -51,6 +63,11 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
       <View style={styles.panel}>
         <View style={styles.bar}>
           <View style={styles.left}>
+            {tournament ? (
+              <TouchableRipple style={styles.back} borderless onPress={() => navigation.goBack()}>
+                <FontAwesome6 name="chevron-left" size={16} color={C.textOnHeader} />
+              </TouchableRipple>
+            ) : null}
             <Image source={require("../../../assets/header-mark.png")} style={styles.mark} resizeMode="contain" />
             <DraftJamWordmark height={18} />
           </View>
@@ -79,7 +96,11 @@ export function TopBar({ phase }: { phase?: TournamentPhase }) {
             </View>
           </View>
         </View>
-        {phase ? <TournamentFilterTabs /> : null}
+        {tournament ? (
+          <TournamentDetails tournament={tournament.account} meta={tournament.meta} onOpenInfo={tournament.onOpenInfo} />
+        ) : phase ? (
+          <TournamentFilterTabs />
+        ) : null}
       </View>
       {phase ? <TournamentFilterSelects phase={phase} /> : null}
       <WalletMenu anchor={menuAnchor} items={menuItems} onClose={() => setMenuAnchor(null)} />
@@ -101,6 +122,7 @@ const styles = StyleSheet.create({
   },
   left: { flexDirection: "row", alignItems: "center", gap: 6 },
   mark: { width: 22, height: 22 },
+  back: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
   pill: {
     backgroundColor: C.glassStrong,
