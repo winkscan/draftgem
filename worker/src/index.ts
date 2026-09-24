@@ -7,7 +7,7 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
-import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage } from "./customTournaments";
+import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, CURRENCIES, TOKEN_PROGRAM_ID, getAssociatedTokenAddress, mintFor, type Currency } from "./currency";
 import type { Env } from "./env";
@@ -372,6 +372,10 @@ export default {
     // GET /t/<id> — the shareable link: opens the app on that tournament.
     const shared = url.pathname.match(/^\/t\/(\d+)$/);
     if (req.method === "GET" && shared) return landingPage(env, shared[1]);
+
+    // GET /p/<wallet> — the link on a shared profit/loss picture.
+    const profile = url.pathname.match(/^\/p\/([1-9A-HJ-NP-Za-km-z]{32,44})$/);
+    if (req.method === "GET" && profile) return profilePage(profile[1]);
 
     // Manual trigger for testing (`curl <worker-url>/create`). Its own path,
     // not a catch-all: this URL is public, and any stray request (crawler,

@@ -357,3 +357,20 @@ small{display:block;margin-top:16px;color:#ababba}</style></head><body><div clas
 <a class="btn" href="pumpfantasy://t/${esc(id)}">Open in DraftGem</a><small>Don't have the app yet? Install DraftGem first, then tap this link again.</small></div></body></html>`;
   return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
+
+/** The page a shared profit/loss link opens in a browser: the player's short address and a button into the app. */
+export function profilePage(address: string): Response {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return new Response("Not found\n", { status: 404 });
+  const short = esc(address.slice(0, 4) + "…" + address.slice(-4));
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${short} · DraftGem</title>
+<meta property="og:title" content="${short} on DraftGem"><meta property="og:description" content="Fantasy crypto tournaments on Solana: pick 5 coins and compete.">
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center}
+.card{max-width:360px;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
+h1{font-size:22px;margin:0 0 8px}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
+a.btn{display:block;background:#14f195;color:#04140d;font-weight:700;text-decoration:none;padding:14px;border-radius:999px}
+small{display:block;margin-top:16px;color:#ababba}</style></head><body><div class="card">
+<h1>${short}</h1><p>A DraftGem player. Pick 5 coins in daily fantasy crypto tournaments on Solana and compete for the prize pool.</p>
+<a class="btn" href="pumpfantasy://">Open DraftGem</a><small>Don't have the app yet? Install DraftGem first.</small></div></body></html>`;
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+}

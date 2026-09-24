@@ -23,6 +23,8 @@ export interface MyStats {
   live: number;
   /** Entries that won a prize. */
   wins: number;
+  /** Every settled result (unix seconds, USD): the profit/loss chart adds these up over time. */
+  events: { t: number; usd: number }[];
 }
 
 interface Rec {
@@ -104,11 +106,14 @@ export function useMyStats(player: PublicKey | null) {
       const priceMints = [...new Set(paid.map((r) => (r.mint === NATIVE_MINT.toBase58() ? WRAPPED_SOL : r.mint)))];
       const prices = priceMints.length > 0 ? await getLivePricesMicros(priceMints).catch(() => ({})) : {};
       let pnlUsd = 0;
+      const events: { t: number; usd: number }[] = [];
       for (const r of paid) {
         const micros = (prices as Record<string, bigint>)[r.mint === NATIVE_MINT.toBase58() ? WRAPPED_SOL : r.mint];
         if (micros == null) continue; // no price for this currency right now: leave it out
         const units = Number(r.prize - r.fee) / 10 ** decimalsForMint(new PublicKey(r.mint));
-        pnlUsd += units * (Number(micros) / 1_000_000);
+        const usd = units * (Number(micros) / 1_000_000);
+        pnlUsd += usd;
+        events.push({ t: r.endTs, usd });
       }
 
       return {
@@ -116,6 +121,7 @@ export function useMyStats(player: PublicKey | null) {
         tournaments: new Set(all.map((r) => r.tKey)).size,
         live: new Set(all.filter((r) => r.status === "open" && now >= r.startTs && now < r.endTs).map((r) => r.tKey)).size,
         wins: all.filter((r) => r.prize > 0n).length,
+        events: events.sort((a, b) => a.t - b.t),
       };
     },
   });

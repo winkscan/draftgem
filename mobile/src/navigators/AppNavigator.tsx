@@ -5,6 +5,7 @@ import { HomeNavigator } from "./HomeNavigator";
 import { CreateTournamentScreen, DraftScreen, LeaderboardScreen, ProfileScreen } from "../screens";
 import { DraftHeader } from "../screens/DraftScreen";
 import { BackHeader } from "../components/top-bar/BackHeader";
+import { ProfileHeader } from "../components/top-bar/ProfileHeader";
 import { PF_COLORS as C } from "../theme";
 
 export type RootStackParamList = {
@@ -47,7 +48,7 @@ const AppStack = () => (
       component={ProfileScreen}
       options={{
         title: "My Profile",
-        header: ({ options }) => <BackHeader title={options.title ?? ""} />,
+        header: ({ options }) => <ProfileHeader title={options.title ?? ""} />,
       }}
     />
     <Stack.Screen
