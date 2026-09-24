@@ -297,7 +297,7 @@ fn test_single_entry_can_claim_despite_vault_rent_minimum() {
 
     let finalize = Instruction::new_with_bytes(
         t.program_id,
-        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 1000, fee_bps: pumpfantasy::RAKE_BPS }.data(),
+        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 5000, fee_bps: pumpfantasy::RAKE_BPS }.data(),
         pumpfantasy::accounts::FinalizeTournament { authority: t.authority.pubkey(), tournament: t.tournament }
             .to_account_metas(None),
     );
@@ -965,7 +965,7 @@ fn test_spl_tournament_full_lifecycle() {
     }
     let finalize = Instruction::new_with_bytes(
         program_id,
-        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 1000, fee_bps: pumpfantasy::RAKE_BPS }.data(),
+        &pumpfantasy::instruction::FinalizeTournament { winners_count: 1, threshold_score_bps: 5000, fee_bps: pumpfantasy::RAKE_BPS }.data(),
         pumpfantasy::accounts::FinalizeTournament { authority: authority.pubkey(), tournament }.to_account_metas(None),
     );
     send(&mut svm, &authority, vec![finalize]).expect("finalize");

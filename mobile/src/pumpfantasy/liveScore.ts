@@ -55,12 +55,13 @@ export interface PortfolioScore {
 }
 
 /**
- * Same formula as `settle_entry` on-chain (score_bps.rs's per-pick % change,
- * floored at -100%, averaged over the 5 picks) — computed here for display.
- * Once a tournament has ended, the asset's submitted end price is used (the
- * real result — this is what Results shows, even though no one has called
- * `settle_entry` yet); while it's live, the current market price. Never
- * written on-chain.
+ * Same formula as `settle_entry` on-chain: each pick's own % change (floored at -100%), summed —
+ * not averaged, so a strong pick isn't diluted by the other four, the same way real coins bought
+ * with separate capital just add their gains/losses, or a fantasy-sports roster adds up what
+ * each player scored. Computed here for display. Once a tournament has ended, the asset's
+ * submitted end price is used (the real result — this is what Results shows, even though no one
+ * has called `settle_entry` yet); while it's live, the current market price. Never written
+ * on-chain.
  */
 export function computePortfolioScore(
   picks: PublicKey[],
@@ -81,7 +82,7 @@ export function computePortfolioScore(
 
   if (scored.some((p) => p.bps == null)) return { picks: scored, totalBps: null };
   const total = scored.reduce((sum, p) => sum + p.bps!, 0);
-  return { picks: scored, totalBps: Math.trunc(total / scored.length) };
+  return { picks: scored, totalBps: total };
 }
 
 /**

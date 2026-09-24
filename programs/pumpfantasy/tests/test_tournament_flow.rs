@@ -334,11 +334,11 @@ fn test_full_tournament_flow() {
     let state_a = load_entry(&svm, &entry_a);
     let state_b = load_entry(&svm, &entry_b);
 
-    // Hand-computed: A5 floored at exactly -10000 bps (rug), average of
-    // [-10000, +5000, -2000, +2000, +500] = -900 bps.
-    assert_eq!(state_a.score_bps, -900, "player A score mismatch (rug should floor at -100%, not worse)");
-    // B: average of [+500, +1000, +2000, +1000, +5000] = +1900 bps.
-    assert_eq!(state_b.score_bps, 1900, "player B score mismatch");
+    // Hand-computed: A5 floored at exactly -10000 bps (rug), picks stack (sum, not average):
+    // [-10000, +5000, -2000, +2000, +500] = -4500 bps.
+    assert_eq!(state_a.score_bps, -4500, "player A score mismatch (rug should floor at -100%, not worse)");
+    // B: sum of [+500, +1000, +2000, +1000, +5000] = +9500 bps.
+    assert_eq!(state_b.score_bps, 9500, "player B score mismatch");
     assert!(state_b.score_bps > state_a.score_bps, "safer draft should beat the rug-laden one");
 
     // --- Finalize as a 50/50-style single-winner-threshold round ---------
