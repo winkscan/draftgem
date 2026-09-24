@@ -77,7 +77,7 @@ async function measureMove(env: Env, mint: string, budget: PriceBudget): Promise
   if (!pair) return null;
   budget.geckoCalls--;
   const res = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair}/ohlcv/minute?aggregate=5&limit=288&currency=usd`,
+    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair}/ohlcv/minute?aggregate=5&limit=288&currency=usd&token=${mint}`,
     { headers: { Accept: "application/json", "User-Agent": "PumpFantasy/1.0 (Cloudflare Worker)" } },
   );
   if (res.status === 429) {

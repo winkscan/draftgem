@@ -64,7 +64,7 @@ export async function priceAtTimestamp(env: Env, mint: string, ts: number, budge
 
   budget.geckoCalls--;
   const res = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair}/ohlcv/minute?aggregate=1&before_timestamp=${ts + 60}&limit=30&currency=usd`,
+    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair}/ohlcv/minute?aggregate=1&before_timestamp=${ts + 60}&limit=30&currency=usd&token=${mint}`,
     { headers: { Accept: "application/json", "User-Agent": "PumpFantasy/1.0 (Cloudflare Worker)" } },
   );
   if (res.status === 429) {
