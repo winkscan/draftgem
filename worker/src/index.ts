@@ -271,6 +271,14 @@ export default {
       }
     }
 
+    // GET /held - tournaments whose payout the pre-finalize audit (audit.ts) stopped, with reasons.
+    if (req.method === 'GET' && url.pathname === '/held') {
+      const keys = await env.CACHE.list({ prefix: 'held:' });
+      const held: Record<string, unknown> = {};
+      for (const k of keys.keys) held[k.name.slice(5)] = await env.CACHE.get(k.name, 'json');
+      return json({ held });
+    }
+
     // POST /attest {"mints": [5 base58 strings]} — server-computed real
     // fp_cost per mint, signed so enter_tournament can verify it on-chain
     // without needing every mint pre-registered as its own account.

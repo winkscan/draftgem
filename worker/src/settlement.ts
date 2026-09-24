@@ -3,6 +3,7 @@ import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
 import { CREATOR_FEE_BPS, getSettlementInfo, type SettlementInfo } from "./customTournaments";
 import { hasResult, saveResult, type ArchivedResult } from "./archive";
+import { auditBeforeFinalize } from "./audit";
 import {
   ASSET_SIZE,
   ENTRY_SIZE,
@@ -652,6 +653,57 @@ const TOURNAMENT_OPEN = 0;
 const TOURNAMENT_FINALIZED = 1;
 const TOURNAMENT_CANCELLED = 2;
 
+const ENTRY_SEED = new TextEncoder().encode('entry');
+
+/** Runs the pre-finalize audit; on failure records the reasons in KV (shown at /held) and returns them. */
+async function runAudit(
+  env: Env,
+  connection: Connection,
+  tdata: Uint8Array,
+  tournament: PublicKey,
+  entries: EntryRow[],
+  prizes: Map<string, bigint>,
+  distributable: bigint,
+  feeBps: number,
+  creator: string | undefined,
+): Promise<string[]> {
+  const v = new DataView(tdata.buffer, tdata.byteOffset, tdata.byteLength);
+  const mint = readMint(tdata);
+  const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
+  let vaultBalance: bigint;
+  let vaultReserve = 0n;
+  if (isNativeMint(mint)) {
+    vaultBalance = BigInt(await connection.getBalance(vault));
+    vaultReserve = BigInt(await connection.getMinimumBalanceForRentExemption(0));
+  } else {
+    const ata = await connection.getAccountInfo(getAssociatedTokenAddress(vault, mint));
+    vaultBalance = ata ? readTokenAmount(ata.data) : 0n;
+  }
+  const assets = await readAssetRows(connection, tournament);
+  const problems = auditBeforeFinalize({
+    tournament,
+    programId: PROGRAM_ID,
+    entrySeed: ENTRY_SEED,
+    entries,
+    assets,
+    entryCountOnChain: v.getUint32(74, true),
+    entryFee: v.getBigUint64(48, true),
+    pool: v.getBigUint64(82, true),
+    vaultBalance,
+    vaultReserve,
+    prizes,
+    distributable,
+    feeBps,
+    creator,
+  });
+  const id = v.getBigUint64(40, true).toString();
+  if (problems.length > 0) {
+    console.error('PAYOUT HELD for ' + id + ': ' + problems.join(' | '));
+    await env.CACHE.put('held:' + id, JSON.stringify({ at: Date.now(), problems }), { expirationTtl: 30 * 24 * 3600 });
+  }
+  return problems;
+}
+
 /**
  * Settles every entry whose prices are in, then works through the rest of a tournament's life one
  * phase per tick — finalize, write the prize plan (`set_prize`, one per winner), lock it
@@ -708,6 +760,11 @@ async function settleAndPay(
   const thresholdBps = winningScores.length ? Math.min(...winningScores) : 0;
 
   if (!finalized) {
+    // Point of no return: audit everything the payout will rely on before finalizing (audit.ts).
+    const problems = await runAudit(env, connection, tdata, tournament, entries, prizes, distributable, feeBps, creator);
+    if (problems.length > 0) {
+      return { note: 'PAYOUT HELD - ' + problems.length + ' audit failure(s): ' + problems.slice(0, 3).join('; '), done: false, progressed: false };
+    }
     const failed = await sendAll(connection, authority, [[finalizeIx(authority.publicKey, tournament, winners, thresholdBps, feeBps)]]);
     return failed === 0
       ? { note: `finalized (${winners} winner(s))`, done: false, progressed: true }
