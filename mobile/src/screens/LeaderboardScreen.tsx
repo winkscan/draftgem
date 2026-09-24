@@ -239,6 +239,8 @@ export function LeaderboardScreen() {
         </View>
       ) : null}
 
+      {/* Nobody else to compare with (only my own portfolios play): no slot at all. */}
+      {rows.some((r) => !r.isMine) ? (
       <View style={styles.compareSlot}>
         {compare ? (
           <StandingCard
@@ -254,6 +256,7 @@ export function LeaderboardScreen() {
           </View>
         )}
       </View>
+      ) : null}
 
       <FlatList
         style={styles.list}
