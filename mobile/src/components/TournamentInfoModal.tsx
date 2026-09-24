@@ -34,8 +34,8 @@ export interface TournamentInfoModalProps {
   meta: TournamentMeta | undefined;
   onClose: () => void;
   /** "Enter"/"View" in the header — same primary action as the card's own button. */
-  ctaLabel: string;
-  onPressCta: () => void;
+  ctaLabel?: string;
+  onPressCta?: () => void;
 }
 
 // The (i) popup: a tournament's full picture — your own entries, what the prizes are
@@ -108,11 +108,13 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
                 <TouchableRipple style={styles.linkButton} borderless onPress={copyLink}>
                   <FontAwesome6 name="link" size={14} color={C.textPrimary} />
                 </TouchableRipple>
-                <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
-                  <Text style={styles.ctaText} numberOfLines={1}>
-                    {ctaLabel}
-                  </Text>
-                </TouchableRipple>
+                {ctaLabel ? (
+                  <TouchableRipple style={styles.ctaButton} borderless onPress={onPressCta}>
+                    <Text style={styles.ctaText} numberOfLines={1}>
+                      {ctaLabel}
+                    </Text>
+                  </TouchableRipple>
+                ) : null}
               </View>
             </View>
           </View>

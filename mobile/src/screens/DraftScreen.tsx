@@ -353,7 +353,7 @@ export function DraftHeader({ tournamentId, standings }: { tournamentId: string;
           row={{ publicKey: pubkey, account: tournament }}
           meta={tournamentMeta}
           onClose={() => setInfoOpen(false)}
-          ctaLabel={standings ? "Close" : tournament.entryMode === "single" && (myEntries?.length ?? 0) > 0 ? "View" : "Draft"}
+          ctaLabel={standings ? undefined : tournament.entryMode === "single" && (myEntries?.length ?? 0) > 0 ? "View" : "Draft"}
           onPressCta={() => setInfoOpen(false)}
         />
       ) : null}

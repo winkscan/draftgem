@@ -241,7 +241,9 @@ export function LeaderboardScreen() {
           />
         ) : (
           <View style={styles.compareHint}>
-            <Text style={styles.compareHintText}>Click portfolio to compare</Text>
+            <Text style={styles.compareHintText}>
+              {myRows.length > 0 ? "Click portfolio to compare" : "Choose a portfolio to see its results"}
+            </Text>
           </View>
         )}
       </View>
