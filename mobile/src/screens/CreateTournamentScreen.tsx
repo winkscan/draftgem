@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ScrollView, Share, StyleSheet, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, ScrollView, Share, StyleSheet, TextInput, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -43,6 +43,18 @@ function hasControlChars(s: string): boolean {
     if (c < 32 || c === 127) return true;
   }
   return false;
+}
+
+// The round icon on the result screens: pops up bigger, then settles, for a bit of life.
+function PulseBadge({ children, style }: { children: React.ReactNode; style: object }) {
+  const scale = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.35, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1, duration: 320, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, [scale]);
+  return <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>;
 }
 
 type Step = "idle" | "wallet" | "creating";
@@ -92,6 +104,8 @@ export function CreateTournamentScreen() {
   const trimmedName = name.trim();
   const nameValid = trimmedName.length >= NAME_MIN && trimmedName.length <= NAME_MAX && !hasControlChars(trimmedName);
   const busy = step !== "idle";
+  // Grey until the form is complete (a fee already paid only needs finishing), then green.
+  const ready = !!paid || (nameValid && feeValid);
 
   const onCreate = async () => {
     setError(null);
@@ -159,9 +173,9 @@ export function CreateTournamentScreen() {
   if (failed) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <View style={[styles.doneBadge, styles.failBadge]}>
+        <PulseBadge style={[styles.doneBadge, styles.failBadge]}>
           <FontAwesome6 name="xmark" size={28} color={C.textPrimary} />
-        </View>
+        </PulseBadge>
         <Text style={styles.doneTitle}>Couldn't create the tournament</Text>
         <Text style={styles.hint}>
           {failed.cancelled
@@ -179,9 +193,9 @@ export function CreateTournamentScreen() {
     const { result } = created;
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <View style={styles.doneBadge}>
+        <PulseBadge style={styles.doneBadge}>
           <FontAwesome6 name="check" size={26} color={C.accent2TextOn} />
-        </View>
+        </PulseBadge>
         <Text style={styles.doneTitle}>Tournament created</Text>
         <Text style={styles.doneName}>{created.name}</Text>
         <Text style={styles.hint}>
@@ -230,7 +244,8 @@ export function CreateTournamentScreen() {
   const createFee = info ? `${formatSol(info.feeLamports, 3)} SOL` : "a small fee";
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <View style={styles.screen}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.label}>Who can join</Text>
       <View style={styles.cardRow}>
         <OptionCard
@@ -361,10 +376,22 @@ export function CreateTournamentScreen() {
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TouchableRipple style={[styles.primary, busy ? styles.disabled : undefined]} borderless disabled={busy} onPress={onCreate}>
+    </ScrollView>
+
+    <View style={styles.footer}>
+      <TouchableRipple
+        style={[styles.primary, styles.createButton, !ready ? styles.createDisabled : undefined, busy ? styles.disabled : undefined]}
+        borderless
+        disabled={busy || !ready}
+        onPress={onCreate}
+      >
         <View style={styles.primaryInner}>
-          {busy ? <ActivityIndicator size={16} color={C.accent2TextOn} /> : <FontAwesome6 name="plus" size={15} color={C.accent2TextOn} />}
-          <Text style={styles.primaryText}>
+          {busy ? (
+            <ActivityIndicator size={16} color={C.accent2TextOn} />
+          ) : (
+            <FontAwesome6 name="plus" size={15} color={ready ? C.accent2TextOn : C.textSecondary} />
+          )}
+          <Text style={[styles.primaryText, !ready ? styles.createTextDisabled : undefined]}>
             {step === "wallet"
               ? "Approve in your wallet…"
               : step === "creating"
@@ -377,7 +404,8 @@ export function CreateTournamentScreen() {
           </Text>
         </View>
       </TouchableRipple>
-    </ScrollView>
+    </View>
+    </View>
   );
 }
 
@@ -446,6 +474,12 @@ function SummaryRow({ icon, text, last }: { icon: string; text: string; last?: b
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
+  scroll: { flex: 1 },
+  // Pinned to the bottom, same as the draft page's Enter footer.
+  footer: { padding: 16, borderTopWidth: 1, borderTopColor: C.cardBorder, backgroundColor: C.card },
+  createButton: { marginTop: 0 },
+  createDisabled: { backgroundColor: C.glassStrong },
+  createTextDisabled: { color: C.textSecondary },
   content: { padding: 16, paddingBottom: 32 },
   label: { color: C.textPrimary, fontWeight: "700", fontSize: 14, marginTop: 20, marginBottom: 10 },
   cardRow: { flexDirection: "row", gap: 12 },

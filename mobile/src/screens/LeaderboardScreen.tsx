@@ -204,7 +204,7 @@ export function LeaderboardScreen() {
             picks={mine.picks}
             candidatesByMint={candidatesByMint}
             entryIndex={mine.entryIndex}
-            status={tournament.status}
+            tournament={tournament}
           />
           {mine.claimed && mine.prizeLamports > 0n ? (
             <TouchableRipple style={styles.payoutPill} onPress={() => openPayout(mine.key)}>
@@ -254,7 +254,7 @@ export function LeaderboardScreen() {
             picks={compare.picks}
             candidatesByMint={candidatesByMint}
             entryIndex={compare.entryIndex}
-            status={tournament.status}
+            tournament={tournament}
           />
         </View>
       ) : null}
@@ -382,14 +382,14 @@ function PortfolioPanel({
   picks,
   candidatesByMint,
   entryIndex,
-  status,
+  tournament,
 }: {
   title: React.ReactNode;
   scoreBps: number | null;
   picks: PickScore[];
   candidatesByMint: Map<string, Candidate>;
   entryIndex: number;
-  status: import("../pumpfantasy/accounts").TournamentStatus;
+  tournament: import("../pumpfantasy/accounts").TournamentAccount;
 }) {
   return (
     <View style={styles.panel}>
@@ -408,7 +408,7 @@ function PortfolioPanel({
       </View>
       <PortfolioCard
         title={"Portfolio #" + (entryIndex + 1)}
-        badge={entryBadge(status)}
+        badge={entryBadge(tournament)}
         slots={picks.map((p) => ({
           key: p.mint,
           candidate: candidatesByMint.get(p.mint),

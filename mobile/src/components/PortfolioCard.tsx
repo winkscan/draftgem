@@ -2,7 +2,7 @@ import { StyleSheet, View } from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { Candidate } from "../pumpfantasy/candidates";
-import type { TournamentStatus } from "../pumpfantasy/accounts";
+import type { TournamentAccount } from "../pumpfantasy/accounts";
 import { TokenIcon } from "./TokenIcon";
 import { PF_COLORS as C } from "../theme";
 
@@ -72,12 +72,15 @@ export function SlotCard({
   );
 }
 
-export type BadgeTone = "neutral" | "positive" | "negative";
+export type BadgeTone = "neutral" | "positive" | "negative" | "live";
 
-/** The status badge of an entry: grey while waiting, green once the tournament paid out. */
-export function entryBadge(status: TournamentStatus): { label: string; tone: BadgeTone } {
-  if (status === "finalized") return { label: "Paid Out", tone: "positive" };
-  if (status === "cancelled") return { label: "Refunded", tone: "neutral" };
+/** The status badge of an entry: Live while the round runs, grey while waiting, green once paid out. */
+export function entryBadge(t: Pick<TournamentAccount, "status" | "startTs" | "endTs">): { label: string; tone: BadgeTone } {
+  if (t.status === "finalized") return { label: "Paid Out", tone: "positive" };
+  if (t.status === "cancelled") return { label: "Refunded", tone: "neutral" };
+  const now = Math.floor(Date.now() / 1000);
+  if (now < Number(t.startTs)) return { label: "Upcoming", tone: "neutral" };
+  if (now < Number(t.endTs)) return { label: "Live", tone: "live" };
   return { label: "Awaiting results", tone: "neutral" };
 }
 
@@ -102,10 +105,10 @@ export function PortfolioCard({
         <View
           style={[
             styles.badge,
-            badge.tone === "positive" ? { backgroundColor: C.positive } : badge.tone === "negative" ? { backgroundColor: C.negative } : undefined,
+            badge.tone === "positive" ? { backgroundColor: C.positive } : badge.tone === "negative" ? { backgroundColor: C.negative } : badge.tone === "live" ? { backgroundColor: C.accent2Tint } : undefined,
           ]}
         >
-          <Text style={[styles.badgeText, badge.tone === "positive" ? { color: C.accent2TextOn } : badge.tone === "negative" ? { color: "#fff" } : undefined]}>
+          <Text style={[styles.badgeText, badge.tone === "positive" ? { color: C.accent2TextOn } : badge.tone === "negative" ? { color: "#fff" } : badge.tone === "live" ? { color: C.accent2 } : undefined]}>
             {badge.label}
           </Text>
         </View>

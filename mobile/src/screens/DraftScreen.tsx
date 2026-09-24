@@ -149,7 +149,7 @@ export function DraftScreen() {
           entries={myEntries ?? []}
           candidatesByMint={candidatesByMint}
           entriesClosed={entriesClosed}
-          status={tournament.status}
+          tournament={tournament}
         />
       ) : (
         <>
@@ -157,7 +157,7 @@ export function DraftScreen() {
             <View style={styles.portfolioWrap}>
               <PortfolioCard
                 title={"Portfolio #" + (myEntry!.entryIndex + 1)}
-                badge={entryBadge(tournament.status)}
+                badge={entryBadge(tournament)}
                 slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
               />
             </View>
@@ -394,12 +394,12 @@ function MyEntriesList({
   entries,
   candidatesByMint,
   entriesClosed,
-  status,
+  tournament,
 }: {
   entries: { publicKey: import("@solana/web3.js").PublicKey; account: EntryAccount }[];
   candidatesByMint: Map<string, Candidate>;
   entriesClosed: boolean;
-  status: import("../pumpfantasy/accounts").TournamentStatus;
+  tournament: import("../pumpfantasy/accounts").TournamentAccount;
 }) {
   if (entries.length === 0) {
     return (
@@ -419,7 +419,7 @@ function MyEntriesList({
       renderItem={({ item }) => (
         <PortfolioCard
           title={"Portfolio #" + (item.account.entryIndex + 1)}
-          badge={entryBadge(status)}
+          badge={entryBadge(tournament)}
           slots={item.account.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
         />
       )}

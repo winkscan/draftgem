@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
 import { CreateTournamentScreen, DraftScreen, LeaderboardScreen } from "../screens";
 import { DraftHeader } from "../screens/DraftScreen";
+import { BackHeader } from "../components/top-bar/BackHeader";
 import { PF_COLORS as C } from "../theme";
 
 export type RootStackParamList = {
@@ -37,8 +38,7 @@ const AppStack = () => (
       component={CreateTournamentScreen}
       options={{
         title: "Create Tournament",
-        headerStyle: { backgroundColor: C.header },
-        headerTintColor: C.textOnHeader,
+        header: ({ options }) => <BackHeader title={options.title ?? ""} />,
       }}
     />
     <Stack.Screen
@@ -46,8 +46,7 @@ const AppStack = () => (
       component={LeaderboardScreen}
       options={{
         title: "Standings", // replaced with "Live Standings" / "Final Standings" once the phase is known
-        headerStyle: { backgroundColor: C.header },
-        headerTintColor: C.textOnHeader,
+        header: ({ options }) => <BackHeader title={options.title ?? ""} />,
       }}
     />
   </Stack.Navigator>

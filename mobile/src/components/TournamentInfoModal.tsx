@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { PublicKey } from "@solana/web3.js";
 import type { TournamentAccount, EntryAccount } from "../pumpfantasy/hooks";
-import type { TournamentStatus } from "../pumpfantasy/accounts";
 import { useMyEntries, useTournamentEntries, isArchivedTournament } from "../pumpfantasy/hooks";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
 import { useAuthorization } from "../utils/useAuthorization";
@@ -139,7 +138,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
             loading={mineLoading}
             candidatesByMint={candidatesByMint}
             entryMode={t.entryMode}
-            status={t.status}
+            tournament={t}
           />
         ) : tab === "prizes" ? (
           <PrizesTab tournament={t} meta={meta} payout={payout} entries={allEntries ?? []} />
@@ -158,13 +157,13 @@ function MyEntriesTab({
   loading,
   candidatesByMint,
   entryMode,
-  status,
+  tournament,
 }: {
   entries: { publicKey: { toBase58(): string }; account: EntryAccount }[];
   loading: boolean;
   candidatesByMint: Map<string, Candidate>;
   entryMode: "single" | "multiple";
-  status: TournamentStatus;
+  tournament: TournamentAccount;
 }) {
   if (loading) {
     return (
@@ -184,7 +183,7 @@ function MyEntriesTab({
         <PortfolioCard
           key={e.publicKey.toBase58()}
           title={"Portfolio #" + (e.account.entryIndex + 1)}
-          badge={entryBadge(status)}
+          badge={entryBadge(tournament)}
           slots={e.account.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
         />
       ))}
