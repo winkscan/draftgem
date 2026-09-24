@@ -15,6 +15,7 @@ import {
   NAME_MAX,
   NAME_MIN,
   PAYOUT_CHOICES,
+  DURATION_OPTIONS,
   TIME_OPTIONS,
   fetchCreateInfo,
   payCreationFee,
@@ -46,7 +47,7 @@ function hasControlChars(s: string): boolean {
 
 type Step = "idle" | "wallet" | "creating";
 
-const timeLabel = (seconds: number) => TIME_OPTIONS.find((o) => o.seconds === seconds)?.label ?? `${seconds}s`;
+const timeLabel = (seconds: number) => [...TIME_OPTIONS, ...DURATION_OPTIONS].find((o) => o.seconds === seconds)?.label ?? `${seconds}s`;
 
 // The "+" screen: set up your own tournament — Public (listed in the Lobby) or
 // Private (only reachable through the link you share). Creating costs a small
@@ -336,7 +337,7 @@ export function CreateTournamentScreen() {
 
       <Text style={styles.label}>Round length</Text>
       <View style={styles.chips}>
-        {TIME_OPTIONS.map((o) => (
+        {DURATION_OPTIONS.map((o) => (
           <Chip key={o.seconds} label={o.label} selected={durationSec === o.seconds} onPress={() => setDurationSec(o.seconds)} />
         ))}
       </View>

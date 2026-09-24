@@ -201,9 +201,9 @@ async function submitMissingEndPrices(
 }
 
 export const TICK_MS = 300_000; // must match wrangler.toml's cron cadence
-/** A new tournament is minted every this-many ticks (6 x 5 min = 30 min); the maintenance pass still runs every tick. */
-export const CREATE_EVERY_TICKS = 6;
-export const ROUND_SECONDS = 600; // round length (index.ts)
+/** A new tournament is minted every this-many ticks (12 x 5 min = 1 hour); the maintenance pass still runs every tick. */
+export const CREATE_EVERY_TICKS = 12;
+export const ROUND_SECONDS = 3600; // round length of the tournaments the cron makes: 1 hour (index.ts)
 /** How long a tournament stays open for entries: one full creation interval, so the next one is
  * created exactly as this one starts and the lobby is never empty. */
 export const ENTRY_WINDOW_SECONDS = CREATE_EVERY_TICKS * (TICK_MS / 1000);

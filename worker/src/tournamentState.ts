@@ -14,7 +14,7 @@ export interface TournamentFlags {
 export type TournamentStates = Record<string, TournamentFlags>;
 
 const KEY = "tournament-state";
-const KEEP_MS = 24 * 3600 * 1000; // ids are ms timestamps; the work window is hours, so a day is plenty
+const KEEP_MS = 72 * 3600 * 1000; // ids are ms timestamps; the work window is hours, so a day is plenty
 
 export async function loadStates(env: Env): Promise<{ states: TournamentStates; snapshot: string }> {
   const raw = ((await env.CACHE.get(KEY, "json")) as TournamentStates | null) ?? {};

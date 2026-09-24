@@ -71,9 +71,10 @@ const ENTRY_FEE_RANGE: Record<Currency, { min: number; max: number }> = {
   ORE: { min: 100_00000000, max: 500_000_00000000 }, // 0.001 – 5,000 ORE
   USDC: { min: 1_000, max: 5_000_000_000 }, // 0.001 – 5,000 USDC
 };
-// Entry window / round lengths on offer. The longest total (12h) must stay well inside
-// tournamentState.ts's 24h flag retention, or a long tournament would lose its progress flags.
-export const ALLOWED_SECONDS = [600, 1800, 3600, 10800, 21600];
+// Entry window / round lengths on offer. The longest total (6h entry window + 24h round = 30h) must stay well inside
+// tournamentState.ts flag retention (72h), or a long tournament would lose its progress flags.
+export const ALLOWED_SECONDS = [600, 1800, 3600, 10800, 21600]; // entry windows
+export const ALLOWED_DURATIONS = [3600, 21600, 43200, 86400]; // round lengths: 1h, 6h, 12h, 24h
 export const PAYOUTS: Payout[] = ["top1", "top3", "p30", "p50", "pvp"];
 /** Mirrors constants::CREATOR_FEE_BPS in the program: the creator's cut, on top of the platform's 5%. */
 export const CREATOR_FEE_BPS = 500;
@@ -132,7 +133,7 @@ export function validateCreateRequest(body: unknown, nowSec: number): { error: s
     return { error: `Entry fee out of range for ${b.currency}` };
   }
   if (!ALLOWED_SECONDS.includes(b.startInSec as number)) return { error: "Unsupported entry window" };
-  if (!ALLOWED_SECONDS.includes(b.durationSec as number)) return { error: "Unsupported duration" };
+  if (!ALLOWED_DURATIONS.includes(b.durationSec as number)) return { error: "Unsupported duration" };
   if (!Number.isInteger(b.ts) || nowSec - (b.ts as number) > PAYMENT_MAX_AGE_SECONDS || (b.ts as number) - nowSec > 300) {
     return { error: "Payment is too old — start again" };
   }

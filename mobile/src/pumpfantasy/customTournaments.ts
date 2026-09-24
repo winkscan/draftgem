@@ -73,6 +73,14 @@ export const TIME_OPTIONS: { seconds: number; label: string }[] = [
   { seconds: 21600, label: "6 hours" },
 ];
 
+/** Round lengths on offer — must match worker ALLOWED_DURATIONS. */
+export const DURATION_OPTIONS: { seconds: number; label: string }[] = [
+  { seconds: 3600, label: "1 hour" },
+  { seconds: 21600, label: "6 hours" },
+  { seconds: 43200, label: "12 hours" },
+  { seconds: 86400, label: "24 hours" },
+];
+
 const MEMO_PROGRAM = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
 /** The exact text the worker expects in the payment's Memo (worker: createMessage). */
