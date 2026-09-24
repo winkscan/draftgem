@@ -72,7 +72,7 @@ export function SlotCard({
   );
 }
 
-export type BadgeTone = "neutral" | "positive" | "negative" | "live";
+export type BadgeTone = "neutral" | "positive" | "negative" | "live" | "accent";
 
 /** The status badge of an entry: Live while the round runs, grey while waiting, green once paid out. */
 export function entryBadge(t: Pick<TournamentAccount, "status" | "startTs" | "endTs">): { label: string; tone: BadgeTone } {
@@ -84,34 +84,63 @@ export function entryBadge(t: Pick<TournamentAccount, "status" | "startTs" | "en
   return { label: "Awaiting results", tone: "neutral" };
 }
 
+function toneStyles(tone: BadgeTone): { bg: object | undefined; text: object | undefined } {
+  switch (tone) {
+    case "positive":
+      return { bg: { backgroundColor: C.positive }, text: { color: C.accent2TextOn } };
+    case "negative":
+      return { bg: { backgroundColor: C.negative }, text: { color: "#fff" } };
+    case "live":
+      return { bg: { backgroundColor: C.accent2Tint }, text: { color: C.accent2 } };
+    case "accent":
+      return { bg: { backgroundColor: C.accentTint }, text: { color: C.accentText } };
+    default:
+      return { bg: undefined, text: undefined };
+  }
+}
+
+function Badge({ label, tone }: { label: string; tone: BadgeTone }) {
+  const t = toneStyles(tone);
+  return (
+    <View style={[styles.badge, t.bg]}>
+      <Text style={[styles.badgeText, t.text]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 /**
- * A finished / entered portfolio: one bordered block, a title row (name on the left, status badge on
- * the right) and the five coins right under it, looking exactly like the draft page's slots.
- * The one component every place that shows a portfolio uses.
+ * A finished / entered portfolio: one bordered block, a title row (name, optional small badges right
+ * after it, and a status / result badge on the far right) and the five coins right under it, looking
+ * exactly like the draft page's slots. The one component every place that shows a portfolio uses.
  */
 export function PortfolioCard({
   title,
+  titleBadges,
   badge,
   slots,
+  onPress,
 }: {
-  title: React.ReactNode;
+  title: string;
+  /** Small badges right after the title (place, prize). */
+  titleBadges?: { label: string; tone: BadgeTone }[];
   badge: { label: string; tone: BadgeTone };
   slots: { key: string; candidate: Candidate | undefined; pct?: { text: string; tone: "up" | "down" | "pending" } }[];
+  onPress?: () => void;
 }) {
-  return (
+  const content = (
     <View style={styles.card}>
       <View style={styles.head}>
-        <View style={styles.titleWrap}>{typeof title === "string" ? <Text style={styles.title}>{title}</Text> : title}</View>
-        <View
-          style={[
-            styles.badge,
-            badge.tone === "positive" ? { backgroundColor: C.positive } : badge.tone === "negative" ? { backgroundColor: C.negative } : badge.tone === "live" ? { backgroundColor: C.accent2Tint } : undefined,
-          ]}
-        >
-          <Text style={[styles.badgeText, badge.tone === "positive" ? { color: C.accent2TextOn } : badge.tone === "negative" ? { color: "#fff" } : badge.tone === "live" ? { color: C.accent2 } : undefined]}>
-            {badge.label}
+        <View style={styles.titleWrap}>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
           </Text>
+          {titleBadges?.map((b) => (
+            <Badge key={b.label} label={b.label} tone={b.tone} />
+          ))}
         </View>
+        <Badge label={badge.label} tone={badge.tone} />
       </View>
       <View style={styles.slots}>
         {slots.map((sl) => (
@@ -120,12 +149,20 @@ export function PortfolioCard({
       </View>
     </View>
   );
+  return onPress ? (
+    <TouchableRipple borderless style={styles.pressable} onPress={onPress}>
+      {content}
+    </TouchableRipple>
+  ) : (
+    content
+  );
 }
 
 const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 12, gap: 12 },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  titleWrap: { flexShrink: 1, flexDirection: "row", gap: 16, flexWrap: "wrap" },
+  titleWrap: { flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  pressable: { borderRadius: 16 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 15 },
   badge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: C.glassStrong },
   badgeText: { color: C.textSecondary, fontWeight: "700", fontSize: 12 },

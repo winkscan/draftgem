@@ -311,7 +311,7 @@ export function DraftScreen() {
 
 // The tournament page's header: the same panel as the lobby's, with this tournament's details in
 // place of the filters (see components/top-bar/TournamentDetails.tsx).
-export function DraftHeader({ tournamentId }: { tournamentId: string }) {
+export function DraftHeader({ tournamentId, standings }: { tournamentId: string; /** The standings page: no entry tabs, and the popup's button just closes it. */ standings?: boolean }) {
   const id = BigInt(tournamentId);
   const { data: tournament } = useTournament(id);
   const { data: meta } = useTournamentMeta();
@@ -332,7 +332,7 @@ export function DraftHeader({ tournamentId }: { tournamentId: string }) {
     return () => clearInterval(timer);
   }, []);
   // Multiple tournaments get New Entry / My Entries tabs while entries are still open.
-  const showTabs = !!tournament && tournament.entryMode === "multiple" && now < Number(tournament.startTs);
+  const showTabs = !standings && !!tournament && tournament.entryMode === "multiple" && now < Number(tournament.startTs);
   const tabs = showTabs
     ? {
         items: [
@@ -353,7 +353,7 @@ export function DraftHeader({ tournamentId }: { tournamentId: string }) {
           row={{ publicKey: pubkey, account: tournament }}
           meta={tournamentMeta}
           onClose={() => setInfoOpen(false)}
-          ctaLabel={tournament.entryMode === "single" && (myEntries?.length ?? 0) > 0 ? "View" : "Draft"}
+          ctaLabel={standings ? "Close" : tournament.entryMode === "single" && (myEntries?.length ?? 0) > 0 ? "View" : "Draft"}
           onPressCta={() => setInfoOpen(false)}
         />
       ) : null}

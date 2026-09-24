@@ -1,9 +1,9 @@
-import { useLayoutEffect, useMemo, useState } from "react";
-import { Linking, ScrollView, StyleSheet, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { FlatList, Linking, StyleSheet, View } from "react-native";
 import { EmptyState } from "../components/EmptyState";
-import { PortfolioCard, entryBadge } from "../components/PortfolioCard";
+import { PortfolioCard } from "../components/PortfolioCard";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
 import { PublicKey } from "@solana/web3.js";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useConnection } from "../utils/ConnectionProvider";
@@ -19,11 +19,7 @@ import { bpsToPercentLabel, ellipsify } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { getTournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { PAYOUT_CHOICES, useTournamentMeta, type PayoutChoice } from "../pumpfantasy/customTournaments";
-import { ModeBadges } from "../components/ModeBadge";
-import { TokenIcon } from "../components/TokenIcon";
 import { PF_COLORS as C } from "../theme";
-
-const PAGE_SIZE = 10;
 
 interface Row {
   key: string;
@@ -39,9 +35,8 @@ interface Row {
 }
 
 // All players' standings for one tournament, live during the round and final
-// afterwards: your own portfolio(s) on top with the % each coin made, then
-// the ranked table (place / player / score / projected prize), where any
-// other portfolio can be opened side by side for comparison. Live scores use
+// afterwards: your own portfolio(s) pinned on top (swipe between them), a slot where a portfolio picked
+// from the list is shown for comparison, then the ranked list (place / player / score / prize). Live scores use
 // current prices (refreshed every 25s, see livePrices.ts); once the round is
 // over the submitted end prices are used instead.
 export function LeaderboardScreen() {
@@ -62,8 +57,9 @@ export function LeaderboardScreen() {
   const payout: PayoutChoice = tournamentMeta?.[tournamentId]?.payout ?? "p50";
   const creatorFeeBps = tournamentMeta?.[tournamentId]?.creatorFeeBps ?? 0;
 
-  const [page, setPage] = useState(0);
   const [myIndex, setMyIndex] = useState(0);
+  const [pagerWidth, setPagerWidth] = useState(0);
+  const pagerRef = useRef<FlatList<Row>>(null);
   const [compareKey, setCompareKey] = useState<string | null>(null);
 
   const assetsByMint = useMemo(() => {
@@ -80,12 +76,6 @@ export function LeaderboardScreen() {
 
   const now = Math.floor(Date.now() / 1000);
   const phase = tournament ? getTournamentPhase(tournament, now) : "upcoming";
-
-  // "Live Standings" only while the round is running; afterwards it's the result.
-  const navigation = useNavigation();
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: phase === "live" ? "Live Standings" : "Final Standings" });
-  }, [navigation, phase]);
 
   // Payout proof: the claim_prize transaction is the newest successful one that
   // touched the winning entry's account (enter and settle come before it), so
@@ -167,104 +157,25 @@ export function LeaderboardScreen() {
   }
 
   const myRows = rows.filter((r) => r.isMine);
-  const mine = myRows[Math.min(myIndex, myRows.length - 1)];
+  const myShown = Math.min(myIndex, Math.max(0, myRows.length - 1));
   const compare = rows.find((r) => r.key === compareKey && !r.isMine);
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const pageRows = rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   const waitingForPrices = rows.length > 0 && rows.every((r) => r.scoreBps == null);
+  const mine = myRows[myShown];
+  const decimals = decimalsForMint(tournament.mint);
+  const currency = currencyForMint(tournament.mint);
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 32 }}>
-      <View style={styles.header}>
-        <ModeBadges tournament={tournament} />
-        <Text style={styles.headerText}>
-          {rows.length} portfolio{rows.length === 1 ? "" : "s"} · {phase === "live" ? "Live" : "Results"}
-        </Text>
-      </View>
+  const goToMine = (i: number) => {
+    setMyIndex(i);
+    pagerRef.current?.scrollToOffset({ offset: i * pagerWidth, animated: true });
+  };
 
-      {mine ? (
-        <>
-          <PortfolioPanel
-            title={
-              <>
-                <Text style={styles.metaLabel}>
-                  Place: <Text style={styles.metaValue}>{mine.rank}</Text>
-                </Text>
-                <Text style={styles.metaLabel}>
-                  Prize:{" "}
-                  <Text style={styles.metaValue}>
-                    {mine.prizeLamports > 0n && tournament
-                      ? `${formatAmountCompact(mine.prizeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
-                      : "—"}
-                  </Text>
-                </Text>
-              </>
-            }
-            scoreBps={mine.scoreBps}
-            picks={mine.picks}
-            candidatesByMint={candidatesByMint}
-            entryIndex={mine.entryIndex}
-            tournament={tournament}
-          />
-          {mine.claimed && mine.prizeLamports > 0n ? (
-            <TouchableRipple style={styles.payoutPill} onPress={() => openPayout(mine.key)}>
-              <View style={styles.payoutPillInner}>
-                <FontAwesome6 name="circle-check" size={13} color={C.positive} />
-                <Text style={styles.payoutPillText}>Paid out · View payout on Solscan</Text>
-                {openingPayout === mine.key ? (
-                  <ActivityIndicator size={12} color={C.accent2} />
-                ) : (
-                  <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
-                )}
-              </View>
-            </TouchableRipple>
-          ) : null}
-        </>
-      ) : null}
-
-      {myRows.length > 1 ? (
-        <View style={styles.dots}>
-          {myRows.map((r, i) => (
-            <TouchableRipple
-              key={r.key}
-              borderless
-              style={styles.dotHit}
-              onPress={() => setMyIndex(i)}
-            >
-              <View style={[styles.dot, i === Math.min(myIndex, myRows.length - 1) ? styles.dotActive : undefined]} />
-            </TouchableRipple>
-          ))}
-        </View>
-      ) : null}
-
-      {compare ? (
-        <View style={styles.compareWrap}>
-          <PortfolioPanel
-            title={
-              <>
-                <Text style={styles.metaLabel}>
-                  Place: <Text style={styles.metaValue}>{compare.rank}</Text>
-                </Text>
-                <Text style={styles.metaLabel}>
-                  Player: <Text style={styles.metaValue}>{ellipsify(compare.player, 5)}</Text>
-                </Text>
-              </>
-            }
-            scoreBps={compare.scoreBps}
-            picks={compare.picks}
-            candidatesByMint={candidatesByMint}
-            entryIndex={compare.entryIndex}
-            tournament={tournament}
-          />
-        </View>
-      ) : null}
-
+  const listHeader = (
+    <View>
       {tournament.status === "cancelled" ? (
         <Text style={styles.notice}>
           This tournament was cancelled because its results could not be finalized. Every entry fee was refunded (✓).
         </Text>
       ) : null}
-
       {waitingForPrices && phase !== "upcoming" && tournament.status !== "cancelled" ? (
         <Text style={styles.notice}>
           {phase === "live"
@@ -272,44 +183,115 @@ export function LeaderboardScreen() {
             : "Final prices aren't recorded yet."}
         </Text>
       ) : null}
-
+      {mine && mine.claimed && mine.prizeLamports > 0n ? (
+        <TouchableRipple style={styles.payoutPill} onPress={() => openPayout(mine.key)}>
+          <View style={styles.payoutPillInner}>
+            <FontAwesome6 name="circle-check" size={13} color={C.positive} />
+            <Text style={styles.payoutPillText}>Paid out · View payout on Solscan</Text>
+            {openingPayout === mine.key ? (
+              <ActivityIndicator size={12} color={C.accent2} />
+            ) : (
+              <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
+            )}
+          </View>
+        </TouchableRipple>
+      ) : null}
       <View style={styles.tableHead}>
         <Text style={[styles.th, { width: 40 }]}>Place</Text>
         <Text style={[styles.th, { flex: 1.3 }]}>Player</Text>
         <Text style={[styles.th, { flex: 1 }]}>Score</Text>
         <Text style={[styles.th, { flex: 1 }]}>Prize</Text>
-        <Text style={[styles.th, { width: 44, textAlign: "center" }]}>Compare</Text>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.screen}>
+      {/* Pinned above the list: my portfolio (or several, swipe / tap the dots) and the comparison slot. */}
+      {myRows.length > 0 ? (
+        <View onLayout={(e) => setPagerWidth(e.nativeEvent.layout.width)}>
+          {pagerWidth > 0 ? (
+            <FlatList
+              ref={pagerRef}
+              data={myRows}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(r) => r.key}
+              getItemLayout={(_, i) => ({ length: pagerWidth, offset: pagerWidth * i, index: i })}
+              onMomentumScrollEnd={(e) => setMyIndex(Math.round(e.nativeEvent.contentOffset.x / pagerWidth))}
+              renderItem={({ item }) => (
+                <View style={{ width: pagerWidth, paddingHorizontal: 16 }}>
+                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} title={"Portfolio #" + (item.entryIndex + 1)} />
+                </View>
+              )}
+            />
+          ) : null}
+          {myRows.length > 1 ? (
+            <View style={styles.dots}>
+              {myRows.map((r, i) => (
+                <TouchableRipple key={r.key} borderless style={styles.dotHit} onPress={() => goToMine(i)}>
+                  <View style={[styles.dot, i === myShown ? styles.dotActive : undefined]} />
+                </TouchableRipple>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={styles.compareSlot}>
+        {compare ? (
+          <StandingCard
+            row={compare}
+            tournament={tournament}
+            candidatesByMint={candidatesByMint}
+            title={ellipsify(compare.player, 4) + (tournament.entryMode === "multiple" ? " #" + (compare.entryIndex + 1) : "")}
+            onPress={() => setCompareKey(null)}
+          />
+        ) : (
+          <View style={styles.compareHint}>
+            <Text style={styles.compareHintText}>Click portfolio to compare</Text>
+          </View>
+        )}
       </View>
 
-      <View style={{ paddingHorizontal: 16, gap: 8 }}>
-        {pageRows.length === 0 ? (
-          <View style={{ minHeight: 240 }}>
-            <EmptyState icon="ghost" label="No Entries" hint="Nobody entered this tournament." />
-          </View>
-        ) : (
-          pageRows.map((r) => (
-            <View
-              key={r.key}
-              style={[styles.row, r.isMine ? styles.rowMine : undefined, r.key === compareKey ? styles.rowCompared : undefined]}
-            >
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        data={rows}
+        keyExtractor={(r) => r.key}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={<EmptyState icon="ghost" label="No Entries" hint="Nobody entered this tournament." />}
+        ListFooterComponent={
+          <Text style={styles.footnote}>
+            {PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, after a{" "}
+            {creatorFeeBps > 0 ? "10% cut (5% platform, 5% the creator)" : "5% fee"}; a tie at the cut-off wins too. Tap the link icon next to a
+            paid prize to see the payout on Solscan.
+          </Text>
+        }
+        renderItem={({ item: r }) => (
+          <TouchableRipple
+            borderless
+            style={[styles.rowWrap]}
+            onPress={() => {
+              if (r.isMine) goToMine(myRows.findIndex((m) => m.key === r.key));
+              else setCompareKey(r.key === compareKey ? null : r.key);
+            }}
+          >
+            <View style={[styles.row, r.isMine ? styles.rowMine : undefined, r.key === compareKey ? styles.rowCompared : undefined]}>
               <Text style={[styles.cell, { width: 40 }, r.isMine ? styles.bold : undefined]}>{r.rank}</Text>
               <Text style={[styles.cell, { flex: 1.3 }, r.isMine ? styles.bold : undefined]} numberOfLines={1}>
                 {r.isMine ? "You" : ellipsify(r.player, 4)}
                 {tournament.entryMode === "multiple" ? ` #${r.entryIndex + 1}` : ""}
               </Text>
               <Text
-                style={[
-                  styles.cell,
-                  { flex: 1 },
-                  styles.bold,
-                  r.scoreBps == null ? styles.pending : r.scoreBps >= 0 ? styles.up : styles.down,
-                ]}
+                style={[styles.cell, { flex: 1 }, styles.bold, r.scoreBps == null ? styles.pending : r.scoreBps >= 0 ? styles.up : styles.down]}
               >
                 {r.scoreBps == null ? "…" : bpsToPercentLabel(r.scoreBps)}
               </Text>
               <View style={[styles.prizeCell, { flex: 1 }]}>
                 <Text style={[styles.cell, r.isMine ? styles.bold : undefined]}>
-                  {r.prizeLamports > 0n ? formatAmountCompact(r.prizeLamports, decimalsForMint(tournament.mint)) : "-"}
+                  {r.prizeLamports > 0n ? formatAmountCompact(r.prizeLamports, decimals) : "-"}
                 </Text>
                 {r.claimed && r.prizeLamports > 0n ? (
                   <TouchableRipple borderless style={styles.payoutIcon} onPress={() => openPayout(r.key)}>
@@ -321,155 +303,85 @@ export function LeaderboardScreen() {
                   </TouchableRipple>
                 ) : null}
               </View>
-              <View style={{ width: 44, alignItems: "center" }}>
-                {r.isMine ? null : (
-                  <TouchableRipple
-                    borderless
-                    style={[styles.compareBtn, r.key === compareKey ? styles.compareBtnActive : undefined]}
-                    onPress={() => setCompareKey(r.key === compareKey ? null : r.key)}
-                  >
-                    <FontAwesome6
-                      name={r.key === compareKey ? "xmark" : "user"}
-                      size={13}
-                      color={r.key === compareKey ? C.accentTextOn : "#fff"}
-                    />
-                  </TouchableRipple>
-                )}
-              </View>
             </View>
-          ))
+          </TouchableRipple>
         )}
-      </View>
-
-      {pageCount > 1 ? (
-        <View style={styles.pager}>
-          <TouchableRipple borderless style={styles.pagerArrow} disabled={page === 0} onPress={() => setPage(page - 1)}>
-            <FontAwesome6 name="chevron-left" size={12} color={page === 0 ? C.disabled : C.textSecondary} />
-          </TouchableRipple>
-          {Array.from({ length: pageCount }, (_, i) => i)
-            .filter((i) => pageCount <= 7 || Math.abs(i - page) <= 2 || i === 0 || i === pageCount - 1)
-            .map((i) => (
-              <TouchableRipple
-                key={i}
-                borderless
-                style={[styles.pagerNum, i === page ? styles.pagerNumActive : undefined]}
-                onPress={() => setPage(i)}
-              >
-                <Text style={[styles.pagerNumText, i === page ? { color: "#fff" } : undefined]}>{i + 1}</Text>
-              </TouchableRipple>
-            ))}
-          <TouchableRipple
-            borderless
-            style={styles.pagerArrow}
-            disabled={page >= pageCount - 1}
-            onPress={() => setPage(page + 1)}
-          >
-            <FontAwesome6 name="chevron-right" size={12} color={page >= pageCount - 1 ? C.disabled : C.textSecondary} />
-          </TouchableRipple>
-        </View>
-      ) : null}
-
-      <Text style={styles.footnote}>
-        {PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, after a {creatorFeeBps > 0 ? "10% cut (5% platform, 5% the creator)" : "5% fee"}; a tie at the cut-off wins too. Tap the link icon next to a paid prize to see the payout on Solscan.
-      </Text>
-    </ScrollView>
+      />
+    </View>
   );
 }
 
-function PortfolioPanel({
-  title,
-  scoreBps,
-  picks,
-  candidatesByMint,
-  entryIndex,
+// One standings row as the shared portfolio card: place and prize right after the title, the score on
+// the right, and each coin's own result under it.
+function StandingCard({
+  row,
   tournament,
+  candidatesByMint,
+  title,
+  onPress,
 }: {
-  title: React.ReactNode;
-  scoreBps: number | null;
-  picks: PickScore[];
-  candidatesByMint: Map<string, Candidate>;
-  entryIndex: number;
+  row: Row;
   tournament: import("../pumpfantasy/accounts").TournamentAccount;
+  candidatesByMint: Map<string, Candidate>;
+  title: string;
+  onPress?: () => void;
 }) {
+  const titleBadges: { label: string; tone: "accent" | "live" }[] = [{ label: "Nr. " + row.rank, tone: "accent" }];
+  if (row.prizeLamports > 0n) {
+    titleBadges.push({
+      label: formatAmountCompact(row.prizeLamports, decimalsForMint(tournament.mint)) + " " + currencyForMint(tournament.mint),
+      tone: "live",
+    });
+  }
   return (
-    <View style={styles.panel}>
-      <View style={styles.panelHead}>
-        <View style={{ flexDirection: "row", gap: 16, flexShrink: 1, flexWrap: "wrap" }}>{title}</View>
-        <View
-          style={[
-            styles.scorePill,
-            scoreBps == null ? undefined : { backgroundColor: scoreBps < 0 ? C.negative : C.positive },
-          ]}
-        >
-          <Text style={[styles.scorePillText, scoreBps != null && scoreBps >= 0 ? { color: C.accent2TextOn } : undefined]}>
-            {scoreBps == null ? "…" : bpsToPercentLabel(scoreBps)}
-          </Text>
-        </View>
-      </View>
-      <PortfolioCard
-        title={"Portfolio #" + (entryIndex + 1)}
-        badge={entryBadge(tournament)}
-        slots={picks.map((p) => ({
-          key: p.mint,
-          candidate: candidatesByMint.get(p.mint),
-          pct: { text: p.bps == null ? "…" : bpsToPercentLabel(p.bps), tone: p.bps == null ? "pending" : p.bps >= 0 ? "up" : "down" },
-        }))}
-      />
-    </View>
+    <PortfolioCard
+      title={title}
+      titleBadges={titleBadges}
+      badge={
+        row.scoreBps == null
+          ? { label: "…", tone: "neutral" }
+          : { label: bpsToPercentLabel(row.scoreBps), tone: row.scoreBps < 0 ? "negative" : "positive" }
+      }
+      slots={row.picks.map((p) => ({
+        key: p.mint,
+        candidate: candidatesByMint.get(p.mint),
+        pct: { text: p.bps == null ? "…" : bpsToPercentLabel(p.bps), tone: p.bps == null ? "pending" : p.bps >= 0 ? "up" : "down" },
+      }))}
+      onPress={onPress}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   screen: { flex: 1, backgroundColor: C.bg },
-  header: { flexDirection: "row", alignItems: "center", gap: 10, padding: 16, paddingBottom: 8 },
-  headerText: { color: C.textSecondary, fontSize: 12 },
 
-  panel: { marginHorizontal: 16, marginTop: 4, marginBottom: 8 },
-  panelHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 },
-  metaLabel: { color: C.textPrimary, fontWeight: "700", fontSize: 13 },
-  metaValue: { color: C.accentText, fontWeight: "400" },
-  scorePill: { backgroundColor: C.accent, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
-  scorePillText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  cards: { flexDirection: "row", gap: 6 },
-  card: {
-    flex: 1,
-    backgroundColor: C.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 8,
-    paddingHorizontal: 2,
-  },
-  cardIcon: { position: "absolute", top: -8, left: -4 },
-  cardSymbol: { color: C.textPrimary, fontWeight: "800", fontSize: 13, marginTop: 6 },
-  cardPct: { fontWeight: "700", fontSize: 11, marginTop: 2 },
-  cardDivider: { height: 1, alignSelf: "stretch", backgroundColor: C.cardBorder, marginVertical: 6, marginHorizontal: 6 },
-  cardTier: { color: C.textSecondary, fontSize: 9, fontWeight: "600" },
-
-  dots: { flexDirection: "row", justifyContent: "center", gap: 2, marginBottom: 4 },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 2, marginTop: 4 },
   dotHit: { padding: 6, borderRadius: 999 },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.cardBorder },
   dotActive: { backgroundColor: C.accent },
-  compareWrap: { backgroundColor: C.glass, paddingTop: 14, marginTop: 4, marginBottom: 8 },
 
+  compareSlot: { paddingHorizontal: 16, paddingTop: 12 },
+  compareHint: { height: 44, borderRadius: 999, backgroundColor: C.glassStrong, alignItems: "center", justifyContent: "center" },
+  compareHintText: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
+
+  list: { flex: 1 },
+  listContent: { padding: 16, paddingTop: 4, gap: 8, flexGrow: 1 },
   notice: { color: C.textSecondary, fontSize: 12, textAlign: "center", padding: 12 },
 
-  tableHead: { flexDirection: "row", alignItems: "center", paddingHorizontal: 32, paddingVertical: 8 },
+  tableHead: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8 },
   th: { color: C.textSecondary, fontSize: 12 },
+  // Same box as the tournament popup's player rows.
+  rowWrap: { borderRadius: 12 },
   row: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: C.card,
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "transparent",
-    paddingLeft: 16,
-    paddingRight: 6,
-    paddingVertical: 8,
-    minHeight: 46,
+    borderColor: C.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   rowMine: { backgroundColor: C.accentTint, borderColor: C.accent },
   rowCompared: { borderColor: C.accent2 },
@@ -477,7 +389,6 @@ const styles = StyleSheet.create({
   prizeCell: { flexDirection: "row", alignItems: "center", gap: 4 },
   payoutIcon: { padding: 5, borderRadius: 999 },
   payoutPill: {
-    marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 999,
     backgroundColor: C.accent2Tint,
@@ -489,20 +400,6 @@ const styles = StyleSheet.create({
   up: { color: C.positive },
   down: { color: C.negative },
   pending: { color: C.textSecondary },
-  compareBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: C.glassStrong,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  compareBtnActive: { backgroundColor: C.accent },
 
-  pager: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 16 },
-  pagerArrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  pagerNum: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  pagerNumActive: { backgroundColor: C.accent },
-  pagerNumText: { color: C.textSecondary, fontWeight: "700", fontSize: 13 },
-  footnote: { color: C.textSecondary, fontSize: 11, textAlign: "center", paddingHorizontal: 24, marginTop: 16 },
+  footnote: { color: C.textSecondary, fontSize: 11, textAlign: "center", paddingHorizontal: 8, marginTop: 8 },
 });

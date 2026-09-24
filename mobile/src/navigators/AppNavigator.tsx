@@ -45,8 +45,8 @@ const AppStack = () => (
       name="Leaderboard"
       component={LeaderboardScreen}
       options={{
-        title: "Standings", // replaced with "Live Standings" / "Final Standings" once the phase is known
-        header: ({ options }) => <BackHeader title={options.title ?? ""} />,
+        // The same panel as the tournament's own page (details, badges), without the entry tabs.
+        header: ({ route }) => <DraftHeader standings tournamentId={(route.params as { tournamentId: string }).tournamentId} />,
       }}
     />
   </Stack.Navigator>
