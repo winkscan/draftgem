@@ -90,7 +90,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
               ) : !pool || isError || !points || points.length < 2 ? (
                 <EmptyState icon="chart-line" label="No Chart Data" hint="This coin has no price history yet." />
               ) : (
-                <PriceChart points={points} />
+                <PriceChart points={points} color={color} />
               )}
             </View>
 

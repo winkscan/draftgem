@@ -22,6 +22,7 @@ import { TopBar } from "../components/top-bar/TopBar";
 import { TournamentInfoModal } from "../components/TournamentInfoModal";
 import { ChartModal } from "../components/ChartModal";
 import { EmptyState } from "../components/EmptyState";
+import { PortfolioCard, SlotCard, entryBadge } from "../components/PortfolioCard";
 import { useDraftTab } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
 
@@ -148,39 +149,43 @@ export function DraftScreen() {
           entries={myEntries ?? []}
           candidatesByMint={candidatesByMint}
           entriesClosed={entriesClosed}
+          status={tournament.status}
         />
       ) : (
         <>
-          <View style={styles.budgetBar}>
-            <Text style={styles.budgetTitle}>{viewingExistingSingleEntry ? "Your Portfolio" : "Portfolio Budget"}</Text>
-            <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
-              {viewingExistingSingleEntry ? myEntry!.fpSpent : remainingFp} FP
-            </Text>
-          </View>
-          <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
-
-          <View style={styles.slotsRow}>
-            {displayedSlots.map((c, i) => (
-              <SlotCard
-                key={i}
-                candidate={c}
-                readonly={viewingExistingSingleEntry || entriesClosed}
-                onRemove={() => c && togglePick(c)}
+          {viewingExistingSingleEntry ? (
+            <View style={styles.portfolioWrap}>
+              <PortfolioCard
+                title={"Portfolio #" + (myEntry!.entryIndex + 1)}
+                badge={entryBadge(tournament.status)}
+                slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
               />
-            ))}
-          </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.budgetBar}>
+                <Text style={styles.budgetTitle}>Portfolio Budget</Text>
+                <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
+                  {remainingFp} FP
+                </Text>
+              </View>
+              <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
+
+              <View style={styles.slotsRow}>
+                {displayedSlots.map((c, i) => (
+                  <SlotCard
+                    key={i}
+                    candidate={c}
+                    onRemove={viewingExistingSingleEntry || entriesClosed ? undefined : () => c && togglePick(c)}
+                  />
+                ))}
+              </View>
+            </>
+          )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          {viewingExistingSingleEntry ? (
-            <View style={styles.alreadyIn}>
-              <Text style={{ color: C.textPrimary, fontWeight: "700" }}>You're in this tournament</Text>
-              <Text style={{ color: C.textSecondary, fontSize: 12 }}>
-                Spent {myEntry!.fpSpent} FP ·{" "}
-                {myEntry!.settled ? `Score ${myEntry!.scoreBps / 100}%` : "Awaiting results"}
-              </Text>
-            </View>
-          ) : entriesClosed ? (
+          {viewingExistingSingleEntry ? null : entriesClosed ? (
             <View style={styles.closedBanner}>
               <Text style={{ color: C.textPrimary, fontWeight: "700" }}>
                 {duelFull && !timeClosed ? "This duel is full" : "Entries are closed"}
@@ -385,57 +390,16 @@ function BudgetBar({ filled, total }: { filled: number; total: number }) {
   );
 }
 
-// One of the five portfolio slots: coin (name cut with "..." if too long), what it cost, its
-// category; the coin's icon sits on the card's corner. Under it: x to remove, or + while empty.
-function SlotCard({ candidate: c, readonly, onRemove }: { candidate: Candidate | undefined; readonly: boolean; onRemove: () => void }) {
-  return (
-    // The wrapper reserves room for the remove button, which overhangs the card's top-right corner
-    // (Android ignores taps outside a parent's bounds, so the overhang must stay inside the wrapper).
-    <View style={styles.slotWrap}>
-      <View style={styles.slot}>
-        {c ? (
-          <>
-            <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={28} />
-            <Text style={styles.slotName} numberOfLines={1} ellipsizeMode="tail">
-              {c.symbol}
-            </Text>
-            <Text style={styles.slotFp}>{c.fpCost} FP</Text>
-            <View style={styles.slotDivider} />
-            <Text style={styles.slotCategory} numberOfLines={1}>
-              {c.tier}
-            </Text>
-          </>
-        ) : (
-          <>
-            {/* Invisible copy of a filled card's content, so an empty slot is exactly as tall. */}
-            <View style={styles.slotGhost}>
-              <View style={{ width: 28, height: 28 }} />
-              <Text style={styles.slotName}> </Text>
-              <Text style={styles.slotFp}> </Text>
-              <View style={styles.slotDivider} />
-              <Text style={styles.slotCategory}> </Text>
-            </View>
-            <Text style={styles.slotEmptyLabel}>Empty</Text>
-          </>
-        )}
-      </View>
-      {c && !readonly ? (
-        <TouchableRipple style={styles.slotRemove} borderless onPress={onRemove}>
-          <FontAwesome6 name="xmark" size={11} color="#fff" />
-        </TouchableRipple>
-      ) : null}
-    </View>
-  );
-}
-
 function MyEntriesList({
   entries,
   candidatesByMint,
   entriesClosed,
+  status,
 }: {
   entries: { publicKey: import("@solana/web3.js").PublicKey; account: EntryAccount }[];
   candidatesByMint: Map<string, Candidate>;
   entriesClosed: boolean;
+  status: import("../pumpfantasy/accounts").TournamentStatus;
 }) {
   if (entries.length === 0) {
     return (
@@ -452,34 +416,13 @@ function MyEntriesList({
       contentContainerStyle={{ padding: 16, gap: 10 }}
       data={entries}
       keyExtractor={(row) => row.publicKey.toBase58()}
-      renderItem={({ item }) => {
-        const picks = item.account.picks.map((pick) => candidatesByMint.get(pick.toBase58()));
-        return (
-          <View style={styles.entryCard}>
-            <Text style={{ color: C.textPrimary, fontWeight: "700" }}>Portfolio #{item.account.entryIndex + 1}</Text>
-            <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2, marginBottom: 10 }}>
-              Spent {item.account.fpSpent} FP ·{" "}
-              {item.account.settled ? `Score ${item.account.scoreBps / 100}%` : "Awaiting results"}
-            </Text>
-            <View style={styles.entrySlotsRow}>
-              {picks.map((c, i) => (
-                <View key={i} style={styles.entrySlot}>
-                  {c ? (
-                    <>
-                      <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={20} />
-                      <Text style={styles.slotMint} numberOfLines={1}>
-                        {c.symbol}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={styles.slotMint}>?</Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        );
-      }}
+      renderItem={({ item }) => (
+        <PortfolioCard
+          title={"Portfolio #" + (item.account.entryIndex + 1)}
+          badge={entryBadge(status)}
+          slots={item.account.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
+        />
+      )}
     />
   );
 }
@@ -511,39 +454,7 @@ const styles = StyleSheet.create({
   budgetValue: { color: C.positive, fontWeight: "800", fontSize: 16 },
   barTrack: { height: 4, borderRadius: 2, marginHorizontal: 16, marginTop: 10, backgroundColor: C.glass, overflow: "hidden" },
   slotsRow: { flexDirection: "row", gap: 2, paddingLeft: 16, paddingRight: 10, paddingTop: 8 },
-  slotWrap: { flex: 1, paddingTop: 8, paddingRight: 6 },
-  slot: {
-    flexGrow: 1, // not flex:1: its zero basis would collapse the card to minHeight and eat the padding
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    backgroundColor: C.card,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-    paddingTop: 10,
-    paddingBottom: 10,
-    gap: 1,
-  },
-  slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center", marginTop: 3 },
-  slotGhost: { opacity: 0, alignItems: "center", alignSelf: "stretch", gap: 1 },
-  slotEmptyLabel: { position: "absolute", color: C.textSecondary, fontSize: 12 },
-  slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
-  slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
-  slotCategory: { color: C.textSecondary, fontSize: 11 },
-  slotRemove: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: C.negative,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  slotMint: { fontSize: 10, color: C.textPrimary, fontWeight: "600" },
+  portfolioWrap: { paddingHorizontal: 16, paddingTop: 16 },
   error: { color: C.error, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 },
   alreadyIn: {
     marginHorizontal: 16,

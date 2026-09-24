@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { PublicKey } from "@solana/web3.js";
 import type { TournamentAccount, EntryAccount } from "../pumpfantasy/hooks";
+import type { TournamentStatus } from "../pumpfantasy/accounts";
 import { useMyEntries, useTournamentEntries, isArchivedTournament } from "../pumpfantasy/hooks";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
 import { useAuthorization } from "../utils/useAuthorization";
@@ -17,6 +18,7 @@ import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfa
 import { RAKE_BPS, WORKER_URL } from "../pumpfantasy/config";
 import { TokenIcon } from "./TokenIcon";
 import { EmptyState } from "./EmptyState";
+import { PortfolioCard, entryBadge } from "./PortfolioCard";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
 import { PF_COLORS as C } from "../theme";
 
@@ -137,6 +139,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
             loading={mineLoading}
             candidatesByMint={candidatesByMint}
             entryMode={t.entryMode}
+            status={t.status}
           />
         ) : tab === "prizes" ? (
           <PrizesTab tournament={t} meta={meta} payout={payout} entries={allEntries ?? []} />
@@ -155,11 +158,13 @@ function MyEntriesTab({
   loading,
   candidatesByMint,
   entryMode,
+  status,
 }: {
   entries: { publicKey: { toBase58(): string }; account: EntryAccount }[];
   loading: boolean;
   candidatesByMint: Map<string, Candidate>;
   entryMode: "single" | "multiple";
+  status: TournamentStatus;
 }) {
   if (loading) {
     return (
@@ -176,33 +181,12 @@ function MyEntriesTab({
   return (
     <ScrollView style={styles.tabBody} contentContainerStyle={styles.listContent}>
       {entries.map((e) => (
-        <View key={e.publicKey.toBase58()} style={styles.entryCard}>
-          <View style={styles.entryHead}>
-            <Text style={styles.entryTitle}>Portfolio #{e.account.entryIndex + 1}</Text>
-            <Text style={styles.entryFoot}>
-              {e.account.fpSpent} FP · {e.account.settled ? `Score ${(e.account.scoreBps / 100).toFixed(2)}%` : "Awaiting results"}
-            </Text>
-          </View>
-          <View style={styles.entryPicksRow}>
-            {e.account.picks.map((pick, i) => {
-              const c = candidatesByMint.get(pick.toBase58());
-              return (
-                <View key={i} style={styles.pickCell}>
-                  {c ? (
-                    <>
-                      <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={20} />
-                      <Text style={styles.pickSymbol} numberOfLines={1}>
-                        {c.symbol}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={styles.pickSymbol}>?</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        </View>
+        <PortfolioCard
+          key={e.publicKey.toBase58()}
+          title={"Portfolio #" + (e.account.entryIndex + 1)}
+          badge={entryBadge(status)}
+          slots={e.account.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
+        />
       ))}
     </ScrollView>
   );

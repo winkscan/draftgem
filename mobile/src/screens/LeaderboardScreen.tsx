@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useState } from "react";
 import { Linking, ScrollView, StyleSheet, View } from "react-native";
 import { EmptyState } from "../components/EmptyState";
+import { PortfolioCard, entryBadge } from "../components/PortfolioCard";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { PublicKey } from "@solana/web3.js";
@@ -202,6 +203,8 @@ export function LeaderboardScreen() {
             scoreBps={mine.scoreBps}
             picks={mine.picks}
             candidatesByMint={candidatesByMint}
+            entryIndex={mine.entryIndex}
+            status={tournament.status}
           />
           {mine.claimed && mine.prizeLamports > 0n ? (
             <TouchableRipple style={styles.payoutPill} onPress={() => openPayout(mine.key)}>
@@ -250,6 +253,8 @@ export function LeaderboardScreen() {
             scoreBps={compare.scoreBps}
             picks={compare.picks}
             candidatesByMint={candidatesByMint}
+            entryIndex={compare.entryIndex}
+            status={tournament.status}
           />
         </View>
       ) : null}
@@ -376,11 +381,15 @@ function PortfolioPanel({
   scoreBps,
   picks,
   candidatesByMint,
+  entryIndex,
+  status,
 }: {
   title: React.ReactNode;
   scoreBps: number | null;
   picks: PickScore[];
   candidatesByMint: Map<string, Candidate>;
+  entryIndex: number;
+  status: import("../pumpfantasy/accounts").TournamentStatus;
 }) {
   return (
     <View style={styles.panel}>
@@ -397,32 +406,15 @@ function PortfolioPanel({
           </Text>
         </View>
       </View>
-      <View style={styles.cards}>
-        {picks.map((p) => {
-          const c = candidatesByMint.get(p.mint);
-          return (
-            <View key={p.mint} style={styles.card}>
-              <View style={styles.cardIcon}>
-                <TokenIcon mint={p.mint} icon={c?.icon} symbol={c?.symbol ?? "?"} size={20} />
-              </View>
-              <Text style={styles.cardSymbol} numberOfLines={1}>
-                {c?.symbol ?? ellipsify(p.mint, 2)}
-              </Text>
-              <Text
-                style={[styles.cardPct, p.bps == null ? styles.pending : p.bps >= 0 ? styles.up : styles.down]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {p.bps == null ? "…" : bpsToPercentLabel(p.bps)}
-              </Text>
-              <View style={styles.cardDivider} />
-              <Text style={styles.cardTier} numberOfLines={1} adjustsFontSizeToFit>
-                {c?.tier ?? "—"}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+      <PortfolioCard
+        title={"Portfolio #" + (entryIndex + 1)}
+        badge={entryBadge(status)}
+        slots={picks.map((p) => ({
+          key: p.mint,
+          candidate: candidatesByMint.get(p.mint),
+          pct: { text: p.bps == null ? "…" : bpsToPercentLabel(p.bps), tone: p.bps == null ? "pending" : p.bps >= 0 ? "up" : "down" },
+        }))}
+      />
     </View>
   );
 }
