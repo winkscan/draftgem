@@ -32,8 +32,24 @@ export interface VolEntry {
 }
 export type VolMap = Record<string, VolEntry>;
 
+// Stored values used to be per 10 minutes; a marker entry records the horizon they are in. Volatility
+// scales with the square root of time, so old values convert exactly (x sqrt(6)) and the whole list
+// keeps its measurements instead of being re-fetched coin by coin.
+const HORIZON_KEY = "__horizon_min";
+const OLD_TO_HOUR = Math.sqrt(6);
+
 export async function loadVolMap(env: Env): Promise<VolMap> {
-  return ((await env.CACHE.get(KEY, "json")) as VolMap | null) ?? {};
+  const vols = ((await env.CACHE.get(KEY, "json")) as VolMap | null) ?? {};
+  if (Object.keys(vols).length > 0 && vols[HORIZON_KEY]?.v !== 60) {
+    for (const [mint, e] of Object.entries(vols)) {
+      if (e.v == null) continue;
+      e.v = e.v * OLD_TO_HOUR;
+      e.g = tierForMove(e.v).name;
+    }
+    vols[HORIZON_KEY] = { v: 60, at: Date.now() };
+    await env.CACHE.put(KEY, JSON.stringify(vols));
+  }
+  return vols;
 }
 
 /**
@@ -68,7 +84,7 @@ export function moveFromCandles(list: number[][]): number | null {
     n++;
   }
   if (n === 0) return null;
-  return Math.sqrt((acc / n) * 2) * 100; // variance per 5 min -> per 10 min
+  return Math.sqrt((acc / n) * 12) * 100; // variance per 5 min -> per hour (12 steps)
 }
 
 async function measureMove(env: Env, mint: string, budget: PriceBudget): Promise<number | null | "limited"> {
@@ -113,6 +129,11 @@ export async function refreshVolatility(env: Env, mints: string[], budget: Price
     if (move === "limited") break;
     calls++;
     const prev = vols[mint];
+    if (move == null && prev?.v != null) {
+      // A failed/empty fetch must not erase a good measurement: keep it, and just look again in a few hours.
+      vols[mint] = { ...prev, at: now - (REFRESH_MS - NO_DATA_RETRY_MS) };
+      continue;
+    }
     vols[mint] = {
       v: move,
       at: now,

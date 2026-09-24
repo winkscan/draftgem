@@ -17,7 +17,7 @@ export interface Candidate {
   ageDays: number;
   liquidityUsd: number;
   marketCapUsd: number;
-  /** Typical 10-minute move in %, once this coin has been measured; the group is a stand-in until then. */
+  /** Typical 1-hour move in %, once this coin has been measured; the group is a stand-in until then. */
   volatilityPct?: number;
   website?: string;
   twitter?: string;

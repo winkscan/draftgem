@@ -104,7 +104,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
             {candidate ? (
               <View style={styles.card}>
                 <StatRow
-                  label="Typical 10-min move"
+                  label="Typical 1-hour move"
                   value={candidate.volatilityPct != null ? `±${candidate.volatilityPct.toFixed(2)}%` : "not measured yet"}
                 />
                 <StatRow label="Category" value={`${candidate.tier} · ${candidate.fpCost} FP`} last />

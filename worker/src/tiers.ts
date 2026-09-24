@@ -1,23 +1,24 @@
 // The five coin groups, by how much a coin actually MOVES — not by size or
 // age (user's call 2026-09-21; the mcap-based BlueChip group held 800 tiny old
-// coins, and a wrapped DOGE on a thin Solana pool moves 3.7% per 10 minutes,
-// more than most memes). Measured as the typical 10-minute move: the standard
-// deviation of price changes over the last 24h, scaled to a 10-minute round
+// coins, and a wrapped DOGE on a thin Solana pool moves 3.7% per 10 minutes (~9% per hour),
+// more than most memes). Measured as the typical 1-hour move (the length of the shortest
+// tournament; longer rounds rank coins the same way, volatility just scales by sqrt of time): the
+// standard deviation of price changes over the last 24h, scaled to one hour
 // (see volatility.ts). Calmer = cheaper in FP, wilder = pricier, so the 4,000
 // FP budget still forces trade-offs.
 
 export interface TierDef {
   name: string;
-  /** Upper bound (exclusive) of the typical 10-minute move, in %. */
+  /** Upper bound (exclusive) of the typical 1-hour move, in %. */
   maxMovePct: number;
   fpCost: number;
 }
 
 export const TIERS: TierDef[] = [
-  { name: "Hold", maxMovePct: 0.5, fpCost: 100 }, // barely moves — just hold it
-  { name: "Farm", maxMovePct: 1, fpCost: 300 }, // slow crawl — farm the drift
-  { name: "Pump", maxMovePct: 2, fpCost: 650 }, // now it's interesting
-  { name: "Moon", maxMovePct: 5, fpCost: 1000 }, // big swings
+  { name: "Hold", maxMovePct: 1.2, fpCost: 100 }, // barely moves — just hold it
+  { name: "Farm", maxMovePct: 2.5, fpCost: 300 }, // slow crawl — farm the drift
+  { name: "Pump", maxMovePct: 5, fpCost: 650 }, // now it's interesting
+  { name: "Moon", maxMovePct: 12, fpCost: 1000 }, // big swings
   { name: "Degen", maxMovePct: Infinity, fpCost: 1600 }, // pure chaos
 ];
 

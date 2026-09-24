@@ -16,11 +16,11 @@ export interface GuideTopic {
 // Keep in sync with worker/src/tiers.ts (the server owns the real thresholds
 // and FP prices; this is only the explanation of them).
 const CATEGORIES = [
-  { name: "Hold", move: "under 0.5%", fp: 100, blurb: "Barely moves. Cheap, steady filler for your portfolio." },
-  { name: "Farm", move: "0.5% – 1%", fp: 300, blurb: "A slow crawl. Small gains and small losses." },
-  { name: "Pump", move: "1% – 2%", fp: 650, blurb: "Now it gets interesting. Real moves in either direction." },
-  { name: "Moon", move: "2% – 5%", fp: 1000, blurb: "Big swings. High upside, and the drawdown to match." },
-  { name: "Degen", move: "5% and up", fp: 1600, blurb: "Pure chaos. Can double or collapse within one round." },
+  { name: "Hold", move: "under 1.2%", fp: 100, blurb: "Barely moves. Cheap, steady filler for your portfolio." },
+  { name: "Farm", move: "1.2% – 2.5%", fp: 300, blurb: "A slow crawl. Small gains and small losses." },
+  { name: "Pump", move: "2.5% – 5%", fp: 650, blurb: "Now it gets interesting. Real moves in either direction." },
+  { name: "Moon", move: "5% – 12%", fp: 1000, blurb: "Big swings. High upside, and the drawdown to match." },
+  { name: "Degen", move: "12% and up", fp: 1600, blurb: "Pure chaos. Can double or collapse within one round." },
 ];
 
 function Paragraph({ children }: { children: ReactNode }) {
@@ -95,8 +95,9 @@ function CoinCategories() {
 
       <Heading>How it is measured</Heading>
       <Paragraph>
-        We look at the coin's price over the last 24 hours and work out its typical 10-minute move — the length of one
-        round. Next to each coin in the draft list you see it as ±x.x%.
+        We look at the coin's price over the last 24 hours and work out its typical 1-hour move — the length of our shortest
+        round. Next to each coin in the draft list you see it as ±x.x%. Longer rounds (6, 12 or 24 hours) use the same
+        categories: a coin that swings harder in an hour also swings harder over a day, so the ranking holds.
       </Paragraph>
 
       <Heading>Why it matters</Heading>

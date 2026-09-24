@@ -37,7 +37,7 @@ export interface DiscoveredAsset {
   ageDays: number;
   liquidityUsd: number;
   marketCapUsd: number;
-  /** Typical 10-minute move in %, when this coin has been measured yet (else its group is a market-cap stand-in). */
+  /** Typical 1-hour move in %, when this coin has been measured yet (else its group is a market-cap stand-in). */
   volatilityPct?: number;
   // Project links as listed on Jupiter — free with the same payload, used as
   // a fallback for the About tab when DexScreener has no profile.
