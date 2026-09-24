@@ -21,6 +21,8 @@ import { useChrome } from "../utils/Chrome";
 import { TopBar } from "../components/top-bar/TopBar";
 import { TournamentInfoModal } from "../components/TournamentInfoModal";
 import { ChartModal } from "../components/ChartModal";
+import { EmptyState } from "../components/EmptyState";
+import { useDraftTab } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
 
 export function DraftScreen() {
@@ -44,7 +46,7 @@ export function DraftScreen() {
   const { data: myEntries } = useMyEntries(tournament ? tournamentPubkey : null, selectedAccount?.publicKey ?? null);
 
   const isMultiple = tournament?.entryMode === "multiple";
-  const [tab, setTab] = useState<"draft" | "mine">("draft");
+  const [tab] = useDraftTab(tournamentId);
   const [categoryTab, setCategoryTab] = useState<CategoryTab>("All");
   const [search, setSearch] = useState("");
 
@@ -141,25 +143,6 @@ export function DraftScreen() {
 
   return (
     <View style={styles.screen}>
-      {isMultiple && !entriesClosed ? (
-        <View style={styles.tabRow}>
-          <TouchableRipple
-            style={[styles.tab, tab === "draft" ? styles.tabActive : undefined]}
-            onPress={() => setTab("draft")}
-          >
-            <Text style={[styles.tabText, tab === "draft" ? styles.tabTextActive : undefined]}>New Entry</Text>
-          </TouchableRipple>
-          <TouchableRipple
-            style={[styles.tab, tab === "mine" ? styles.tabActive : undefined]}
-            onPress={() => setTab("mine")}
-          >
-            <Text style={[styles.tabText, tab === "mine" ? styles.tabTextActive : undefined]}>
-              My Entries ({myEntries?.length ?? 0})
-            </Text>
-          </TouchableRipple>
-        </View>
-      ) : null}
-
       {isMultiple && (tab === "mine" || entriesClosed) ? (
         <MyEntriesList
           entries={myEntries ?? []}
@@ -246,9 +229,7 @@ export function DraftScreen() {
             keyExtractor={(c) => c.mint}
             ListEmptyComponent={
               blockedBySingleEntry || entriesClosed ? null : (
-                <View style={styles.center}>
-                  <Text style={{ color: C.textSecondary }}>No coins match this filter.</Text>
-                </View>
+                <EmptyState icon="magnifying-glass" label="No Coins Found" hint="Nothing matches this filter or search." />
               )
             }
             renderItem={({ item }) => {
@@ -337,10 +318,30 @@ export function DraftHeader({ tournamentId }: { tournamentId: string }) {
   }, [setPanelHeader]);
   const pubkey = useMemo(() => tournamentPda(id)[0], [tournamentId]);
   const tournamentMeta = meta?.[tournamentId];
+  const { selectedAccount } = useAuthorization();
+  const { data: myEntries } = useMyEntries(tournament ? pubkey : null, selectedAccount?.publicKey ?? null);
+  const [tab, setTab] = useDraftTab(tournamentId);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 5000);
+    return () => clearInterval(timer);
+  }, []);
+  // Multiple tournaments get New Entry / My Entries tabs while entries are still open.
+  const showTabs = !!tournament && tournament.entryMode === "multiple" && now < Number(tournament.startTs);
+  const tabs = showTabs
+    ? {
+        items: [
+          { key: "draft", label: "New Entry" },
+          { key: "mine", label: "My Entries (" + (myEntries?.length ?? 0) + ")" },
+        ],
+        active: tab,
+        onChange: (k: string) => setTab(k as "draft" | "mine"),
+      }
+    : undefined;
   return (
     <>
       <TopBar
-        tournament={tournament ? { account: tournament, meta: tournamentMeta, onOpenInfo: () => setInfoOpen(true) } : undefined}
+        tournament={tournament ? { account: tournament, meta: tournamentMeta, onOpenInfo: () => setInfoOpen(true), tabs } : undefined}
       />
       {tournament && infoOpen ? (
         <TournamentInfoModal
@@ -421,13 +422,11 @@ function MyEntriesList({
 }) {
   if (entries.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={{ color: C.textSecondary }}>
-          {entriesClosed
-            ? "You didn't enter this tournament."
-            : 'No entries yet — build one on the "New Entry" tab.'}
-        </Text>
-      </View>
+      <EmptyState
+        icon="ghost"
+        label="No Entries Yet"
+        hint={entriesClosed ? "You didn't enter this tournament." : "Build one on the New Entry tab."}
+      />
     );
   }
   return (

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useState } from "react";
 import { Linking, ScrollView, StyleSheet, View } from "react-native";
+import { EmptyState } from "../components/EmptyState";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { PublicKey } from "@solana/web3.js";
@@ -277,7 +278,9 @@ export function LeaderboardScreen() {
 
       <View style={{ paddingHorizontal: 16, gap: 8 }}>
         {pageRows.length === 0 ? (
-          <Text style={styles.notice}>No entries in this tournament.</Text>
+          <View style={{ minHeight: 240 }}>
+            <EmptyState icon="ghost" label="No Entries" hint="Nobody entered this tournament." />
+          </View>
         ) : (
           pageRows.map((r) => (
             <View

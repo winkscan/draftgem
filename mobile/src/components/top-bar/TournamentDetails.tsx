@@ -20,11 +20,14 @@ export function TournamentDetails({
   meta,
   onOpenInfo,
   onBack,
+  tabs,
 }: {
   tournament: TournamentAccount;
   meta: TournamentMeta | undefined;
   onOpenInfo: () => void;
   onBack: () => void;
+  /** Underlined tabs at the panel's bottom (Multiple tournaments: New Entry / My Entries). */
+  tabs?: { items: { key: string; label: string }[]; active: string; onChange: (key: string) => void };
 }) {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [copied, setCopied] = useState(false);
@@ -87,6 +90,23 @@ export function TournamentDetails({
           </TouchableRipple>
         </View>
       </View>
+      {tabs ? (
+        <View style={styles.tabsClip}>
+          <View style={styles.tabsDivider} />
+          <View style={styles.tabRow}>
+            {tabs.items.map((tb) => (
+              <TouchableRipple key={tb.key} style={styles.tab} onPress={() => tabs.onChange(tb.key)}>
+                <View style={styles.tabInner}>
+                  <Text style={[styles.tabText, tabs.active === tb.key ? styles.tabTextActive : undefined]} numberOfLines={1}>
+                    {tb.label}
+                  </Text>
+                  <View style={[styles.tabUnderline, tabs.active === tb.key ? styles.tabUnderlineActive : undefined]} />
+                </View>
+              </TouchableRipple>
+            ))}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -115,5 +135,15 @@ const styles = StyleSheet.create({
   stat: { flex: 1, gap: 1 },
   statValue: { color: C.textOnHeader, fontWeight: "800", fontSize: 15 },
   statLabel: { color: C.textOnHeaderMuted, fontSize: 11 },
+  // Clips the active underline to the panel's rounded bottom corners.
+  tabsClip: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: "hidden" },
+  tabsDivider: { height: 1, backgroundColor: C.cardBorder },
+  tabRow: { flexDirection: "row" },
+  tab: { flex: 1 },
+  tabInner: { alignItems: "center", paddingTop: 12 },
+  tabText: { color: C.textOnHeaderMuted, fontSize: 12.5, fontWeight: "700", paddingBottom: 10 },
+  tabTextActive: { color: C.textOnHeader },
+  tabUnderline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
+  tabUnderlineActive: { backgroundColor: C.accent },
   iconButton: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
 });

@@ -16,6 +16,7 @@ import { ellipsify } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { RAKE_BPS, WORKER_URL } from "../pumpfantasy/config";
 import { TokenIcon } from "./TokenIcon";
+import { EmptyState } from "./EmptyState";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
 import { PF_COLORS as C } from "../theme";
 
@@ -146,18 +147,6 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
         )}
       </View>
     </Modal>
-  );
-}
-
-// Shared empty look for every tab: a big muted icon over a short bold label, with
-// an optional smaller explanation line underneath.
-function EmptyState({ icon, label, hint }: { icon: string; label: string; hint?: string }) {
-  return (
-    <View style={styles.center}>
-      <FontAwesome6 name={icon} size={44} color={C.disabled} />
-      <Text style={styles.emptyText}>{label}</Text>
-      {hint ? <Text style={styles.emptyHint}>{hint}</Text> : null}
-    </View>
   );
 }
 

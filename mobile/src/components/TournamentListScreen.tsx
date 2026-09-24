@@ -14,6 +14,7 @@ import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tourna
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { payoutStructureOf, poolOf } from "../pumpfantasy/tournamentFilters";
 import { WORKER_URL } from "../pumpfantasy/config";
+import { EmptyState } from "./EmptyState";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
 import { TournamentInfoModal } from "./TournamentInfoModal";
 import { useTournamentFilters } from "./TournamentFiltersContext";
@@ -26,14 +27,11 @@ type Row = { publicKey: PublicKey; account: TournamentAccount };
 // Shared by Lobby/Live/Results — same card list, filtered to one time-based
 // phase (see tournamentPhase.ts). A tournament moves phases purely by
 // start_ts/end_ts, not by whether an admin has run finalize_tournament yet.
-// Same empty look as the tournament popup's tabs: a big muted icon, a short bold title, a small hint.
-function EmptyBlock({ icon, label, hint }: { icon: string; label: string; hint: string }) {
+function ResetButton({ onPress }: { onPress: () => void }) {
   return (
-    <>
-      <FontAwesome6 name={icon} size={44} color={C.disabled} />
-      <Text style={styles.emptyText}>{label}</Text>
-      <Text style={styles.emptyHint}>{hint}</Text>
-    </>
+    <TouchableRipple style={styles.resetButton} borderless onPress={onPress}>
+      <Text style={styles.resetText}>Reset filters</Text>
+    </TouchableRipple>
   );
 }
 
@@ -141,24 +139,19 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
           ) : null
         }
         ListEmptyComponent={
-          <View style={styles.center}>
-            {inPhase.length > 0 || !isDefaultFilters(filters) ? (
-              <>
-                {filters.scope === "mine" && !selectedAccount ? (
-                  <EmptyBlock icon="wallet" label="Wallet Not Connected" hint="Connect your wallet to see the tournaments you entered." />
-                ) : (
-                  <EmptyBlock icon="filter" label="No Tournaments" hint="Nothing matches these filters." />
-                )}
-                {!isDefaultFilters(filters) ? (
-                  <TouchableRipple style={styles.resetButton} borderless onPress={reset}>
-                    <Text style={styles.resetText}>Reset filters</Text>
-                  </TouchableRipple>
-                ) : null}
-              </>
+          inPhase.length > 0 || !isDefaultFilters(filters) ? (
+            filters.scope === "mine" && !selectedAccount ? (
+              <EmptyState icon="wallet" label="Wallet Not Connected" hint="Connect your wallet to see the tournaments you entered.">
+                {!isDefaultFilters(filters) ? <ResetButton onPress={reset} /> : null}
+              </EmptyState>
             ) : (
-              <EmptyBlock icon="trophy" label="No Tournaments" hint={emptyText} />
-            )}
-          </View>
+              <EmptyState icon="filter" label="No Tournaments" hint="Nothing matches these filters.">
+                {!isDefaultFilters(filters) ? <ResetButton onPress={reset} /> : null}
+              </EmptyState>
+            )
+          ) : (
+            <EmptyState icon="trophy" label="No Tournaments" hint={emptyText} />
+          )
         }
         renderItem={({ item }) => (
           <TournamentCard

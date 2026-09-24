@@ -27,7 +27,12 @@ export function TopBar({
 }: {
   phase?: TournamentPhase;
   /** A tournament's own page: shows its details (and a back button) instead of the lobby's filters. */
-  tournament?: { account: TournamentAccount; meta: TournamentMeta | undefined; onOpenInfo: () => void };
+  tournament?: {
+    account: TournamentAccount;
+    meta: TournamentMeta | undefined;
+    onOpenInfo: () => void;
+    tabs?: { items: { key: string; label: string }[]; active: string; onChange: (key: string) => void };
+  };
 }) {
   const navigation = useNavigation();
   const { selectedAccount, clearAuthorization } = useAuthorization();
@@ -98,6 +103,7 @@ export function TopBar({
             meta={tournament.meta}
             onOpenInfo={tournament.onOpenInfo}
             onBack={() => navigation.goBack()}
+            tabs={tournament.tabs}
           />
         ) : phase ? (
           <TournamentFilterTabs />

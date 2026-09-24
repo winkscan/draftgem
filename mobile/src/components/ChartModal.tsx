@@ -9,6 +9,7 @@ import type { Candidate } from "../pumpfantasy/candidates";
 import { formatAge, formatPrice, formatUsdCompact } from "../pumpfantasy/format";
 import { TokenIcon } from "./TokenIcon";
 import { PriceChart } from "./PriceChart";
+import { EmptyState } from "./EmptyState";
 import { PF_COLORS as C } from "../theme";
 
 // In-app coin details: a natively drawn price chart (candles from
@@ -108,9 +109,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                   <ActivityIndicator color={C.accent} />
                 </View>
               ) : !pool || isError || !points || points.length < 2 ? (
-                <View style={styles.chartPlaceholder}>
-                  <Text style={{ color: C.textSecondary }}>No chart data for this coin yet.</Text>
-                </View>
+                <EmptyState icon="chart-line" label="No Chart Data" hint="This coin has no price history yet." />
               ) : (
                 <PriceChart points={points} color={color} />
               )}
