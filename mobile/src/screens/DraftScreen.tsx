@@ -498,7 +498,6 @@ const styles = StyleSheet.create({
   slotWrap: { flex: 1, paddingTop: 8, paddingRight: 6 },
   slot: {
     flexGrow: 1, // not flex:1: its zero basis would collapse the card to minHeight and eat the padding
-    minHeight: 96,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.cardBorder,
@@ -506,15 +505,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
-    paddingTop: 18,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 10,
     gap: 1,
   },
   slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center", marginTop: 3 },
   slotEmpty: { color: C.textSecondary, fontSize: 12 },
   slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
   slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
-  slotCategory: { color: C.textSecondary, fontSize: 11, marginBottom: 12 },
+  slotCategory: { color: C.textSecondary, fontSize: 11 },
   slotRemove: {
     position: "absolute",
     top: 0,
