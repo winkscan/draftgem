@@ -1,29 +1,30 @@
 import type { Env } from "./env";
-import { pairAddress, type PriceBudget } from "./priceHistory";
+import type { PriceBudget } from "./priceHistory";
 import { fallbackTier, tierByName, tierForMove, type TierDef } from "./tiers";
 
-// How much each coin actually moves, measured from candles and stored in KV.
+// How much each coin actually moves, measured from DexScreener's own price changes and stored in KV.
 //
-// Measure: the standard deviation of price changes between consecutive
-// 5-minute candles over the last 24h, scaled to a 10-minute round (the length
-// of a tournament) — "the typical 10-minute move", in %. Gaps (minutes with
-// no trades produce no candle) are normalised so an illiquid coin isn't
-// counted as more volatile just because its candles are far apart.
+// Measure: each pair reports its price change over 5 minutes, 1, 6 and 24 hours. A change over a
+// window is one random draw whose typical size grows with the square root of time, so scaling every
+// window to one hour and taking the root of the mean square estimates the "typical 1-hour move" in %
+// (the shortest tournament's length). One sample is noisy, so it is blended into a running average
+// (EMA) with every later pass: a single odd hour can't flip a coin's group.
 //
-// Not recomputed per request and not once: each coin is re-measured about once
-// a day, a few per cron tick (GeckoTerminal's free tier 429s quickly), and the
-// group only changes when the move clears a boundary by a margin
-// (tiers.ts HYSTERESIS). Both /candidates and /attest read the SAME stored
-// value, so a coin's group and FP price can't differ between the Draft list
-// and the entry signature, or between two players in the same round.
+// Free and generous: the tokens endpoint takes 30 coins per call and covers every coin DexScreener
+// lists, SOL and the majors included. (The earlier GeckoTerminal-candle source answered 429 to
+// Cloudflare's shared IPs and left ~1000 coins unmeasured.)
+//
+// Both /candidates and /attest read the SAME stored value, so a coin's group and FP price can't
+// differ between the Draft list and the entry signature, or between two players in the same round.
 
 const KEY = "volatility";
-const REFRESH_MS = 24 * 3600_000;
-const NO_DATA_RETRY_MS = 3 * 3600_000; // young coins gain candles, so look again sooner
-const MIN_CANDLES = 48; // about 4 hours of real trading; less than that isn't a measurement
+const REFRESH_MS = 3 * 3600_000; // each pass adds one sample to the running average
+const NO_DATA_RETRY_MS = 3 * 3600_000; // young coins gain history, so look again
+const DEX_BATCH = 30; // DexScreener's tokens endpoint takes up to 30 addresses per call
+const EMA_ALPHA = 0.15; // each 3h sample moves the stored value 15%: about a day of memory
 
 export interface VolEntry {
-  /** Typical 10-minute move in %, or null when there wasn't enough trading data yet. */
+  /** Typical 1-hour move in %, or null when there wasn't enough trading data yet. */
   v: number | null;
   /** When this coin was last looked at. */
   at: number;
@@ -33,15 +34,14 @@ export interface VolEntry {
 export type VolMap = Record<string, VolEntry>;
 
 // Stored values used to be per 10 minutes; a marker entry records the horizon they are in. Volatility
-// scales with the square root of time, so old values convert exactly (x sqrt(6)) and the whole list
-// keeps its measurements instead of being re-fetched coin by coin.
+// scales with the square root of time, so old values convert exactly (x sqrt(6)).
 const HORIZON_KEY = "__horizon_min";
 const OLD_TO_HOUR = Math.sqrt(6);
 
 export async function loadVolMap(env: Env): Promise<VolMap> {
   const vols = ((await env.CACHE.get(KEY, "json")) as VolMap | null) ?? {};
   if (Object.keys(vols).length > 0 && vols[HORIZON_KEY]?.v !== 60) {
-    for (const [mint, e] of Object.entries(vols)) {
+    for (const e of Object.values(vols)) {
       if (e.v == null) continue;
       e.v = e.v * OLD_TO_HOUR;
       e.g = tierForMove(e.v).name;
@@ -70,79 +70,86 @@ export function classify(
   return { tier: fallbackTier(marketCapUsd, ageDays), movePct: null };
 }
 
-/** Typical 10-minute move in % from 5-minute candles ([ts, o, h, l, c, v], any order), or null if too few. */
-export function moveFromCandles(list: number[][]): number | null {
-  const candles = [...list].filter((c) => c[4] > 0).sort((a, b) => a[0] - b[0]);
-  if (candles.length < MIN_CANDLES) return null;
-  let acc = 0;
-  let n = 0;
-  for (let i = 1; i < candles.length; i++) {
-    const gap = (candles[i][0] - candles[i - 1][0]) / 300; // in 5-minute steps
-    if (gap <= 0) continue;
-    const r = Math.log(candles[i][4] / candles[i - 1][4]);
-    acc += (r * r) / gap;
-    n++;
-  }
-  if (n === 0) return null;
-  return Math.sqrt((acc / n) * 12) * 100; // variance per 5 min -> per hour (12 steps)
+interface DexPair {
+  baseToken?: { address?: string };
+  liquidity?: { usd?: number };
+  priceChange?: { m5?: number; h1?: number; h6?: number; h24?: number };
 }
 
-async function measureMove(env: Env, mint: string, budget: PriceBudget): Promise<number | null | "limited"> {
-  if (budget.geckoCalls <= 0) return "limited";
-  const pair = await pairAddress(env, mint, false);
-  if (!pair) return null;
-  budget.geckoCalls--;
-  const res = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair}/ohlcv/minute?aggregate=5&limit=288&currency=usd&token=${mint}`,
-    { headers: { Accept: "application/json", "User-Agent": "PumpFantasy/1.0 (Cloudflare Worker)" } },
-  );
-  if (res.status === 429) {
-    budget.geckoCalls = 0;
-    return "limited";
+/** One 1-hour-move sample from a pair's price changes, or null without enough history. */
+export function sampleFromChanges(c: { m5?: number; h1?: number; h6?: number; h24?: number }): number | null {
+  const parts: number[] = [];
+  if (typeof c.m5 === "number") parts.push(c.m5 * c.m5 * 12);
+  if (typeof c.h1 === "number") parts.push(c.h1 * c.h1);
+  if (typeof c.h6 === "number") parts.push((c.h6 * c.h6) / 6);
+  if (typeof c.h24 === "number") parts.push((c.h24 * c.h24) / 24);
+  if (parts.length < 3) return null; // a brand-new pool without a 24h history isn't a measurement
+  return Math.sqrt(parts.reduce((a, b) => a + b, 0) / parts.length);
+}
+
+async function fetchBatch(mints: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const res = await fetch("https://api.dexscreener.com/tokens/v1/solana/" + mints.join(","));
+  if (!res.ok) return out;
+  const pairs = (await res.json()) as DexPair[];
+  if (!Array.isArray(pairs)) return out;
+  // Only pairs where the coin is the base token: priceChange is quoted for the base.
+  const best = new Map<string, DexPair>();
+  for (const p of pairs) {
+    const a = p.baseToken?.address;
+    if (!a || !p.priceChange) continue;
+    const cur = best.get(a);
+    if (!cur || (p.liquidity?.usd ?? 0) > (cur.liquidity?.usd ?? 0)) best.set(a, p);
   }
-  if (!res.ok) return null;
-  const body = (await res.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
-  return moveFromCandles(body.data?.attributes?.ohlcv_list ?? []);
+  for (const [mint, p] of best) {
+    const v = sampleFromChanges(p.priceChange!);
+    if (v != null) out.set(mint, v);
+  }
+  return out;
 }
 
 /**
- * Re-measures the coins that are due, never-measured first, then oldest. Uses
- * only the GeckoTerminal budget left over after tournament prices (which come
- * first), and at most `maxCalls` coins per tick.
+ * Re-samples the coins that are due, never-measured first, then oldest: `maxBatches` calls of 30
+ * coins per tick, so the whole list is covered about every half hour.
  */
-export async function refreshVolatility(env: Env, mints: string[], budget: PriceBudget, maxCalls = 8): Promise<string> {
+export async function refreshVolatility(env: Env, mints: string[], _budget: PriceBudget, maxBatches = 6): Promise<string> {
   const vols = await loadVolMap(env);
   const now = Date.now();
   const due = mints
     .filter((m) => {
       const e = vols[m];
-      if (!e) return true;
-      return now - e.at > (e.v == null ? NO_DATA_RETRY_MS : REFRESH_MS);
+      return !e || now - e.at > (e.v == null ? NO_DATA_RETRY_MS : REFRESH_MS);
     })
     .sort((a, b) => (vols[a]?.at ?? 0) - (vols[b]?.at ?? 0));
 
-  let calls = 0;
-  let measured = 0;
-  for (const mint of due) {
-    if (calls >= maxCalls) break;
-    const move = await measureMove(env, mint, budget);
-    if (move === "limited") break;
-    calls++;
-    const prev = vols[mint];
-    if (move == null && prev?.v != null) {
-      // A failed/empty fetch must not erase a good measurement: keep it, and just look again in a few hours.
-      vols[mint] = { ...prev, at: now - (REFRESH_MS - NO_DATA_RETRY_MS) };
-      continue;
+  let sampled = 0;
+  let tried = 0;
+  for (let b = 0; b < maxBatches; b++) {
+    const batch = due.slice(b * DEX_BATCH, (b + 1) * DEX_BATCH);
+    if (batch.length === 0) break;
+    let samples: Map<string, number>;
+    try {
+      samples = await fetchBatch(batch);
+    } catch {
+      break; // network hiccup: try again next tick
     }
-    vols[mint] = {
-      v: move,
-      at: now,
-      g: move == null ? undefined : tierForMove(move, prev?.g ?? (prev?.v != null ? tierForMove(prev.v).name : undefined)).name,
-    };
-    if (move != null) measured++;
+    for (const mint of batch) {
+      tried++;
+      const prev = vols[mint];
+      const s = samples.get(mint);
+      if (s == null) {
+        // Nothing usable now: keep any earlier measurement, and look again in a few hours.
+        vols[mint] = prev?.v != null ? { ...prev, at: now } : { v: null, at: now };
+        continue;
+      }
+      const v = prev?.v != null ? Math.sqrt((1 - EMA_ALPHA) * prev.v * prev.v + EMA_ALPHA * s * s) : s;
+      const g = tierForMove(v, prev?.g ?? (prev?.v != null ? tierForMove(prev.v).name : undefined)).name;
+      vols[mint] = { v, at: now, g };
+      sampled++;
+    }
   }
 
-  if (calls > 0) await env.CACHE.put(KEY, JSON.stringify(vols));
+  if (tried > 0) await env.CACHE.put(KEY, JSON.stringify(vols));
   const known = mints.filter((m) => vols[m]?.v != null).length;
-  return `${measured}/${calls} measured this tick; ${known}/${mints.length} coins have a volatility, ${due.length - calls} still due`;
+  return sampled + "/" + tried + " sampled this tick; " + known + "/" + mints.length + " coins have a volatility, " + (due.length - tried) + " still due";
 }
