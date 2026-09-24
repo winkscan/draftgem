@@ -6,11 +6,11 @@ import type { PricePoint } from "../pumpfantasy/chartData";
 import { formatPrice } from "../pumpfantasy/format";
 import { PF_COLORS as C } from "../theme";
 
-const HEIGHT = 230;
-const GUTTER = 66; // left space for y-axis labels
-const PAD_R = 12;
-const PAD_T = 12;
-const PAD_B = 28; // bottom space for x-axis labels
+// The chart fills whatever space it is given, edge to edge: every label sits inside the plot, over
+// the gridlines / the filled area, and the fill runs down to the bottom edge.
+const PAD_T = 34; // room above the highest price for the hint / tooltip
+const PAD_B = 30; // the lowest price stays this far above the bottom edge, leaving room for x labels
+const PAD_X = 0;
 const TOOLTIP_W = 150;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -27,12 +27,13 @@ const dateLabel = (t: number) => {
 // Area chart drawn natively with react-native-svg from GeckoTerminal candle
 // closes — press/drag anywhere on it for a date+price tooltip.
 export function PriceChart({ points, color }: { points: PricePoint[]; color: string }) {
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const { width, height } = size;
   const [active, setActive] = useState<number | null>(null);
 
   const geo = useMemo(() => {
     const n = points.length;
-    if (width === 0 || n < 2) return null;
+    if (width === 0 || height === 0 || n < 2) return null;
     const prices = points.map((p) => p.price);
     let min = Math.min(...prices);
     let max = Math.max(...prices);
@@ -43,15 +44,15 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
     const margin = (max - min) * 0.08;
     min -= margin;
     max += margin;
-    const plotW = width - GUTTER - PAD_R;
-    const plotH = HEIGHT - PAD_T - PAD_B;
+    const plotW = width - 2 * PAD_X;
+    const plotH = height - PAD_T - PAD_B;
     const bottom = PAD_T + plotH;
-    const xs = points.map((_, i) => GUTTER + (i / (n - 1)) * plotW);
+    const xs = points.map((_, i) => PAD_X + (i / (n - 1)) * plotW);
     const ys = points.map((p) => PAD_T + (1 - (p.price - min) / (max - min)) * plotH);
     const line = xs.map((x, i) => `${i ? "L" : "M"}${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(" ");
-    const area = `${line} L${xs[n - 1].toFixed(1)} ${bottom} L${xs[0].toFixed(1)} ${bottom} Z`;
+    const area = `${line} L${xs[n - 1].toFixed(1)} ${height} L${xs[0].toFixed(1)} ${height} Z`;
     return { min, max, plotW, plotH, bottom, xs, ys, line, area };
-  }, [width, points]);
+  }, [width, height, points]);
 
   // The responder is created once; it reads the latest geometry through a ref.
   const geoRef = useRef(geo);
@@ -63,7 +64,7 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
     const g = geoRef.current;
     const n = countRef.current;
     if (!g || n < 2) return null;
-    const i = Math.round(((x - GUTTER) / g.plotW) * (n - 1));
+    const i = Math.round(((x - PAD_X) / g.plotW) * (n - 1));
     return Math.max(0, Math.min(n - 1, i));
   };
 
@@ -85,9 +86,9 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
   const a = geo && active != null && active < points.length ? active : null;
 
   return (
-    <View style={styles.wrap} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={styles.wrap} onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
       {geo ? (
-        <Svg width={width} height={HEIGHT}>
+        <Svg width={width} height={height}>
           <Defs>
             <LinearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={color} stopOpacity={0.35} />
@@ -100,8 +101,8 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
             const y = PAD_T + (k / 3) * geo.plotH;
             return (
               <Fragment key={k}>
-                <Line x1={GUTTER} x2={width - PAD_R} y1={y} y2={y} stroke={C.cardBorder} strokeWidth={1} />
-                <SvgText x={GUTTER - 6} y={y + 3} fontSize={9} fill={C.textSecondary} textAnchor="end">
+                <Line x1={0} x2={width} y1={y} y2={y} stroke={C.cardBorder} strokeWidth={1} />
+                <SvgText x={8} y={y - 4} fontSize={9} fill={C.textSecondary} textAnchor="start">
                   {formatPrice(v)}
                 </SvgText>
               </Fragment>
@@ -117,15 +118,22 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
               <SvgText
                 key={k}
                 x={geo.xs[i]}
-                y={HEIGHT - 8}
+                y={height - 10}
                 fontSize={9}
                 fill={C.textSecondary}
                 textAnchor={k === 0 ? "start" : k === 3 ? "end" : "middle"}
+                dx={k === 0 ? 8 : k === 3 ? -8 : 0}
               >
                 {xLabel(points[i].t)}
               </SvgText>
             );
           })}
+
+          {a == null ? (
+            <SvgText x={8} y={18} fontSize={11} fill={C.textSecondary}>
+              Touch and drag on the chart to see the price at any moment.
+            </SvgText>
+          ) : null}
 
           {a != null ? (
             <>
@@ -139,7 +147,7 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
       {geo && a != null ? (
         <View
           pointerEvents="none"
-          style={[styles.tooltip, { left: Math.max(GUTTER, Math.min(geo.xs[a] - TOOLTIP_W / 2, width - TOOLTIP_W - 4)) }]}
+          style={[styles.tooltip, { left: Math.max(4, Math.min(geo.xs[a] - TOOLTIP_W / 2, width - TOOLTIP_W - 4)) }]}
         >
           <Text style={styles.tooltipText}>
             Date: {dateLabel(points[a].t)}, {timeLabel(points[a].t)}
@@ -155,7 +163,7 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: HEIGHT, width: "100%" },
+  wrap: { flex: 1, width: "100%" },
   tooltip: {
     position: "absolute",
     top: 6,

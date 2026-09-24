@@ -48,9 +48,19 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                 </Text>
               </View>
             </View>
-            <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
-              <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
-            </TouchableRipple>
+            <View style={styles.headerRight}>
+              <View style={styles.priceCol}>
+                <Text style={styles.price} numberOfLines={1}>
+                  {last != null ? "$" + formatPrice(last) : "—"}
+                </Text>
+                <Text style={[styles.change, change != null ? { color } : undefined]} numberOfLines={1}>
+                  {change != null ? (up ? "+" : "") + change.toFixed(2) + "% · " + range : " "}
+                </Text>
+              </View>
+              <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
+                <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
+              </TouchableRipple>
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -69,17 +79,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
         </View>
 
         {tab === "chart" ? (
-          <ScrollView contentContainerStyle={styles.body}>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>{last != null ? `$${formatPrice(last)}` : "—"}</Text>
-              {change != null ? (
-                <Text style={[styles.change, { color }]}>
-                  {up ? "+" : ""}
-                  {change.toFixed(2)}% · {range}
-                </Text>
-              ) : null}
-            </View>
-
+          <View style={styles.chartTab}>
             <View style={styles.rangeRow}>
               {(Object.keys(CHART_RANGES) as ChartRange[]).map((r) => (
                 <TouchableRipple key={r} style={styles.tab} onPress={() => setRange(r)}>
@@ -91,7 +91,18 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
               ))}
             </View>
 
-            <View style={styles.chartCard}>
+            {candidate ? (
+              <View style={[styles.card, styles.statsCard]}>
+                <StatRow
+                  label="Typical 1-hour move"
+                  value={candidate.volatilityPct != null ? "±" + candidate.volatilityPct.toFixed(2) + "%" : "not measured yet"}
+                />
+                <StatRow label="Category" value={candidate.tier + " · " + candidate.fpCost + " FP"} last />
+              </View>
+            ) : null}
+
+            {/* Fills all the space left, edge to edge, no border. */}
+            <View style={styles.chartArea}>
               {poolLoading || seriesLoading ? (
                 <View style={styles.chartPlaceholder}>
                   <ActivityIndicator color={C.accent} />
@@ -104,18 +115,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                 <PriceChart points={points} color={color} />
               )}
             </View>
-            <Text style={styles.hint}>Touch and drag on the chart to see the price at any moment.</Text>
-
-            {candidate ? (
-              <View style={styles.card}>
-                <StatRow
-                  label="Typical 1-hour move"
-                  value={candidate.volatilityPct != null ? `±${candidate.volatilityPct.toFixed(2)}%` : "not measured yet"}
-                />
-                <StatRow label="Category" value={`${candidate.tier} · ${candidate.fpCost} FP`} last />
-              </View>
-            ) : null}
-          </ScrollView>
+          </View>
         ) : (
           <ScrollView contentContainerStyle={styles.body}>
             {candidate ? (
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
-  subtitle: { color: C.textSecondary, fontSize: 12, maxWidth: 220 },
+  subtitle: { color: C.textSecondary, fontSize: 12, maxWidth: 150 },
   closeButton: { padding: 6, borderRadius: 999 },
   divider: { height: 1, backgroundColor: C.cardBorder },
   tabRow: { flexDirection: "row" },
@@ -182,20 +182,15 @@ const styles = StyleSheet.create({
   tabUnderline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
   tabUnderlineActive: { backgroundColor: C.accent },
   body: { padding: 16, gap: 12 },
-  priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
-  price: { color: C.textPrimary, fontWeight: "800", fontSize: 26 },
-  change: { fontWeight: "700", fontSize: 14 },
-  rangeRow: { flexDirection: "row", marginHorizontal: -16, marginTop: -4 },
-  chartCard: {
-    backgroundColor: C.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    paddingVertical: 8,
-    overflow: "hidden",
-  },
-  chartPlaceholder: { height: 230, alignItems: "center", justifyContent: "center" },
-  hint: { color: C.textSecondary, fontSize: 11, textAlign: "center" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  priceCol: { alignItems: "flex-end" },
+  price: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
+  change: { fontWeight: "700", fontSize: 12 },
+  chartTab: { flex: 1 },
+  rangeRow: { flexDirection: "row" },
+  statsCard: { marginHorizontal: 16, marginTop: 4 },
+  chartArea: { flex: 1, marginTop: 16 },
+  chartPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: {
     backgroundColor: C.card,
     borderRadius: 16,

@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
   slotsRow: { flexDirection: "row", gap: 2, paddingLeft: 16, paddingRight: 10, paddingTop: 8 },
   slotWrap: { flex: 1, paddingTop: 8, paddingRight: 6 },
   slot: {
-    flex: 1,
+    flexGrow: 1, // not flex:1: its zero basis would collapse the card to minHeight and eat the padding
     minHeight: 96,
     borderRadius: 16,
     borderWidth: 1,
