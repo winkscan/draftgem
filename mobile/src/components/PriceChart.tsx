@@ -8,7 +8,7 @@ import { PF_COLORS as C } from "../theme";
 
 // The chart fills whatever space it is given, edge to edge: every label sits inside the plot, over
 // the gridlines / the filled area, and the fill runs down to the bottom edge.
-const PAD_T = 34; // room above the highest price for the hint / tooltip
+const PAD_T = 44; // room above the highest price for the hint / tooltip
 const PAD_B = 30; // the lowest price stays this far above the bottom edge, leaving room for x labels
 const PAD_X = 0;
 const TOOLTIP_W = 150;

@@ -81,27 +81,6 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
 
         {tab === "chart" ? (
           <View style={styles.chartTab}>
-            <View style={styles.rangeRow}>
-              {(Object.keys(CHART_RANGES) as ChartRange[]).map((r) => (
-                <TouchableRipple key={r} style={styles.tab} onPress={() => setRange(r)}>
-                  <View style={styles.tabInner}>
-                    <Text style={[styles.tabText, range === r ? styles.tabTextActive : undefined]}>{r}</Text>
-                    <View style={[styles.tabUnderline, range === r ? styles.tabUnderlineActive : undefined]} />
-                  </View>
-                </TouchableRipple>
-              ))}
-            </View>
-
-            {candidate ? (
-              <View style={[styles.card, styles.statsCard]}>
-                <StatRow
-                  label="Typical 1-hour move"
-                  value={candidate.volatilityPct != null ? "±" + candidate.volatilityPct.toFixed(2) + "%" : "not measured yet"}
-                />
-                <StatRow label="Category" value={candidate.tier + " · " + candidate.fpCost + " FP"} last />
-              </View>
-            ) : null}
-
             {/* Fills all the space left, edge to edge, no border. */}
             <View style={styles.chartArea}>
               {poolLoading || seriesLoading ? (
@@ -114,11 +93,30 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                 <PriceChart points={points} color={color} />
               )}
             </View>
+
+            {/* Time range: pills on the footer background, at the very bottom. */}
+            <View style={[styles.rangeFooter, { paddingBottom: 12 + insets.bottom }]}>
+              {(Object.keys(CHART_RANGES) as ChartRange[]).map((r) => (
+                <TouchableRipple
+                  key={r}
+                  style={[styles.rangePill, range === r ? styles.rangePillActive : undefined]}
+                  borderless
+                  onPress={() => setRange(r)}
+                >
+                  <Text style={[styles.rangeText, range === r ? styles.rangeTextActive : undefined]}>{r}</Text>
+                </TouchableRipple>
+              ))}
+            </View>
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.body}>
             {candidate ? (
               <View style={styles.card}>
+                <StatRow
+                  label="Typical 1-hour move"
+                  value={candidate.volatilityPct != null ? "±" + candidate.volatilityPct.toFixed(2) + "%" : "not measured yet"}
+                />
+                <StatRow label="Category" value={candidate.tier + " · " + candidate.fpCost + " FP"} />
                 <StatRow label="Market cap" value={formatUsdCompact(candidate.marketCapUsd)} />
                 <StatRow label="Liquidity" value={formatUsdCompact(candidate.liquidityUsd)} />
                 <StatRow label="Age" value={formatAge(candidate.ageDays)} last />
@@ -182,13 +180,31 @@ const styles = StyleSheet.create({
   tabUnderlineActive: { backgroundColor: C.accent },
   body: { padding: 16, gap: 12 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-  priceCol: { alignItems: "flex-end" },
+  priceCol: { alignItems: "flex-start" },
   price: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
   change: { fontWeight: "700", fontSize: 12 },
   chartTab: { flex: 1 },
-  rangeRow: { flexDirection: "row" },
-  statsCard: { marginHorizontal: 16, marginTop: 4 },
-  chartArea: { flex: 1, marginTop: 16 },
+  rangeFooter: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: C.cardBorder,
+    backgroundColor: C.card,
+  },
+  rangePill: {
+    flex: 1,
+    height: 34,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.glass,
+  },
+  rangePillActive: { backgroundColor: C.textPrimary },
+  rangeText: { color: C.textSecondary, fontWeight: "700", fontSize: 12 },
+  rangeTextActive: { color: "#000000" },
+  chartArea: { flex: 1 },
   chartPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: {
     backgroundColor: C.card,

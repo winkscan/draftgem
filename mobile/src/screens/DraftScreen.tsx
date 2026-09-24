@@ -157,7 +157,7 @@ export function DraftScreen() {
               {viewingExistingSingleEntry ? myEntry!.fpSpent : remainingFp} FP
             </Text>
           </View>
-          <BudgetBar spent={viewingExistingSingleEntry ? myEntry!.fpSpent : spentFp} max={MAX_BUDGET_FP} />
+          <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
 
           <View style={styles.slotsRow}>
             {displayedSlots.map((c, i) => (
@@ -356,19 +356,19 @@ export function DraftHeader({ tournamentId }: { tournamentId: string }) {
   );
 }
 
-// How much of the budget is spent: the bar fills left to right and its colour runs from calm to
-// alarm across the FULL track, so the colour at the fill's edge itself says how close you are to the cap.
-function BudgetBar({ spent, max }: { spent: number; max: number }) {
+// How full the portfolio is: each of the five coins adds a fifth of the bar (20%, 40% ... 100%).
+// The gradient runs purple to green across the FULL track, so the fill reveals more of it as it grows.
+function BudgetBar({ filled, total }: { filled: number; total: number }) {
   const [width, setWidth] = useState(0);
-  const fill = Math.max(0, Math.min(1, spent / max)) * width;
+  const fill = Math.max(0, Math.min(1, filled / total)) * width;
   return (
     <View style={styles.barTrack} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {width > 0 ? (
         <Svg width={width} height={4}>
           <Defs>
             <LinearGradient id="budgetGradient" x1="0" y1="0" x2={width} y2="0" gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor={C.positive} />
-              <Stop offset="1" stopColor={C.accent} />
+              <Stop offset="0" stopColor={C.accent} />
+              <Stop offset="1" stopColor={C.positive} />
             </LinearGradient>
           </Defs>
           <Rect x="0" y="0" width={fill} height="4" rx="2" fill="url(#budgetGradient)" />
@@ -399,7 +399,17 @@ function SlotCard({ candidate: c, readonly, onRemove }: { candidate: Candidate |
             </Text>
           </>
         ) : (
-          <Text style={styles.slotEmpty}>Empty</Text>
+          <>
+            {/* Invisible copy of a filled card's content, so an empty slot is exactly as tall. */}
+            <View style={styles.slotGhost}>
+              <View style={{ width: 28, height: 28 }} />
+              <Text style={styles.slotName}> </Text>
+              <Text style={styles.slotFp}> </Text>
+              <View style={styles.slotDivider} />
+              <Text style={styles.slotCategory}> </Text>
+            </View>
+            <Text style={styles.slotEmptyLabel}>Empty</Text>
+          </>
         )}
       </View>
       {c && !readonly ? (
@@ -509,7 +519,8 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   slotName: { color: C.textPrimary, fontWeight: "800", fontSize: 14, alignSelf: "stretch", textAlign: "center", marginTop: 3 },
-  slotEmpty: { color: C.textSecondary, fontSize: 12 },
+  slotGhost: { opacity: 0, alignItems: "center", alignSelf: "stretch", gap: 1 },
+  slotEmptyLabel: { position: "absolute", color: C.textSecondary, fontSize: 12 },
   slotFp: { color: C.accentText, fontSize: 11, fontWeight: "600" },
   slotDivider: { height: 1, alignSelf: "stretch", marginHorizontal: 6, marginVertical: 4, backgroundColor: C.cardBorder },
   slotCategory: { color: C.textSecondary, fontSize: 11 },
