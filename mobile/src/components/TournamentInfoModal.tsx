@@ -86,13 +86,13 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
           <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
             <View style={styles.headerTop}>
               <View style={styles.badgeRow}>
+                <TouchableRipple style={styles.backButton} borderless onPress={onClose}>
+                  <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
+                </TouchableRipple>
                 <ModeBadges tournament={t} />
                 <PayoutBadge label={payoutLabel} />
                 {isPrivate ? <FontAwesome6 name="lock" size={12} color={C.textSecondary} /> : null}
               </View>
-              <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
-                <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
-              </TouchableRipple>
             </View>
             <View style={styles.headerBottom}>
               <View style={{ flexShrink: 1 }}>
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
   headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  closeButton: { padding: 6, borderRadius: 999 },
+  backButton: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   headerBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
   subtitle: { color: C.textSecondary, fontSize: 12, marginTop: 2 },

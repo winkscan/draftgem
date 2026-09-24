@@ -19,6 +19,9 @@ export type ChartRange = keyof typeof CHART_RANGES;
 export interface PricePoint {
   t: number; // unix seconds
   price: number; // USD, candle close
+  open: number;
+  high: number;
+  low: number;
 }
 
 export function usePriceSeries(pool: string | null | undefined, range: ChartRange) {
@@ -33,7 +36,7 @@ export function usePriceSeries(pool: string | null | undefined, range: ChartRang
       const body = (await res.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
       const list = body.data?.attributes?.ohlcv_list ?? [];
       // [timestamp, open, high, low, close, volume], newest first
-      return list.map((c) => ({ t: c[0], price: c[4] })).sort((a, b) => a.t - b.t);
+      return list.map((c) => ({ t: c[0], open: c[1], high: c[2], low: c[3], price: c[4] })).sort((a, b) => a.t - b.t);
     },
     enabled: !!pool,
     staleTime: 60_000,

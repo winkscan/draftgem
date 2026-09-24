@@ -39,6 +39,9 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
         <View style={styles.panel}>
           <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
             <View style={styles.headerLeft}>
+              <TouchableRipple style={styles.backButton} borderless onPress={onClose}>
+                <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
+              </TouchableRipple>
               {candidate ? (
                 <TokenIcon mint={candidate.mint} icon={candidate.icon} symbol={candidate.symbol} size={32} />
               ) : null}
@@ -58,9 +61,6 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                   {change != null ? (up ? "+" : "") + change.toFixed(2) + "% · " + range : " "}
                 </Text>
               </View>
-              <TouchableRipple style={styles.closeButton} borderless onPress={onClose}>
-                <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
-              </TouchableRipple>
             </View>
           </View>
 
@@ -90,7 +90,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
               ) : !pool || isError || !points || points.length < 2 ? (
                 <EmptyState icon="chart-line" label="No Chart Data" hint="This coin has no price history yet." />
               ) : (
-                <PriceChart points={points} color={color} />
+                <PriceChart points={points} />
               )}
             </View>
 
@@ -166,10 +166,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
   subtitle: { color: C.textSecondary, fontSize: 12, maxWidth: 150 },
-  closeButton: { padding: 6, borderRadius: 999 },
+  backButton: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   divider: { height: 1, backgroundColor: C.cardBorder },
   tabRow: { flexDirection: "row" },
   tab: { flex: 1 },
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   tabUnderlineActive: { backgroundColor: C.accent },
   body: { padding: 16, gap: 12 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-  priceCol: { alignItems: "flex-start" },
+  priceCol: { alignItems: "flex-end" },
   price: { color: C.textPrimary, fontWeight: "800", fontSize: 18 },
   change: { fontWeight: "700", fontSize: 12 },
   chartTab: { flex: 1 },

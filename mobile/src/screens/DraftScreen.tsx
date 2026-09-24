@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, FlatList, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ActivityIndicator, Searchbar, Text, TouchableRipple } from "react-native-paper";
 import { useRoute } from "@react-navigation/native";
@@ -358,9 +358,16 @@ export function DraftHeader({ tournamentId }: { tournamentId: string }) {
 
 // How full the portfolio is: each of the five coins adds a fifth of the bar (20%, 40% ... 100%).
 // The gradient runs purple to green across the FULL track, so the fill reveals more of it as it grows.
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
 function BudgetBar({ filled, total }: { filled: number; total: number }) {
   const [width, setWidth] = useState(0);
-  const fill = Math.max(0, Math.min(1, filled / total)) * width;
+  const target = Math.max(0, Math.min(1, filled / total)) * width;
+  const fill = useRef(new Animated.Value(0)).current;
+  // Glide to the new width instead of jumping (SVG props can't use the native driver).
+  useEffect(() => {
+    Animated.timing(fill, { toValue: target, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [target, fill]);
   return (
     <View style={styles.barTrack} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {width > 0 ? (
@@ -371,7 +378,7 @@ function BudgetBar({ filled, total }: { filled: number; total: number }) {
               <Stop offset="1" stopColor={C.positive} />
             </LinearGradient>
           </Defs>
-          <Rect x="0" y="0" width={fill} height="4" rx="2" fill="url(#budgetGradient)" />
+          <AnimatedRect x="0" y="0" width={fill} height="4" rx="2" fill="url(#budgetGradient)" />
         </Svg>
       ) : null}
     </View>
