@@ -183,19 +183,6 @@ export function LeaderboardScreen() {
             : "Final prices aren't recorded yet."}
         </Text>
       ) : null}
-      {mine && mine.claimed && mine.prizeLamports > 0n ? (
-        <TouchableRipple style={styles.payoutPill} onPress={() => openPayout(mine.key)}>
-          <View style={styles.payoutPillInner}>
-            <FontAwesome6 name="circle-check" size={13} color={C.positive} />
-            <Text style={styles.payoutPillText}>Paid out · View payout on Solscan</Text>
-            {openingPayout === mine.key ? (
-              <ActivityIndicator size={12} color={C.accent2} />
-            ) : (
-              <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
-            )}
-          </View>
-        </TouchableRipple>
-      ) : null}
       <View style={styles.tableHead}>
         <Text style={[styles.th, { width: 40 }]}>Place</Text>
         <Text style={[styles.th, { flex: 1.3 }]}>Player</Text>
@@ -222,7 +209,7 @@ export function LeaderboardScreen() {
               onMomentumScrollEnd={(e) => setMyIndex(Math.round(e.nativeEvent.contentOffset.x / pagerWidth))}
               renderItem={({ item }) => (
                 <View style={{ width: pagerWidth, paddingHorizontal: 16, paddingTop: 10 }}>
-                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} portfolioNo={item.entryIndex + 1} />
+                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} portfolioNo={item.entryIndex + 1} openPayout={openPayout} openingPayout={openingPayout} />
                 </View>
               )}
             />
@@ -249,6 +236,8 @@ export function LeaderboardScreen() {
             candidatesByMint={candidatesByMint}
             title={ellipsify(compare.player, 4) + (tournament.entryMode === "multiple" ? " #" + (compare.entryIndex + 1) : "")}
             onPress={() => setCompareKey(null)}
+            openPayout={openPayout}
+            openingPayout={openingPayout}
           />
         ) : (
           <View style={styles.compareHint}>
@@ -268,8 +257,7 @@ export function LeaderboardScreen() {
         ListFooterComponent={
           <Text style={styles.footnote}>
             {PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")}, after a{" "}
-            {creatorFeeBps > 0 ? "10% cut (5% platform, 5% the creator)" : "5% fee"}; a tie at the cut-off wins too. Tap the link icon next to a
-            paid prize to see the payout on Solscan.
+            {creatorFeeBps > 0 ? "10% cut (5% platform, 5% the creator)" : "5% fee"}; a tie at the cut-off wins too.
           </Text>
         }
         renderItem={({ item: r }) => (
@@ -296,15 +284,6 @@ export function LeaderboardScreen() {
                 <Text style={[styles.cell, r.isMine ? styles.bold : undefined]}>
                   {r.prizeLamports > 0n ? formatAmountCompact(r.prizeLamports, decimals) : "-"}
                 </Text>
-                {r.claimed && r.prizeLamports > 0n ? (
-                  <TouchableRipple borderless style={styles.payoutIcon} onPress={() => openPayout(r.key)}>
-                    {openingPayout === r.key ? (
-                      <ActivityIndicator size={11} color={C.accent2} />
-                    ) : (
-                      <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
-                    )}
-                  </TouchableRipple>
-                ) : null}
               </View>
             </View>
           </TouchableRipple>
@@ -323,6 +302,8 @@ function StandingCard({
   title,
   portfolioNo,
   onPress,
+  openPayout,
+  openingPayout,
 }: {
   row: Row;
   tournament: import("../pumpfantasy/accounts").TournamentAccount;
@@ -330,6 +311,8 @@ function StandingCard({
   title?: string;
   portfolioNo?: number;
   onPress?: () => void;
+  openPayout: (entryKey: string) => void;
+  openingPayout: string | null;
 }) {
   const titleBadges: { label: string; tone: "accent" | "live"; icon: string }[] = [{ label: "Nr. " + row.rank, tone: "accent", icon: "medal" }];
   if (row.prizeLamports > 0n) {
@@ -354,6 +337,21 @@ function StandingCard({
         candidate: candidatesByMint.get(p.mint),
         pct: { text: p.bps == null ? "…" : bpsToPercentLabel(p.bps), tone: p.bps == null ? "pending" : p.bps >= 0 ? "up" : "down" },
       }))}
+      footer={
+        row.claimed && row.prizeLamports > 0n ? (
+          <TouchableRipple style={styles.payoutPill} borderless onPress={() => openPayout(row.key)}>
+            <View style={styles.payoutPillInner}>
+              <FontAwesome6 name="circle-check" size={13} color={C.positive} />
+              <Text style={styles.payoutPillText}>Paid out · View payout on Solscan</Text>
+              {openingPayout === row.key ? (
+                <ActivityIndicator size={12} color={C.accent2} />
+              ) : (
+                <FontAwesome6 name="arrow-up-right-from-square" size={11} color={C.accent2} />
+              )}
+            </View>
+          </TouchableRipple>
+        ) : null
+      }
       onPress={onPress}
     />
   );
@@ -394,13 +392,7 @@ const styles = StyleSheet.create({
   rowCompared: { borderColor: C.accent2 },
   cell: { color: C.textSecondary, fontSize: 13 },
   prizeCell: { flexDirection: "row", alignItems: "center", gap: 4 },
-  payoutIcon: { padding: 5, borderRadius: 999 },
-  payoutPill: {
-    marginBottom: 8,
-    borderRadius: 999,
-    backgroundColor: C.accent2Tint,
-    alignSelf: "flex-start",
-  },
+  payoutPill: { borderRadius: 999, backgroundColor: C.accent2Tint, alignSelf: "flex-start" },
   payoutPillInner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   payoutPillText: { color: C.textPrimary, fontWeight: "700", fontSize: 12 },
   bold: { color: C.textPrimary, fontWeight: "800" },

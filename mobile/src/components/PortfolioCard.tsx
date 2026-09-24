@@ -124,6 +124,7 @@ export function PortfolioCard({
   titleBadges,
   badge,
   slots,
+  footer,
   onPress,
 }: {
   /** A player's address, shown as a white badge with a user icon. Ignored when `portfolioNo` is given. */
@@ -134,6 +135,8 @@ export function PortfolioCard({
   titleBadges?: { label: string; tone: BadgeTone; icon?: string }[];
   badge: { label: string; tone: BadgeTone };
   slots: { key: string; candidate: Candidate | undefined; pct?: { text: string; tone: "up" | "down" | "pending" } }[];
+  /** Extra content under the coins (the payout link). */
+  footer?: React.ReactNode;
   onPress?: () => void;
 }) {
   const content = (
@@ -156,6 +159,7 @@ export function PortfolioCard({
           <SlotCard key={sl.key} candidate={sl.candidate} pct={sl.pct} compact />
         ))}
       </View>
+      {footer}
     </View>
   );
   return onPress ? (
