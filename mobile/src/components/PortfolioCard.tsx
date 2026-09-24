@@ -99,10 +99,11 @@ function toneStyles(tone: BadgeTone): { bg: object | undefined; text: object | u
   }
 }
 
-function Badge({ label, tone }: { label: string; tone: BadgeTone }) {
+function Badge({ label, tone, icon }: { label: string; tone: BadgeTone; icon?: string }) {
   const t = toneStyles(tone);
   return (
-    <View style={[styles.badge, t.bg]}>
+    <View style={[styles.badge, icon ? styles.badgeWithIcon : undefined, t.bg]}>
+      {icon ? <FontAwesome6 name={icon} size={10} color={(t.text as { color?: string } | undefined)?.color ?? C.textSecondary} /> : null}
       <Text style={[styles.badgeText, t.text]} numberOfLines={1}>
         {label}
       </Text>
@@ -124,7 +125,7 @@ export function PortfolioCard({
 }: {
   title: string;
   /** Small badges right after the title (place, prize). */
-  titleBadges?: { label: string; tone: BadgeTone }[];
+  titleBadges?: { label: string; tone: BadgeTone; icon?: string }[];
   badge: { label: string; tone: BadgeTone };
   slots: { key: string; candidate: Candidate | undefined; pct?: { text: string; tone: "up" | "down" | "pending" } }[];
   onPress?: () => void;
@@ -137,7 +138,7 @@ export function PortfolioCard({
             {title}
           </Text>
           {titleBadges?.map((b) => (
-            <Badge key={b.label} label={b.label} tone={b.tone} />
+            <Badge key={b.label} label={b.label} tone={b.tone} icon={b.icon} />
           ))}
         </View>
         <Badge label={badge.label} tone={badge.tone} />
@@ -165,6 +166,7 @@ const styles = StyleSheet.create({
   pressable: { borderRadius: 16 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 15 },
   badge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: C.glassStrong },
+  badgeWithIcon: { flexDirection: "row", alignItems: "center", gap: 5 },
   badgeText: { color: C.textSecondary, fontWeight: "700", fontSize: 12 },
   slots: { flexDirection: "row", gap: 6 },
 

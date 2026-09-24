@@ -326,11 +326,12 @@ function StandingCard({
   title: string;
   onPress?: () => void;
 }) {
-  const titleBadges: { label: string; tone: "accent" | "live" }[] = [{ label: "Nr. " + row.rank, tone: "accent" }];
+  const titleBadges: { label: string; tone: "accent" | "live"; icon: string }[] = [{ label: "Nr. " + row.rank, tone: "accent", icon: "medal" }];
   if (row.prizeLamports > 0n) {
     titleBadges.push({
       label: formatAmountCompact(row.prizeLamports, decimalsForMint(tournament.mint)) + " " + currencyForMint(tournament.mint),
       tone: "live",
+      icon: "coins",
     });
   }
   return (
