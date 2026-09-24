@@ -79,7 +79,7 @@ export function DraftScreen() {
   // Set right after a successful entry: shows the congratulation page until dismissed.
   const [justEntered, setJustEntered] = useState<{ entryNo: number; picks: Candidate[] } | null>(null);
   // Set when the entry fails (wallet approval cancelled, or an error): shows the failure page.
-  const [failed, setFailed] = useState<{ cancelled: boolean; message: string } | null>(null);
+  const [failed, setFailed] = useState<{ cancelled: boolean; message: string; closed?: boolean } | null>(null);
   useEffect(() => {
     setJustEntered(null);
     setFailed(null);
@@ -119,13 +119,40 @@ export function DraftScreen() {
     setPicked([...picked, candidate]);
   };
 
-  const timeClosed = !!tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs);
+  // Flips to true the moment the round starts, even while the screen is just sitting open.
+  const [timeClosed, setTimeClosed] = useState(() => !!tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs));
+  useEffect(() => {
+    if (!tournament) return;
+    const check = () => {
+      if (Math.floor(Date.now() / 1000) >= Number(tournament.startTs)) setTimeClosed(true);
+    };
+    check();
+    const timer = setInterval(check, 1000);
+    return () => clearInterval(timer);
+  }, [tournament?.startTs]);
   // PvP is a duel: two players. The contract can't cap entries, so the app keeps a third one out.
   const isDuel = tournamentMeta?.[tournamentId]?.payout === "pvp";
   const duelFull = isDuel && !!tournament && tournament.entryCount >= 2 && !viewingExistingSingleEntry;
   const entriesClosed = timeClosed || duelFull;
   const blockedBySingleEntry = viewingExistingSingleEntry;
   const canSubmit = picked.length === PICKS_PER_ENTRY && !submitting && !entriesClosed && !blockedBySingleEntry;
+
+  // Entries closed while a portfolio was being built (the round started, or a duel filled up):
+  // say so with the failure page instead of silently swapping the screen.
+  const wasClosed = useRef(entriesClosed);
+  useEffect(() => {
+    if (entriesClosed && !wasClosed.current && picked.length > 0 && !justEntered && !failed && !viewingExistingSingleEntry) {
+      setFailed({
+        cancelled: false,
+        closed: true,
+        message:
+          duelFull && !timeClosed
+            ? "Someone else took the second seat in this duel while you were building. Nothing was charged."
+            : "The tournament started before your entry was placed, so it's no longer open for entries. Nothing was charged.",
+      });
+    }
+    wasClosed.current = entriesClosed;
+  }, [entriesClosed]);
 
   const onSubmit = async () => {
     setError(null);
@@ -146,7 +173,15 @@ export function DraftScreen() {
       await queryClient.invalidateQueries({ queryKey: ["tournament"] });
     } catch (e: any) {
       const message: string = e?.message ?? "Entry failed — see wallet for details.";
-      setFailed({ cancelled: /declin|cancel|reject|denied/i.test(message), message });
+      if (tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs)) {
+        setFailed({
+          cancelled: false,
+          closed: true,
+          message: "The tournament started before your entry went through, so it's no longer open for entries. Nothing was charged.",
+        });
+      } else {
+        setFailed({ cancelled: /declin|cancel|reject|denied/i.test(message), message });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -161,7 +196,17 @@ export function DraftScreen() {
   }
 
   if (failed) {
-    return <EntryFailure cancelled={failed.cancelled} message={failed.message} onBack={() => setFailed(null)} />;
+    return (
+      <EntryFailure
+        cancelled={failed.cancelled}
+        message={failed.message}
+        buttonLabel={failed.closed ? "Go to lobby" : undefined}
+        onBack={() => {
+          setFailed(null);
+          if (failed.closed) navigation.navigate("HomeStack");
+        }}
+      />
+    );
   }
 
   if (justEntered) {

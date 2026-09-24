@@ -6,7 +6,17 @@ import { PF_COLORS as C } from "../theme";
 
 // Shown when entering a tournament didn't go through (payment cancelled in the wallet, or an error),
 // the same page as when creating a tournament fails. The drafted portfolio is still there behind it.
-export function EntryFailure({ cancelled, message, onBack }: { cancelled: boolean; message: string; onBack: () => void }) {
+export function EntryFailure({
+  cancelled,
+  message,
+  buttonLabel = "Back to tournament",
+  onBack,
+}: {
+  cancelled: boolean;
+  message: string;
+  buttonLabel?: string;
+  onBack: () => void;
+}) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <PulseBadge style={styles.badge}>
@@ -19,7 +29,7 @@ export function EntryFailure({ cancelled, message, onBack }: { cancelled: boolea
           : message}
       </Text>
       <TouchableRipple style={styles.whiteButton} borderless onPress={onBack}>
-        <Text style={styles.whiteButtonText}>Back to tournament</Text>
+        <Text style={styles.whiteButtonText}>{buttonLabel}</Text>
       </TouchableRipple>
     </ScrollView>
   );
