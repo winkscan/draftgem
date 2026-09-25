@@ -13,7 +13,10 @@ import { getAllCandidates, type DiscoveredAsset } from "./tokenDiscovery";
 const MODEL = "claude-haiku-4-5-20251001"; // fast and cheap: a portfolio pick doesn't need a bigger model
 const BUDGET_FP = 4000;
 const PER_TIER = 30; // shortlist size per volatility category
-const DAILY_CAP = 400; // calls per day across all players (KV counter): keeps the free quota from running dry
+// Free-tier limits measured in AI Studio (2026-09-25), per model: Flash models 5 requests/min and only 20/day;
+// Flash-Lite models 15/min and 500/day each, all with 250K tokens/min. So the chain below burns through the 20/day
+// of the better models first, and the two Flash-Lite models carry the day: ~1000 requests, ~20 portfolios a minute.
+const DAILY_CAP = 700; // portfolios per day across all players (KV counter): stays under the Flash-Lite daily quotas
 // Free portfolios per player per day. One portfolio is one model call of about 6k tokens in and 0.4k out
 // (see `usage` in the response), so 10 a day per wallet keeps 40 active players inside the global cap.
 export const PER_WALLET_DAILY = 10;
@@ -134,7 +137,8 @@ async function askGemini(env: Env, user: string): Promise<unknown> {
     contents: [{ role: "user", parts: [{ text: user }] }],
     generationConfig: { temperature: 1, responseMimeType: "application/json", responseSchema: upper(PICKS_SCHEMA), maxOutputTokens: 4096 },
   });
-  let quotaHit = false;
+  let dayQuotaHit = false;
+  let minuteQuotaHit = false;
   let last = 0;
   for (const model of [env.GEMINI_MODEL, ...GEMINI_MODELS].filter((m): m is string => !!m)) {
     let res: Response;
@@ -151,7 +155,10 @@ async function askGemini(env: Env, user: string): Promise<unknown> {
     }
     last = res.status;
     if (res.status === 429) {
-      quotaHit = true; // this model's free quota is spent; another model has its own
+      // This model's free quota is spent; another model has its own. A per-day quota means "paused until it
+      // renews", a per-minute one only means "busy, try again in a moment".
+      if (/PerDay/i.test(await res.text())) dayQuotaHit = true;
+      else minuteQuotaHit = true;
       continue;
     }
     if (res.status === 503 || res.status === 404) continue; // overloaded or retired: next one
@@ -168,7 +175,8 @@ async function askGemini(env: Env, user: string): Promise<unknown> {
       continue; // cut off or not JSON: try another model
     }
   }
-  if (quotaHit) throw new AiPausedError("The AI's free credits are used up. Generation resumes when they renew.");
+  if (dayQuotaHit && !minuteQuotaHit) throw new AiPausedError("The AI's free credits are used up. Generation resumes when they renew.");
+  if (minuteQuotaHit) throw new AiFailedError("The AI is busy right now — try again in a minute");
   throw new AiFailedError("The AI is busy right now (" + last + ") — try again in a moment");
 }
 
