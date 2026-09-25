@@ -307,6 +307,18 @@ function RulesTab({
       } Every portfolio picks 5 coins within a 4,000 FP budget.`,
     },
     {
+      id: "results",
+      title: "How results are calculated",
+      body:
+        "Each coin's result is its % change from its start price to its end price, and a coin can lose at most 100%. A portfolio's score is the SUM of its 5 coins' results, not the average. Portfolios are ranked by score, and the prizes go by that ranking. The score is calculated by the on-chain program itself from the recorded prices, so nobody can change it afterwards. The standings during a round use current market prices and can differ from the final result.",
+    },
+    {
+      id: "prices",
+      title: "Where prices come from",
+      body:
+        "The coin list and each coin's category come from Jupiter's token lists (verified and trending Solana coins), limited to coins with real liquidity and market cap; stablecoins are left out. A coin's start and end price are the price at exactly the start and end second of the round, taken from the minute candles of its deepest trading pool (GeckoTerminal, the pool is found through DexScreener). If that history isn't available yet, a live price (Jupiter, DexScreener) stands in for up to 15 minutes. Our backend records each price on chain once, so every player in a tournament is scored on the same numbers. A price that looks wrong, far from the live price, is rejected and retried instead of being written. Before any payout an automatic check re-calculates every score and prize; if anything doesn't add up, the payout is held instead of paid.",
+    },
+    {
       id: "winners",
       title: "Who wins",
       body: `${payoutDescription} If two or more portfolios tie exactly, they split the prize for the place(s) they're tied for evenly between themselves — so the tournament never pays out more than its plan holds, and a large tie near the cut-off can leave lower places with nothing. Among portfolios tied with each other, the one that entered first is listed higher in the standings — checked by each entry's on-chain timestamp — but that never changes how much any of them actually get; tied entries always split their combined prize equally.`,
