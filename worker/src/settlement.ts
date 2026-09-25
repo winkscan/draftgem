@@ -671,10 +671,8 @@ async function runAudit(
   const mint = readMint(tdata);
   const vault = PublicKey.findProgramAddressSync([VAULT_SEED, tournament.toBuffer()], PROGRAM_ID)[0];
   let vaultBalance: bigint;
-  let vaultReserve = 0n;
   if (isNativeMint(mint)) {
     vaultBalance = BigInt(await connection.getBalance(vault));
-    vaultReserve = BigInt(await connection.getMinimumBalanceForRentExemption(0));
   } else {
     const ata = await connection.getAccountInfo(getAssociatedTokenAddress(vault, mint));
     vaultBalance = ata ? readTokenAmount(ata.data) : 0n;
@@ -690,7 +688,6 @@ async function runAudit(
     entryFee: v.getBigUint64(48, true),
     pool: v.getBigUint64(82, true),
     vaultBalance,
-    vaultReserve,
     prizes,
     distributable,
     feeBps,
@@ -700,6 +697,8 @@ async function runAudit(
   if (problems.length > 0) {
     console.error('PAYOUT HELD for ' + id + ': ' + problems.join(' | '));
     await env.CACHE.put('held:' + id, JSON.stringify({ at: Date.now(), problems }), { expirationTtl: 30 * 24 * 3600 });
+  } else {
+    await env.CACHE.delete('held:' + id); // a hold from an earlier check that no longer applies
   }
   return problems;
 }

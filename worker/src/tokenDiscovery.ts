@@ -116,7 +116,8 @@ export function ageDaysFromCreatedAt(createdAt: string): number {
 async function fetchJupiterList(url: string): Promise<JupiterToken[]> {
   const res = await fetch(url);
   if (!res.ok) return [];
-  return (await res.json()) as JupiterToken[];
+  const body = await res.json();
+  return Array.isArray(body) ? (body as JupiterToken[]) : []; // an error object is not a list
 }
 
 async function fetchAllCandidates(): Promise<JupiterToken[]> {
@@ -163,7 +164,37 @@ function toDiscovered(
  * Worker's `/candidates` HTTP endpoint) — nothing here is tournament-
  * specific or pre-registered on-chain.
  */
+const CANDIDATES_CACHE_KEY = "candidates-cache";
+const CANDIDATES_FRESH_MS = 10 * 60_000;
+const CANDIDATES_MIN_OK = 200; // a real pool is 1000+; far fewer means Jupiter answered badly
+
+/**
+ * The pool, from a shared 10-minute cache. Jupiter rate-limits and sometimes answers with nothing;
+ * without the cache that showed up as an empty Draft list (and unsigned FP prices). A bad answer
+ * now falls back to the last good pool instead of an empty one, and every player and the entry
+ * signature see the same list within a window.
+ */
 export async function getAllCandidates(env: Env): Promise<DiscoveredAsset[]> {
+  const cached = (await env.CACHE.get(CANDIDATES_CACHE_KEY, "json")) as { at: number; list: DiscoveredAsset[] } | null;
+  if (cached && Date.now() - cached.at < CANDIDATES_FRESH_MS) return cached.list;
+  let fresh: DiscoveredAsset[] = [];
+  try {
+    fresh = await computeAllCandidates(env);
+  } catch (err) {
+    console.error("Candidate pool refresh failed:", err);
+  }
+  if (fresh.length >= CANDIDATES_MIN_OK) {
+    try {
+      await env.CACHE.put(CANDIDATES_CACHE_KEY, JSON.stringify({ at: Date.now(), list: fresh }));
+    } catch (err) {
+      console.error("Saving the candidate pool failed:", err); // e.g. KV write limit: still serve the fresh one
+    }
+    return fresh;
+  }
+  return cached ? cached.list : fresh; // stale beats empty
+}
+
+async function computeAllCandidates(env: Env): Promise<DiscoveredAsset[]> {
   const [candidates, underlying, vols] = await Promise.all([
     fetchAllCandidates(),
     loadUnderlyingMarketCaps(env),

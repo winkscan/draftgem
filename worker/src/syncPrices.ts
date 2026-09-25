@@ -208,7 +208,9 @@ export const ROUND_SECONDS = 3600; // round length of the tournaments the cron m
  * created exactly as this one starts and the lobby is never empty. */
 export const ENTRY_WINDOW_SECONDS = CREATE_EVERY_TICKS * (TICK_MS / 1000);
 /** How long after a tournament ends the Worker keeps working on it (prices, settlement, refund). */
-export const HISTORY_WINDOW_SECONDS = 3 * 3600;
+// Long enough that a payout stopped by the audit (or a busy RPC) is still retried the next day,
+// instead of falling out of the search window and staying unpaid.
+export const HISTORY_WINDOW_SECONDS = 48 * 3600;
 const TOURNAMENT_SEED = new TextEncoder().encode("tournament");
 
 export function tournamentPdaFor(id: bigint): PublicKey {

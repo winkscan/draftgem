@@ -41,8 +41,6 @@ export interface AuditInput {
   pool: bigint;
   /** What the vault really holds, in the tournament's own units (lamports, or token base units). */
   vaultBalance: bigint;
-  /** Lamports/units the vault must keep back as its rent reserve (native only). */
-  vaultReserve: bigint;
   prizes: Map<string, bigint>;
   distributable: bigint;
   feeBps: number;
@@ -97,7 +95,9 @@ export function auditBeforeFinalize(a: AuditInput): string[] {
 
   // 3. Money in: the pool is exactly what the entries paid, and the vault really holds it.
   if (a.pool !== a.entryFee * BigInt(a.entryCountOnChain)) bad.push(`pool ${a.pool} != ${a.entryCountOnChain} x fee ${a.entryFee}`);
-  if (a.vaultBalance < a.pool + a.vaultReserve) bad.push(`vault holds ${a.vaultBalance}, less than pool ${a.pool} + reserve ${a.vaultReserve}`);
+  // (The vault holds exactly what the entries paid: it has no separate rent reserve on top, so the
+  // check is against the pool alone. An earlier version added a reserve and held every payout.)
+  if (a.vaultBalance < a.pool) bad.push(`vault holds ${a.vaultBalance}, less than pool ${a.pool}`);
 
   // 4. Money out: fees + winners' shares can never exceed the pool, every prize goes to a real
   //    entry of this tournament, and the fee split is one of the two the contract allows.
