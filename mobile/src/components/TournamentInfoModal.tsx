@@ -337,11 +337,11 @@ function RulesTab({
     },
     {
       id: "fees",
-      title: "Who pays what",
+      title: "Fees",
       body:
         creatorCut > 0
-          ? `Winners share ${(winnersShareBps / 100).toFixed(0)}% of the pool. The platform keeps ${(RAKE_BPS / 100).toFixed(0)}%, and this tournament's creator earns ${(creatorCut / 100).toFixed(0)}%, paid straight to their wallet.`
-          : `Winners share ${(winnersShareBps / 100).toFixed(0)}% of the pool. The platform keeps ${(RAKE_BPS / 100).toFixed(0)}% as its fee.`,
+          ? `Winners share ${(winnersShareBps / 100).toFixed(0)}% of the pool. The platform keeps ${(RAKE_BPS / 100).toFixed(0)}%, and this tournament's creator earns ${(creatorCut / 100).toFixed(0)}%, paid straight to their wallet. The entry fee is the only thing that goes into the pool; the refundable deposit is separate.`
+          : `Winners share ${(winnersShareBps / 100).toFixed(0)}% of the pool. The platform keeps ${(RAKE_BPS / 100).toFixed(0)}% as its fee. The entry fee is the only thing that goes into the pool; the refundable deposit is separate.`,
     },
   ];
 
