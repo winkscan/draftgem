@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { Candidate } from "../pumpfantasy/candidates";
 import type { TournamentAccount } from "../pumpfantasy/accounts";
+import { ChartModal } from "./ChartModal";
 import { TokenIcon } from "./TokenIcon";
 import { PF_COLORS as C } from "../theme";
 
@@ -13,6 +15,7 @@ export function SlotCard({
   onRemove,
   pct,
   compact,
+  onPressCoin,
 }: {
   candidate: Candidate | undefined;
   /** Shows the red remove button on the card's top-right corner. */
@@ -21,12 +24,15 @@ export function SlotCard({
   pct?: { text: string; tone: "up" | "down" | "pending" };
   /** No room reserved for the remove button's overhang. */
   compact?: boolean;
+  /** Tapping the coin opens something about it (its chart). */
+  onPressCoin?: () => void;
 }) {
   return (
     // The wrapper reserves room for the remove button, which overhangs the card's top-right corner
     // (Android ignores taps outside a parent's bounds, so the overhang must stay inside the wrapper).
     <View style={[styles.slotWrap, compact ? styles.slotWrapCompact : undefined]}>
-      <View style={styles.slot}>
+      <TouchableRipple style={styles.slot} borderless disabled={!(c && onPressCoin)} onPress={onPressCoin}>
+        <>
         {c ? (
           <>
             <TokenIcon mint={c.mint} icon={c.icon} symbol={c.symbol} size={28} />
@@ -62,7 +68,8 @@ export function SlotCard({
         ) : (
           <Text style={styles.slotName}>?</Text>
         )}
-      </View>
+        </>
+      </TouchableRipple>
       {c && onRemove ? (
         <TouchableRipple style={styles.slotRemove} borderless onPress={onRemove}>
           <FontAwesome6 name="xmark" size={11} color="#fff" />
@@ -139,6 +146,8 @@ export function PortfolioCard({
   footer?: React.ReactNode;
   onPress?: () => void;
 }) {
+  // Tapping a coin opens its chart popup.
+  const [chartCoin, setChartCoin] = useState<Candidate | null>(null);
   const content = (
     <View style={styles.card}>
       <View style={styles.head}>
@@ -156,10 +165,17 @@ export function PortfolioCard({
       </View>
       <View style={styles.slots}>
         {slots.map((sl) => (
-          <SlotCard key={sl.key} candidate={sl.candidate} pct={sl.pct} compact />
+          <SlotCard
+            key={sl.key}
+            candidate={sl.candidate}
+            pct={sl.pct}
+            compact
+            onPressCoin={sl.candidate ? () => setChartCoin(sl.candidate!) : undefined}
+          />
         ))}
       </View>
       {footer}
+      <ChartModal candidate={chartCoin} onClose={() => setChartCoin(null)} />
     </View>
   );
   return onPress ? (

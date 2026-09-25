@@ -214,18 +214,11 @@ function PrizesTab({
   const finalized = tournament.status === "finalized";
   let rows: { rank: number; amount: bigint }[];
   if (finalized) {
-    // The real, possibly-tiered amounts set_prize wrote — grouped so a tie shows as one row
-    // ("2 players Ã— 0.045 SOL") instead of two identical lines.
+    // The real, possibly-tiered amounts set_prize wrote: one row per winning place, even when
+    // amounts repeat (a tie for 1st shows 1st and 2nd with the same prize), so it's clear every
+    // one of those places gets paid.
     const winning = entries.map((e) => e.account.prizeLamports).filter((p) => p > 0n).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-    rows = [];
-    let rank = 1;
-    for (let i = 0; i < winning.length; ) {
-      let j = i;
-      while (j < winning.length && winning[j] === winning[i]) j++;
-      rows.push({ rank, amount: winning[i] });
-      rank += j - i;
-      i = j;
-    }
+    rows = winning.map((amount, i) => ({ rank: i + 1, amount }));
   } else {
     // Projected: what each rank SLOT is worth, assuming nobody ties for it — real ties (and the
     // final amounts) are only known once the round ends.

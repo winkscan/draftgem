@@ -187,7 +187,7 @@ export function LeaderboardScreen() {
         <Text style={[styles.th, { width: 40 }]}>Place</Text>
         <Text style={[styles.th, { flex: 1.3 }]}>Player</Text>
         <Text style={[styles.th, { flex: 1 }]}>Score</Text>
-        <Text style={[styles.th, { flex: 1 }]}>Prize</Text>
+        <Text style={[styles.th, { flex: 1.3 }]}>Prize</Text>
       </View>
     </View>
   );
@@ -282,9 +282,9 @@ export function LeaderboardScreen() {
               >
                 {r.scoreBps == null ? "…" : bpsToPercentLabel(r.scoreBps)}
               </Text>
-              <View style={[styles.prizeCell, { flex: 1 }]}>
+              <View style={[styles.prizeCell, { flex: 1.3 }]}>
                 <Text style={[styles.cell, r.isMine ? styles.bold : undefined]}>
-                  {r.prizeLamports > 0n ? formatAmountCompact(r.prizeLamports, decimals) : "-"}
+                  {r.prizeLamports > 0n ? formatAmountCompact(r.prizeLamports, decimals) + " " + currency : "-"}
                 </Text>
               </View>
             </View>
