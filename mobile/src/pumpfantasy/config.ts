@@ -4,7 +4,7 @@
 import idl from "./idl/pumpfantasy.json";
 import { PublicKey } from "@solana/web3.js";
 
-export const NETWORK = "mainnet" as "devnet" | "mainnet";
+export const NETWORK = "devnet" as "devnet" | "mainnet"; // TODO(mainnet): flip to "mainnet" once the mainnet program and worker are live
 export const IS_MAINNET = NETWORK === "mainnet";
 export const CLUSTER = (IS_MAINNET ? "mainnet-beta" : "devnet") as "mainnet-beta" | "devnet";
 

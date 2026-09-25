@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
 import { AiPortfolioScreen, CreateTournamentScreen, DraftScreen, LeaderboardScreen, ProfileScreen } from "../screens";
 import { DraftHeader } from "../screens/DraftScreen";
+import { OnboardingModal } from "../components/OnboardingModal";
 import { BackHeader } from "../components/top-bar/BackHeader";
 import { ProfileHeader } from "../components/top-bar/ProfileHeader";
 import { AiHeader } from "../components/top-bar/AiHeader";
@@ -92,6 +93,7 @@ export const AppNavigator = ({ navTheme }: NavigationProps) => {
     <NavigationContainer theme={navTheme} linking={linking}>
       <StatusBar style="light" />
       <AppStack />
+      <OnboardingModal />
     </NavigationContainer>
   );
 };
