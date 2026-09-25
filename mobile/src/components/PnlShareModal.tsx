@@ -100,13 +100,13 @@ export function PnlShareModal({
 
           <View style={styles.buttons}>
             <View style={styles.buttonRow}>
-              <TouchableRipple style={[styles.button, styles.buttonOutline]} borderless onPress={copyLink}>
+              <TouchableRipple style={[styles.button, styles.buttonHalf, styles.buttonOutline]} borderless onPress={copyLink}>
                 <View style={styles.buttonInner}>
                   <FontAwesome6 name={done === "link" ? "check" : "link"} size={14} color={C.textPrimary} />
                   <Text style={styles.buttonText}>{done === "link" ? "Copied" : "Copy link"}</Text>
                 </View>
               </TouchableRipple>
-              <TouchableRipple style={[styles.button, styles.buttonOutline]} borderless onPress={copyImage}>
+              <TouchableRipple style={[styles.button, styles.buttonHalf, styles.buttonOutline]} borderless onPress={copyImage}>
                 <View style={styles.buttonInner}>
                   <FontAwesome6 name={done === "image" ? "check" : "copy"} size={14} color={C.textPrimary} />
                   <Text style={styles.buttonText}>{done === "image" ? "Copied" : "Copy image"}</Text>
@@ -135,13 +135,15 @@ const styles = StyleSheet.create({
   shot: { backgroundColor: C.bg, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, paddingTop: 14, paddingHorizontal: 14, overflow: "hidden" },
   shotTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   shotPeriod: { color: C.textSecondary, fontSize: 12, fontWeight: "700" },
-  shotAddress: { color: C.textPrimary, fontWeight: "800", fontSize: 16, marginTop: 16 },
+  shotAddress: { color: C.textSecondary, fontSize: 13, marginTop: 8 },
   shotAmount: { fontWeight: "800", fontSize: 34, marginTop: 2 },
   shotChart: { marginTop: 10, marginHorizontal: -14, height: 110 },
   // Same size and shape as the app's other buttons (52 high, fully round).
   buttons: { gap: 12 },
   buttonRow: { flexDirection: "row", gap: 12 },
-  button: { flex: 1, height: 52, borderRadius: 999, justifyContent: "center" },
+  // Two share a row (flex), the Share button spans the width: flex:1 in a column would collapse its height to 0.
+  button: { height: 52, borderRadius: 999, justifyContent: "center", alignSelf: "stretch" },
+  buttonHalf: { flex: 1 },
   buttonOutline: { borderWidth: 1, borderColor: C.cardBorder },
   buttonPrimary: { backgroundColor: C.accent2 },
   buttonInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
