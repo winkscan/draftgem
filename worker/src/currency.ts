@@ -40,11 +40,19 @@ export function readTokenAmount(data: Uint8Array): bigint {
 // ORE and USDC addresses are the SAME on devnet and mainnet (real deployed mints, not
 // test-only placeholders — confirmed on-chain 2026-09-22: both are classic SPL Token
 // program mints, ORE decimals=11, USDC decimals=6).
-export type Currency = "SOL" | "ORE" | "USDC";
+export type Currency = "SKR" | "SOL" | "ORE" | "USDC";
+
+// SKR, the Solana Mobile (Seeker) token, is the platform's main currency. Real SKR has 6 decimals; its mainnet
+// mint is SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3. This worker runs on DEVNET, where the real mint doesn't
+// exist, so it uses a test mint owned by the platform key (see faucet.ts). Switch to the mainnet mint together
+// with the rest of the mainnet migration.
+export const SKR_MINT_MAINNET = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+export const SKR_MINT_DEVNET = "3KQM6MobTX4TZhoLyQgmKmvvexJ7wozY29FFK9rPUZgU";
 
 export const NATIVE_MINT = PublicKey.default;
 
 export const CURRENCIES: Record<Currency, { mint: PublicKey | null; decimals: number; label: string }> = {
+  SKR: { mint: new PublicKey(SKR_MINT_DEVNET), decimals: 6, label: "SKR" },
   SOL: { mint: null, decimals: 9, label: "SOL" },
   ORE: { mint: new PublicKey("oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp"), decimals: 11, label: "ORE" },
   USDC: { mint: new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), decimals: 6, label: "USDC" },

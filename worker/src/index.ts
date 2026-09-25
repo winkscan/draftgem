@@ -7,6 +7,8 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
+import { AiFailedError, AiUnavailableError, generatePortfolio } from "./ai";
+import { FaucetError, claimTestSkr } from "./faucet";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, CURRENCIES, TOKEN_PROGRAM_ID, getAssociatedTokenAddress, mintFor, type Currency } from "./currency";
@@ -35,7 +37,7 @@ const PROGRAM_ID = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu")
 const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL
 // Round, easy-to-reason-about entry fees for the non-SOL cron tournaments — devnet has no
 // real market for either, so these aren't price-derived, just "a normal-looking amount".
-const ORE_ENTRY_FEE = 5_000_00000000; // 5 ORE (11 decimals)
+const SKR_ENTRY_FEE = 100_000_000; // 100 SKR (6 decimals), about $2: the entry fee of every automatic tournament
 const ROUND_DURATION_SECONDS = ROUND_SECONDS;
 
 // idl/pumpfantasy.json → instructions[].find(i => i.name === "...").discriminator
@@ -106,17 +108,16 @@ async function createTournament(env: Env, id: bigint, cycleSeed: bigint): Promis
   // the ms id) so repeated manual triggers within the same minute still get
   // different modes.
   const cycle = Number(cycleSeed % 3n);
-  // Every 4th tick is ORE-denominated instead of SOL — the ORE integration prize's "there
-  // are ORE tournaments to actually play" requirement, without displacing the SOL rotation.
-  const currency: Currency = cycleSeed % 4n === 3n ? "ORE" : "SOL";
+  // Every automatic tournament is played in SKR, the platform's main currency.
+  const currency: Currency = "SKR";
   return createTournamentOnChain(env, {
     id,
     currency,
-    entryFeeLamports: currency === "ORE" ? ORE_ENTRY_FEE : ENTRY_FEE_LAMPORTS,
+    entryFeeLamports: SKR_ENTRY_FEE,
     startTs,
     endTs,
     entryModeTag: cycle === 1 ? 1 : 0, // 0 = Single, 1 = Multiple
-    guaranteedAmountLamports: cycle === 2 && currency === "SOL" ? 500_000_000 : 0,
+    guaranteedAmountLamports: 0, // a house guarantee is a native-SOL feature, not offered for SKR
   });
 }
 
@@ -386,6 +387,30 @@ export default {
     // GET /t/<id> — the shareable link: opens the app on that tournament.
     const shared = url.pathname.match(/^\/t\/(\d+)$/);
     if (req.method === "GET" && shared) return landingPage(env, shared[1]);
+
+    // POST /ai-portfolio {"risk": 0-4, "exclude": [mints]} — Claude builds a 5-coin portfolio for the risk level.
+    if (req.method === "POST" && url.pathname === "/ai-portfolio") {
+      try {
+        const b = (await req.json().catch(() => null)) as { risk?: unknown; exclude?: unknown } | null;
+        const exclude = Array.isArray(b?.exclude) ? (b!.exclude as unknown[]).filter((m): m is string => typeof m === "string") : [];
+        return json(await generatePortfolio(env, Number(b?.risk), exclude));
+      } catch (err) {
+        if (err instanceof AiUnavailableError) return json({ error: err.message }, 503);
+        if (err instanceof AiFailedError) return json({ error: err.message }, 502);
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+
+    // POST /faucet {"wallet": "..."} — devnet only: a few thousand test SKR for a wallet.
+    if (req.method === "POST" && url.pathname === "/faucet") {
+      try {
+        const b = (await req.json().catch(() => null)) as { wallet?: unknown } | null;
+        return json(await claimTestSkr(env, b?.wallet));
+      } catch (err) {
+        if (err instanceof FaucetError) return json({ error: err.message }, err.status);
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
 
     // GET /p/<wallet> — the link on a shared profit/loss picture.
     const profile = url.pathname.match(/^\/p\/([1-9A-HJ-NP-Za-km-z]{32,44})$/);

@@ -67,6 +67,7 @@ export const MAX_FEE_LAMPORTS = 5_000_000_000; // 5 SOL (entry fee)
 // Per-currency entry-fee bounds — same "0.001 to 5 of the unit" shape as SOL's, scaled to
 // each mint's own decimals (ORE 11, USDC 6) rather than SOL's 9.
 const ENTRY_FEE_RANGE: Record<Currency, { min: number; max: number }> = {
+  SKR: { min: 10_000_000, max: 100_000_000_000 }, // 10 – 100,000 SKR (6 decimals; about $0.20 – $2,000)
   SOL: { min: MIN_FEE_LAMPORTS, max: MAX_FEE_LAMPORTS },
   ORE: { min: 100_00000000, max: 500_000_00000000 }, // 0.001 – 5,000 ORE
   USDC: { min: 1_000, max: 5_000_000_000 }, // 0.001 – 5,000 USDC
@@ -125,7 +126,7 @@ export function validateCreateRequest(body: unknown, nowSec: number): { error: s
   }
   if (b.visibility !== "public" && b.visibility !== "private") return { error: "visibility must be public or private" };
   if (!PAYOUTS.includes(b.payout as Payout)) return { error: "Unsupported prize structure" };
-  if (b.currency !== "SOL" && b.currency !== "ORE" && b.currency !== "USDC") return { error: "Unsupported currency" };
+  if (b.currency !== "SKR" && b.currency !== "SOL" && b.currency !== "ORE" && b.currency !== "USDC") return { error: "Unsupported currency" };
   if (b.entryMode !== "single" && b.entryMode !== "multiple") return { error: "entryMode must be single or multiple" };
   if (b.payout === "pvp" && b.entryMode !== "single") return { error: "A PvP duel must be single entry" };
   const feeRange = ENTRY_FEE_RANGE[b.currency as Currency];

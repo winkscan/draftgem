@@ -127,6 +127,7 @@ function Badge({ label, tone, icon }: { label: string; tone: BadgeTone; icon?: s
  */
 export function PortfolioCard({
   title,
+  titleIcon,
   portfolioNo,
   titleBadges,
   badge,
@@ -136,6 +137,8 @@ export function PortfolioCard({
 }: {
   /** A player's address, shown as a white badge with a user icon. Ignored when `portfolioNo` is given. */
   title?: string;
+  /** The icon of the title badge (default: a user, for an address). */
+  titleIcon?: string;
   /** Shown as a white badge: briefcase icon and the number. */
   portfolioNo?: number;
   /** Small badges right after the title (place, prize). */
@@ -155,7 +158,7 @@ export function PortfolioCard({
           {portfolioNo != null ? (
             <Badge label={String(portfolioNo)} tone="white" icon="briefcase" />
           ) : title ? (
-            <Badge label={title} tone="white" icon="user" />
+            <Badge label={title} tone="white" icon={titleIcon ?? "user"} />
           ) : null}
           {titleBadges?.map((b) => (
             <Badge key={b.label} label={b.label} tone={b.tone} icon={b.icon} />

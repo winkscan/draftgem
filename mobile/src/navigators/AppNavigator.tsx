@@ -2,7 +2,7 @@ import { NavigationContainer, type LinkingOptions, type Theme } from "@react-nav
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
-import { CreateTournamentScreen, DraftScreen, LeaderboardScreen, ProfileScreen } from "../screens";
+import { AiPortfolioScreen, CreateTournamentScreen, DraftScreen, LeaderboardScreen, ProfileScreen } from "../screens";
 import { DraftHeader } from "../screens/DraftScreen";
 import { BackHeader } from "../components/top-bar/BackHeader";
 import { ProfileHeader } from "../components/top-bar/ProfileHeader";
@@ -13,6 +13,7 @@ export type RootStackParamList = {
   Draft: { tournamentId: string };
   CreateTournament: undefined;
   Profile: undefined;
+  AiPortfolio: { tournamentId: string };
   Leaderboard: { tournamentId: string };
 };
 
@@ -40,6 +41,14 @@ const AppStack = () => (
       component={CreateTournamentScreen}
       options={{
         title: "Create Tournament",
+        header: ({ options }) => <BackHeader title={options.title ?? ""} />,
+      }}
+    />
+    <Stack.Screen
+      name="AiPortfolio"
+      component={AiPortfolioScreen}
+      options={{
+        title: "AI Portfolio",
         header: ({ options }) => <BackHeader title={options.title ?? ""} />,
       }}
     />

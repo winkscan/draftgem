@@ -35,6 +35,7 @@ import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
 
 const CURRENCY_PRESETS: Record<Currency, string[]> = {
+  SKR: ["50", "100", "500", "1000", "5000"],
   SOL: ["0.01", "0.05", "0.1", "0.5", "1"],
   ORE: ["5", "10", "25", "50", "100"],
   USDC: ["1", "5", "10", "25", "50"],
@@ -65,10 +66,10 @@ export function CreateTournamentScreen() {
 
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [payout, setPayout] = useState<PayoutChoice>("p50");
-  const [currency, setCurrency] = useState<Currency>("SOL");
+  const [currency, setCurrency] = useState<Currency>("SKR");
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
-  const [feeText, setFeeText] = useState("0.01");
+  const [feeText, setFeeText] = useState("100");
   const [mode, setMode] = useState<EntryModeChoice>("single");
   const [startInSec, setStartInSec] = useState(1800);
   const [durationSec, setDurationSec] = useState(3600);
@@ -295,7 +296,7 @@ export function CreateTournamentScreen() {
 
       <Text style={styles.label}>Currency</Text>
       <View style={styles.chips}>
-        {(["SOL", "ORE", "USDC"] as Currency[]).map((c) => (
+        {(["SKR", "SOL", "ORE", "USDC"] as Currency[]).map((c) => (
           <Chip
             key={c}
             label={c}

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, FlatList, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ActivityIndicator, Searchbar, Text, TouchableRipple } from "react-native-paper";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useConnection } from "../utils/ConnectionProvider";
@@ -24,6 +24,7 @@ import { ChartModal } from "../components/ChartModal";
 import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard, SlotCard, entryBadge } from "../components/PortfolioCard";
 import { EntrySuccess } from "../components/EntrySuccess";
+import { takePendingAiPicks } from "../pumpfantasy/aiPortfolio";
 import { EntryFailure } from "../components/EntryFailure";
 import { useDraftTab, useEntrySuccess } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
@@ -100,6 +101,22 @@ export function DraftScreen() {
   const displayedSlots: (Candidate | undefined)[] = viewingExistingSingleEntry
     ? myEntry!.picks.map((pick) => candidatesByMint.get(pick.toBase58()))
     : Array.from({ length: PICKS_PER_ENTRY }, (_, i) => picked[i]);
+
+  // Back from the AI page with "Use portfolio": fill the five slots with its coins.
+  useFocusEffect(
+    useCallback(() => {
+      if (candidatesByMint.size === 0) return;
+      const mints = takePendingAiPicks(tournamentId);
+      if (!mints) return;
+      const list = mints.map((m) => candidatesByMint.get(m)).filter((c): c is Candidate => !!c);
+      if (list.length === PICKS_PER_ENTRY && list.reduce((sum, c) => sum + c.fpCost, 0) <= MAX_BUDGET_FP) {
+        setPicked(list);
+        setError(null);
+      } else {
+        setError("That AI portfolio no longer fits (a coin's price changed) — generate a new one.");
+      }
+    }, [tournamentId, candidatesByMint]),
+  );
 
   const togglePick = (candidate: Candidate) => {
     setError(null);
@@ -244,9 +261,19 @@ export function DraftScreen() {
             <>
               <View style={styles.budgetBar}>
                 <Text style={styles.budgetTitle}>Portfolio Budget</Text>
-                <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
-                  {remainingFp} FP
-                </Text>
+                <View style={styles.budgetRight}>
+                  {!entriesClosed ? (
+                    <TouchableRipple style={styles.aiButton} borderless onPress={() => navigation.navigate("AiPortfolio", { tournamentId })}>
+                      <View style={styles.aiInner}>
+                        <FontAwesome6 name="wand-magic-sparkles" size={12} color={C.accentText} />
+                        <Text style={styles.aiText}>AI</Text>
+                      </View>
+                    </TouchableRipple>
+                  ) : null}
+                  <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
+                    {remainingFp} FP
+                  </Text>
+                </View>
               </View>
               <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
 
@@ -531,6 +558,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
+  budgetRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  aiButton: { borderRadius: 999, backgroundColor: C.accentTint },
+  aiInner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 5 },
+  aiText: { color: C.accentText, fontWeight: "800", fontSize: 13 },
   budgetTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 16 },
   budgetValue: { color: C.positive, fontWeight: "800", fontSize: 16 },
   barTrack: { height: 4, borderRadius: 2, marginHorizontal: 16, marginTop: 10, backgroundColor: C.glass, overflow: "hidden" },

@@ -5,13 +5,20 @@ import { useConnection } from "../utils/ConnectionProvider";
 import { ENTRY_DISCRIMINATOR, decodeEntry } from "./accounts";
 import { fetchArchivedList, fetchArchivedResult } from "./archive";
 import { PROGRAM_ID } from "./config";
-import { NATIVE_MINT, decimalsForMint } from "./currency";
+import { NATIVE_MINT, SKR_MINT_DEVNET, SKR_MINT_MAINNET, decimalsForMint } from "./currency";
 import { fetchAllAccountsV2 } from "./gpaV2";
 import { useTournaments } from "./hooks";
 import { getLivePricesMicros } from "./livePrices";
 import { tournamentPda } from "./pdas";
 
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
+
+// Devnet's test SKR and test USDC have no market: price them as the real (mainnet) coins.
+const PRICE_AS: Record<string, string> = {
+  [SKR_MINT_DEVNET]: SKR_MINT_MAINNET,
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+};
+const priceMint = (mint: string) => (mint === NATIVE_MINT.toBase58() ? WRAPPED_SOL : PRICE_AS[mint] ?? mint);
 const ENTRY_PLAYER_OFFSET = 40;
 
 export interface MyStats {
@@ -103,12 +110,12 @@ export function useMyStats(player: PublicKey | null) {
       const now = Math.floor(Date.now() / 1000);
       const paid = all.filter((r) => r.status === "finalized"); // cancelled ones were refunded: no gain, no loss
 
-      const priceMints = [...new Set(paid.map((r) => (r.mint === NATIVE_MINT.toBase58() ? WRAPPED_SOL : r.mint)))];
+      const priceMints = [...new Set(paid.map((r) => priceMint(r.mint)))];
       const prices = priceMints.length > 0 ? await getLivePricesMicros(priceMints).catch(() => ({})) : {};
       let pnlUsd = 0;
       const events: { t: number; usd: number }[] = [];
       for (const r of paid) {
-        const micros = (prices as Record<string, bigint>)[r.mint === NATIVE_MINT.toBase58() ? WRAPPED_SOL : r.mint];
+        const micros = (prices as Record<string, bigint>)[priceMint(r.mint)];
         if (micros == null) continue; // no price for this currency right now: leave it out
         const units = Number(r.prize - r.fee) / 10 ** decimalsForMint(new PublicKey(r.mint));
         const usd = units * (Number(micros) / 1_000_000);

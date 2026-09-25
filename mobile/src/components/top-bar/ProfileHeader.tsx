@@ -7,8 +7,10 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useAuthorization } from "../../utils/useAuthorization";
 import { useConnection } from "../../utils/ConnectionProvider";
 import { useChrome } from "../../utils/Chrome";
-import { ellipsify, formatSol } from "../../pumpfantasy/format";
-import { SolanaCoin } from "../SolanaIcon";
+import { ellipsify } from "../../pumpfantasy/format";
+import { CurrencyIcon } from "../CurrencyIcon";
+import { CURRENCIES, formatAmountCompact } from "../../pumpfantasy/currency";
+import { useSkrBalance } from "../../pumpfantasy/tokenBalance";
 import { PF_COLORS as C } from "../../theme";
 
 // The header of My Profile: the standard panel with the back arrow and title, and under it the wallet's
@@ -23,12 +25,7 @@ export function ProfileHeader({ title }: { title: string }) {
     return () => setPanelHeader(false);
   }, [setPanelHeader]);
 
-  const { data: balanceLamports, isFetching } = useQuery({
-    queryKey: ["sol-balance", selectedAccount?.publicKey.toBase58()],
-    queryFn: () => connection.getBalance(selectedAccount!.publicKey),
-    enabled: !!selectedAccount,
-    refetchInterval: 15_000,
-  });
+  const { data: skrBalance, isFetching } = useSkrBalance(selectedAccount?.publicKey ?? null);
 
   return (
     <View style={styles.panel}>
@@ -41,12 +38,12 @@ export function ProfileHeader({ title }: { title: string }) {
         </Text>
         {selectedAccount ? (
           <View style={styles.balanceWrap}>
-            {isFetching && balanceLamports == null ? (
+            {isFetching && skrBalance == null ? (
               <ActivityIndicator size={14} color={C.textOnHeader} />
             ) : (
-              <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)}</Text>
+              <Text style={styles.balance}>{formatAmountCompact(skrBalance ?? 0n, CURRENCIES.SKR.decimals)}</Text>
             )}
-            <SolanaCoin size={20} />
+            <CurrencyIcon currency="SKR" size={20} />
           </View>
         ) : null}
       </View>

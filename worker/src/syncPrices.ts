@@ -60,7 +60,7 @@ async function waitForConfirmation(connection: Connection, sig: string): Promise
   throw new Error(`Transaction ${sig} did not confirm within the wait budget`);
 }
 
-async function sendAndConfirm(connection: Connection, authority: Keypair, ixs: TransactionInstruction[]): Promise<string> {
+export async function sendAndConfirm(connection: Connection, authority: Keypair, ixs: TransactionInstruction[]): Promise<string> {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
   const tx = new Transaction({ feePayer: authority.publicKey, blockhash, lastValidBlockHeight }).add(...ixs);
   tx.sign(authority);

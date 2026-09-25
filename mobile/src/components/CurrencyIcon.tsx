@@ -1,11 +1,12 @@
 import { PublicKey } from "@solana/web3.js";
-import { CURRENCIES, type Currency } from "../pumpfantasy/currency";
+import { CURRENCIES, SKR_MINT_MAINNET, type Currency } from "../pumpfantasy/currency";
 import { SolanaCoin } from "./SolanaIcon";
 import { TokenIcon } from "./TokenIcon";
 
 // USDC on devnet is a different mint from the real one, which has no picture of its own: the icon
 // is looked up by the mainnet mint.
 const ICON_MINT: Record<Exclude<Currency, "SOL">, string> = {
+  SKR: SKR_MINT_MAINNET,
   ORE: (CURRENCIES.ORE.mint as PublicKey).toBase58(),
   USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 };

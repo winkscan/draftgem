@@ -5,7 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthorization } from "../../utils/useAuthorization";
 import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useConnection } from "../../utils/ConnectionProvider";
-import { formatSol } from "../../pumpfantasy/format";
+import { CURRENCIES, formatAmountCompact } from "../../pumpfantasy/currency";
+import { useSkrBalance } from "../../pumpfantasy/tokenBalance";
+import { CurrencyIcon } from "../CurrencyIcon";
 import { UpdateBadge } from "./UpdateBadge";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
 import { TournamentDetails } from "./TournamentDetails";
@@ -37,12 +39,7 @@ export function TopBar({
   const { connect } = useMobileWallet();
   const { connection } = useConnection();
 
-  const { data: balanceLamports, isFetching } = useQuery({
-    queryKey: ["sol-balance", selectedAccount?.publicKey.toBase58()],
-    queryFn: () => connection.getBalance(selectedAccount!.publicKey),
-    enabled: !!selectedAccount,
-    refetchInterval: 15_000,
-  });
+  const { data: skrBalance, isFetching } = useSkrBalance(selectedAccount?.publicKey ?? null);
 
   return (
     <View>
@@ -58,10 +55,13 @@ export function TopBar({
                 <TouchableRipple style={styles.pill} onPress={selectedAccount ? () => navigation.navigate("Profile") : connect} borderless>
                   {selectedAccount ? (
                     <View style={styles.pillContent}>
-                      {isFetching && balanceLamports == null ? (
+                      {isFetching && skrBalance == null ? (
                         <ActivityIndicator size={10} color={C.textOnHeader} />
                       ) : (
-                        <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
+                        <>
+                          <CurrencyIcon currency="SKR" size={16} />
+                          <Text style={styles.balance}>{formatAmountCompact(skrBalance ?? 0n, CURRENCIES.SKR.decimals)}</Text>
+                        </>
                       )}
                       {/* The logo of the wallet app we're connected with; a plain wallet glyph if it sent none. */}
                       <View style={styles.walletCircle}>
