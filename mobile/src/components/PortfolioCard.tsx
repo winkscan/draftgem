@@ -79,7 +79,7 @@ export function SlotCard({
   );
 }
 
-export type BadgeTone = "neutral" | "positive" | "negative" | "live" | "accent" | "white";
+export type BadgeTone = "neutral" | "positive" | "negative" | "live" | "accent" | "white" | "custom";
 
 /** The status badge of an entry: Live while the round runs, grey while waiting, green once paid out. */
 export function entryBadge(t: Pick<TournamentAccount, "status" | "startTs" | "endTs">): { label: string; tone: BadgeTone } {
@@ -91,8 +91,10 @@ export function entryBadge(t: Pick<TournamentAccount, "status" | "startTs" | "en
   return { label: "Awaiting results", tone: "neutral" };
 }
 
-function toneStyles(tone: BadgeTone): { bg: object | undefined; text: object | undefined } {
+function toneStyles(tone: BadgeTone, color?: string): { bg: object | undefined; text: object | undefined } {
   switch (tone) {
+    case "custom":
+      return { bg: { backgroundColor: (color ?? "#ffffff") + "2e" }, text: { color: color ?? "#ffffff" } };
     case "positive":
       return { bg: { backgroundColor: C.positive }, text: { color: C.accent2TextOn } };
     case "negative":
@@ -108,8 +110,8 @@ function toneStyles(tone: BadgeTone): { bg: object | undefined; text: object | u
   }
 }
 
-function Badge({ label, tone, icon }: { label: string; tone: BadgeTone; icon?: string }) {
-  const t = toneStyles(tone);
+function Badge({ label, tone, icon, color }: { label: string; tone: BadgeTone; icon?: string; color?: string }) {
+  const t = toneStyles(tone, color);
   return (
     <View style={[styles.badge, icon ? styles.badgeWithIcon : undefined, t.bg]}>
       {icon ? <FontAwesome6 name={icon} size={10} color={(t.text as { color?: string } | undefined)?.color ?? C.textSecondary} /> : null}
@@ -143,7 +145,7 @@ export function PortfolioCard({
   portfolioNo?: number;
   /** Small badges right after the title (place, prize). */
   titleBadges?: { label: string; tone: BadgeTone; icon?: string }[];
-  badge: { label: string; tone: BadgeTone };
+  badge: { label: string; tone: BadgeTone; color?: string };
   slots: { key: string; candidate: Candidate | undefined; pct?: { text: string; tone: "up" | "down" | "pending" } }[];
   /** Extra content under the coins (the payout link). */
   footer?: React.ReactNode;
@@ -164,7 +166,7 @@ export function PortfolioCard({
             <Badge key={b.label} label={b.label} tone={b.tone} icon={b.icon} />
           ))}
         </View>
-        <Badge label={badge.label} tone={badge.tone} />
+        <Badge label={badge.label} tone={badge.tone} color={badge.color} />
       </View>
       <View style={styles.slots}>
         {slots.map((sl) => (

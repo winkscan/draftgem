@@ -3,7 +3,7 @@ import { PanResponder, StyleSheet, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { PF_COLORS as C } from "../theme";
 
-const TRACK_H = 8;
+const TRACK_H = 4; // same thickness as the draft page's portfolio bar
 const THUMB = 28;
 
 // A slider with `steps` stops (drag or tap): a green-to-red track, a dot per stop, a white thumb.

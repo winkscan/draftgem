@@ -2,12 +2,13 @@ import { WORKER_URL } from "./config";
 
 // The AI portfolio: the worker asks Claude for 5 coins matching a risk level (worker/src/ai.ts).
 
-export const RISK_LEVELS: { name: string; description: string }[] = [
-  { name: "Steady", description: "Calm, well-known coins. Small moves, small swings." },
-  { name: "Careful", description: "Mostly calm coins with a little upside." },
-  { name: "Balanced", description: "A mix of calm and volatile coins." },
-  { name: "Bold", description: "Mostly volatile coins, one calm anchor at most." },
-  { name: "Moonshot", description: "The wildest coins. Big wins, big losses." },
+// `color` is the slider's colour at that stop (green, through purple, to red).
+export const RISK_LEVELS: { name: string; description: string; color: string }[] = [
+  { name: "Steady", description: "Calm, well-known coins. Small moves, small swings.", color: "#14f195" },
+  { name: "Careful", description: "Mostly calm coins with a little upside.", color: "#57a0ca" },
+  { name: "Balanced", description: "A mix of calm and volatile coins.", color: "#9945ff" },
+  { name: "Bold", description: "Mostly volatile coins, one calm anchor at most.", color: "#c62c88" },
+  { name: "Moonshot", description: "The wildest coins. Big wins, big losses.", color: "#f11212" },
 ];
 
 export interface AiPick {

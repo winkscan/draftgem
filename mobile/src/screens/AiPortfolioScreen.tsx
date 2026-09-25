@@ -84,7 +84,7 @@ export function AiPortfolioScreen() {
               <PortfolioCard
                 title="AI"
                 titleIcon="wand-magic-sparkles"
-                badge={{ label: resultLevel.name, tone: "accent" }}
+                badge={{ label: resultLevel.name, tone: "custom", color: resultLevel.color }}
                 slots={result.picks.map((p) => ({ key: p.mint, candidate: byMint.get(p.mint) }))}
               />
               {result.summary ? <Text style={styles.summary}>{result.summary}</Text> : null}
@@ -96,10 +96,10 @@ export function AiPortfolioScreen() {
               ))}
             </>
           ) : error ? (
-            <EmptyState icon="triangle-exclamation" label="No Roster" hint={error} />
+            <EmptyState icon="triangle-exclamation" label="No Assets" hint={error} />
           ) : (
             <View style={styles.emptyBox}>
-              <EmptyState icon="wand-magic-sparkles" label="No Roster Yet" hint="Set the risk level and press Generate." />
+              <EmptyState icon="gem" label="No Assets Yet" hint="Set the risk level and press Generate." />
             </View>
           )}
         </View>

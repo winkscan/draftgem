@@ -262,17 +262,17 @@ export function DraftScreen() {
               <View style={styles.budgetBar}>
                 <Text style={styles.budgetTitle}>Portfolio Budget</Text>
                 <View style={styles.budgetRight}>
+                  <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
+                    {remainingFp} FP
+                  </Text>
                   {!entriesClosed ? (
                     <TouchableRipple style={styles.aiButton} borderless onPress={() => navigation.navigate("AiPortfolio", { tournamentId })}>
                       <View style={styles.aiInner}>
-                        <FontAwesome6 name="wand-magic-sparkles" size={12} color={C.accentText} />
+                        <FontAwesome6 name="wand-magic-sparkles" size={12} color={C.textPrimary} />
                         <Text style={styles.aiText}>AI</Text>
                       </View>
                     </TouchableRipple>
                   ) : null}
-                  <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
-                    {remainingFp} FP
-                  </Text>
                 </View>
               </View>
               <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
@@ -559,9 +559,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   budgetRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  aiButton: { borderRadius: 999, backgroundColor: C.accentTint },
+  aiButton: { borderRadius: 999, backgroundColor: C.glassStrong },
   aiInner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 5 },
-  aiText: { color: C.accentText, fontWeight: "800", fontSize: 13 },
+  aiText: { color: C.textPrimary, fontWeight: "800", fontSize: 13 },
   budgetTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 16 },
   budgetValue: { color: C.positive, fontWeight: "800", fontSize: 16 },
   barTrack: { height: 4, borderRadius: 2, marginHorizontal: 16, marginTop: 10, backgroundColor: C.glass, overflow: "hidden" },
