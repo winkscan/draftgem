@@ -1,11 +1,11 @@
-import { StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { Text, TouchableRipple, ActivityIndicator } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthorization } from "../../utils/useAuthorization";
 import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useConnection } from "../../utils/ConnectionProvider";
-import { ellipsify, formatSol } from "../../pumpfantasy/format";
+import { formatSol } from "../../pumpfantasy/format";
 import { UpdateBadge } from "./UpdateBadge";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
 import { TournamentDetails } from "./TournamentDetails";
@@ -58,14 +58,19 @@ export function TopBar({
                 <TouchableRipple style={styles.pill} onPress={selectedAccount ? () => navigation.navigate("Profile") : connect} borderless>
                   {selectedAccount ? (
                     <View style={styles.pillContent}>
-                      <Text style={styles.address}>{ellipsify(selectedAccount.publicKey)}</Text>
-                      <View style={styles.divider} />
                       {isFetching && balanceLamports == null ? (
                         <ActivityIndicator size={10} color={C.textOnHeader} />
                       ) : (
                         <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)} SOL</Text>
                       )}
-                      <FontAwesome6 name="wallet" size={12} color={C.textOnHeaderMuted} />
+                      {/* The logo of the wallet app we're connected with; a plain wallet glyph if it sent none. */}
+                      <View style={styles.walletCircle}>
+                        {selectedAccount.icon ? (
+                          <Image source={{ uri: selectedAccount.icon }} style={styles.walletImage} />
+                        ) : (
+                          <FontAwesome6 name="wallet" size={11} color={C.textOnHeader} />
+                        )}
+                      </View>
                     </View>
                   ) : (
                     <View style={styles.pillContent}>
@@ -112,11 +117,20 @@ const styles = StyleSheet.create({
   pill: {
     backgroundColor: C.glassStrong,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 4,
+    paddingVertical: 4,
   },
   pillContent: { flexDirection: "row", alignItems: "center", gap: 8 },
-  address: { color: C.textOnHeader, fontSize: 12, fontWeight: "600" },
-  divider: { width: 1, height: 12, backgroundColor: "rgba(255,255,255,0.24)" },
+  walletCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  walletImage: { width: 24, height: 24 },
   balance: { color: C.textOnHeader, fontSize: 12, fontWeight: "700" },
 });

@@ -22,6 +22,8 @@ const CHAIN_IDENTIFIER = `${CHAIN}:${CLUSTER}`;
 export type Account = Readonly<{
   address: Base64EncodedAddress;
   label?: string;
+  /** The wallet's own picture for this account (a data URI or URL), when it sends one. */
+  icon?: string;
   publicKey: PublicKey;
 }>;
 
