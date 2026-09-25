@@ -2,6 +2,7 @@ import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import type { Env } from "./env";
 import { CURRENCIES, TOKEN_PROGRAM_ID, createAtaIdempotentIx, getAssociatedTokenAddress } from "./currency";
 import { loadAuthority, sendAndConfirm } from "./syncPrices";
+import { rpcUrl } from "./rpc";
 
 // DEVNET ONLY. Real SKR can't be minted, so on devnet the platform key owns a test SKR mint (same 6
 // decimals) and this hands a few thousand to any wallet that asks, so a player can try the game.
@@ -35,7 +36,7 @@ export async function claimTestSkr(env: Env, walletStr: unknown): Promise<{ sign
   await env.CACHE.put(countKey, String(used + 1), { expirationTtl: 2 * 24 * 3600 });
 
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
-  const connection = new Connection("https://devnet.helius-rpc.com/?api-key=" + env.HELIUS_API_KEY, "confirmed");
+  const connection = new Connection(rpcUrl(env), "confirmed");
   const ata = getAssociatedTokenAddress(wallet, mint);
   const data = Buffer.alloc(9);
   data[0] = 7; // MintTo

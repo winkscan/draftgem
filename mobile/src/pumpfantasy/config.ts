@@ -1,24 +1,25 @@
-// Devnet while the program is still being built/tested — no real money at
-// risk, and Solana's public devnet faucet is enough for entry-fee-sized test
-// transactions. Flip RPC_ENDPOINT (ideally to a paid RPC, same reasoning as
-// SwapKings' Helius proxy) and PROGRAM_ID before any real mainnet launch.
+// One switch for the whole app: which Solana network it talks to. "mainnet" is the real thing (real SKR,
+// the beta); flip to "devnet" to develop against the test network and its test SKR. Everything network
+// specific below (worker, RPC, platform key, mints elsewhere) follows this.
 import idl from "./idl/pumpfantasy.json";
 import { PublicKey } from "@solana/web3.js";
 
-export const RPC_ENDPOINT = "https://api.devnet.solana.com";
-export const CLUSTER = "devnet" as const;
+export const NETWORK = "mainnet" as "devnet" | "mainnet";
+export const IS_MAINNET = NETWORK === "mainnet";
+export const CLUSTER = (IS_MAINNET ? "mainnet-beta" : "devnet") as "mainnet-beta" | "devnet";
 
-// The same Cloudflare Worker that auto-creates tournaments also serves the
-// full off-chain candidate pool (`/candidates`) and signs pick attestations
-// (`/attest`) — see worker/src/index.ts.
-export const WORKER_URL = "https://pumpfantasy-cron.swapkings.workers.dev";
+// The Cloudflare Worker of the chosen network: it auto-creates tournaments, serves the coin pool
+// (`/candidates`), signs pick attestations (`/attest`), builds AI portfolios and, on mainnet, forwards the
+// app's RPC calls to Helius so no API key ships in the app — see worker/src/index.ts.
+export const WORKER_URL = IS_MAINNET ? "https://draftgem-mainnet.swapkings.workers.dev" : "https://pumpfantasy-cron.swapkings.workers.dev";
+export const RPC_ENDPOINT = IS_MAINNET ? WORKER_URL + "/rpc" : "https://api.devnet.solana.com";
 
 export const PROGRAM_ID = new PublicKey(idl.address);
 
 // The only key whose tournaments the app shows. The program lets anyone create a tournament with
 // themselves as its authority, and the authority decides who wins: a stranger's tournament could pay
 // the whole pool to its creator. Everything we run (cron and player-made ones) is created by this key.
-export const PLATFORM_AUTHORITY = "6oKrwPZtLyzuzf3Equyijp64FmAouMJSJ9ctGak3dPZR";
+export const PLATFORM_AUTHORITY = IS_MAINNET ? "27BDSBXfrhUBKXmWppS6VDfjPCMnm7LCEZZXcCmAVHNx" : "6oKrwPZtLyzuzf3Equyijp64FmAouMJSJ9ctGak3dPZR";
 
 // Mirrors constants::MAX_BUDGET_FP / RAKE_BPS / SCORE_FLOOR_BPS in the Rust
 // program — keep these in sync if the on-chain constants ever change.

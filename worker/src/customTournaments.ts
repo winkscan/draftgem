@@ -1,3 +1,4 @@
+import { networkOf, rpcUrl } from "./rpc";
 import { Connection, PublicKey } from "@solana/web3.js";
 import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
@@ -155,7 +156,7 @@ export function treasuryAddress(env: Env): string {
 
 /** Checks on chain that `req.signature` really paid the creation fee for exactly these parameters. */
 async function verifyPayment(env: Env, req: CreateRequest, nowSec: number): Promise<string | null> {
-  const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
+  const connection = new Connection(rpcUrl(env), "confirmed");
   let tx = null;
   for (let attempt = 0; attempt < 4 && !tx; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 1500)); // the RPC can lag a moment behind the wallet
@@ -239,7 +240,7 @@ export async function getCreateInfo(env: Env): Promise<{
       { mint: CURRENCIES[c].mint?.toBase58() ?? null, decimals: CURRENCIES[c].decimals, minFee: ENTRY_FEE_RANGE[c].min, maxFee: ENTRY_FEE_RANGE[c].max },
     ]),
   ) as Record<Currency, { mint: string | null; decimals: number; minFee: number; maxFee: number }>;
-  return { feeLamports: CREATE_FEE_LAMPORTS, treasury: treasuryAddress(env), available: active < MAX_ACTIVE_CUSTOM, currencies };
+  return { feeLamports: CREATE_FEE_LAMPORTS, treasury: treasuryAddress(env), available: networkOf(env) !== "mainnet" && active < MAX_ACTIVE_CUSTOM, currencies };
 }
 
 /** Ids of custom tournaments the maintenance pass should look at: started, not yet fully settled, inside the work window. */

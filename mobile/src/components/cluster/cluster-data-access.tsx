@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useContext, useMemo } from "react";
-import { RPC_ENDPOINT } from "../../pumpfantasy/config";
+import { CLUSTER as NET, RPC_ENDPOINT } from "../../pumpfantasy/config";
 
 // Single fixed cluster (devnet, see pumpfantasy/config.ts) — no switcher.
 // SwapKings hit a real bug from offering a cluster picker with only one
@@ -11,7 +11,7 @@ export interface Cluster {
   endpoint: string;
 }
 
-const CLUSTER: Cluster = { name: "devnet", endpoint: RPC_ENDPOINT };
+const CLUSTER: Cluster = { name: NET === "devnet" ? "devnet" : "mainnet-beta", endpoint: RPC_ENDPOINT };
 
 export interface ClusterProviderContext {
   selectedCluster: Cluster;
@@ -24,7 +24,7 @@ export function ClusterProvider({ children }: { children: ReactNode }) {
   const value: ClusterProviderContext = useMemo(
     () => ({
       selectedCluster: CLUSTER,
-      getExplorerUrl: (path: string) => `https://explorer.solana.com/${path}?cluster=devnet`,
+      getExplorerUrl: (path: string) => `https://explorer.solana.com/${path}${NET === "devnet" ? "?cluster=devnet" : ""}`,
     }),
     [],
   );

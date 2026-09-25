@@ -22,6 +22,8 @@ export interface Env {
   CACHE: KVNamespace;
   // Secret for the maintenance URLs (/sync, /settle, /create): sent as the X-Admin-Token header.
   // `wrangler secret put ADMIN_TOKEN`. Without it those URLs answer 401 to everyone.
+  // "mainnet" on the mainnet deployment; anything else (unset) means devnet.
+  NETWORK?: string;
   ADMIN_TOKEN?: string;
   // Anthropic API key for the AI portfolio (`wrangler secret put ANTHROPIC_API_KEY`). Without it /ai-portfolio answers 503.
   ANTHROPIC_API_KEY?: string;

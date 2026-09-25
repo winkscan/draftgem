@@ -18,6 +18,9 @@ idl-build = ["anchor-lang/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
+# Production build (`anchor build -- --features mainnet`): the mainnet attestation signer, and only the platform
+# authority may create tournaments. The default build (devnet and the tests) keeps the test key and open creation.
+mainnet = []
 
 
 [dependencies]

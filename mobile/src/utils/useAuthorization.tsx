@@ -12,12 +12,10 @@ import {
 import { toUint8Array } from "js-base64";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
+import { IS_MAINNET } from "../pumpfantasy/config";
 
-// Devnet during the build-and-test phase (see src/pumpfantasy/config.ts) —
-// flip alongside RPC_ENDPOINT when this moves to mainnet.
-const CHAIN = "solana";
-const CLUSTER = "devnet";
-const CHAIN_IDENTIFIER = `${CHAIN}:${CLUSTER}`;
+// The network follows the switch in src/pumpfantasy/config.ts (wallets label it "solana:mainnet" / "solana:devnet").
+const CHAIN_IDENTIFIER = IS_MAINNET ? ("solana:mainnet" as const) : ("solana:devnet" as const);
 
 export type Account = Readonly<{
   address: Base64EncodedAddress;

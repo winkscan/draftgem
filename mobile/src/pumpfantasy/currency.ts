@@ -2,7 +2,7 @@ import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.j
 
 // Mirrors worker/src/currency.ts. `mint: null` = native SOL, the contract's own sentinel
 // (Pubkey::default()). ORE and USDC addresses are the same on devnet and mainnet.
-import { CLUSTER } from "./config";
+import { IS_MAINNET } from "./config";
 
 export type Currency = "SKR" | "SOL" | "ORE" | "USDC";
 
@@ -14,10 +14,10 @@ export const SKR_MINT_DEVNET = "3KQM6MobTX4TZhoLyQgmKmvvexJ7wozY29FFK9rPUZgU";
 export const NATIVE_MINT = PublicKey.default;
 
 export const CURRENCIES: Record<Currency, { mint: PublicKey | null; decimals: number }> = {
-  SKR: { mint: new PublicKey(CLUSTER === "devnet" ? SKR_MINT_DEVNET : SKR_MINT_MAINNET), decimals: 6 },
+  SKR: { mint: new PublicKey(IS_MAINNET ? SKR_MINT_MAINNET : SKR_MINT_DEVNET), decimals: 6 },
   SOL: { mint: null, decimals: 9 },
   ORE: { mint: new PublicKey("oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp"), decimals: 11 },
-  USDC: { mint: new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), decimals: 6 },
+  USDC: { mint: new PublicKey(IS_MAINNET ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), decimals: 6 },
 };
 
 export const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");

@@ -85,7 +85,8 @@ export function LeaderboardScreen() {
   const [openingPayout, setOpeningPayout] = useState<string | null>(null);
   const openPayout = async (entryKey: string) => {
     setOpeningPayout(entryKey);
-    let url = `https://solscan.io/account/${entryKey}?cluster=${CLUSTER}`;
+    const suffix = CLUSTER === "devnet" ? "?cluster=devnet" : ""; // mainnet is Solscan's default
+    let url = `https://solscan.io/account/${entryKey}${suffix}`;
     try {
       const sigs = await connection.getSignaturesForAddress(new PublicKey(entryKey), { limit: 10 });
       // Once the tournament is over the entry account is closed too, so the newest transaction on it is
@@ -93,7 +94,7 @@ export function LeaderboardScreen() {
       for (const s of sigs.filter((x) => x.err === null).slice(0, 4)) {
         const tx = await connection.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 });
         if (tx?.meta?.logMessages?.some((l) => l.includes("Instruction: ClaimPrize"))) {
-          url = `https://solscan.io/tx/${s.signature}?cluster=${CLUSTER}`;
+          url = `https://solscan.io/tx/${s.signature}${suffix}`;
           break;
         }
       }

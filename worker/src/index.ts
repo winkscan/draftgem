@@ -7,6 +7,7 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
+import { networkOf, proxyRpc, rpcUrl, useNetwork } from "./rpc";
 import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, aiAllowance, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
@@ -37,6 +38,14 @@ const PROGRAM_ID = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu")
 const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL
 // Round, easy-to-reason-about entry fees for the non-SOL cron tournaments — devnet has no
 // real market for either, so these aren't price-derived, just "a normal-looking amount".
+// Beta safety limits while real money is at stake and the program has had no outside audit: the largest
+// entry fee the worker will ever create, per currency (base units).
+const MAINNET_MAX_ENTRY_FEE: Record<Currency, number> = {
+  SKR: 500_000_000, // 500 SKR, about $10
+  SOL: 50_000_000, // 0.05 SOL
+  ORE: 500_000_000_000, // 5 ORE
+  USDC: 10_000_000, // 10 USDC
+};
 const SKR_ENTRY_FEE = 100_000_000; // 100 SKR (6 decimals), about $2: the entry fee of every automatic tournament
 const ROUND_DURATION_SECONDS = ROUND_SECONDS;
 
@@ -138,7 +147,11 @@ interface TournamentParams {
 async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<string> {
   const { id, currency, entryFeeLamports, startTs, endTs, entryModeTag, guaranteedAmountLamports } = p;
   const authority = loadAuthority(env.AUTHORITY_SECRET_KEY);
-  const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
+  const connection = new Connection(rpcUrl(env), "confirmed");
+  // Real money: an entry fee above the cap is refused here whatever asks for it (beta safety limit).
+  if (networkOf(env) === "mainnet" && entryFeeLamports > MAINNET_MAX_ENTRY_FEE[currency]) {
+    throw new Error("Entry fee above the mainnet limit for " + currency);
+  }
 
   const [tournament] = tournamentPda(id);
   const [vault] = vaultPda(tournament);
@@ -188,7 +201,7 @@ async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<s
 // end prices just written) settle, finalize and pay out. Progress flags live in
 // KV so finished work is never re-read from the chain.
 async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<string> {
-  const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`, "confirmed");
+  const connection = new Connection(rpcUrl(env), "confirmed");
   const loaded = await loadStates(env);
   const lines: string[] = [];
   const budget: PriceBudget = { geckoCalls: GECKO_CALLS_PER_TICK };
@@ -251,11 +264,12 @@ const unauthorized = () => new Response("Unauthorized"+String.fromCharCode(10), 
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    useNetwork(env);
     const tick = BigInt(Math.floor(event.scheduledTime / TICK_MS));
     // The cron still fires every 5 min (prices, settlement), but a new tournament is only minted on
     // every CREATE_EVERY_TICKS-th tick (every 30 min). The rotation seed counts creations, not
     // ticks — otherwise ticks that are all multiples of 6 could never land on the ORE slot (% 4 == 3).
-    if (tick % BigInt(CREATE_EVERY_TICKS) === 0n) {
+    if (tick % BigInt(CREATE_EVERY_TICKS) === 0n && (await env.CACHE.get("creation-paused")) !== "1") {
       ctx.waitUntil(
         createTournament(env, tick * BigInt(TICK_MS), tick / BigInt(CREATE_EVERY_TICKS))
           .then((result) => console.log(`Created tournament ${result}`))
@@ -271,6 +285,7 @@ export default {
   },
 
   async fetch(req: Request, env: Env) {
+    useNetwork(env);
     const url = new URL(req.url);
 
     if (req.method === "OPTIONS") {
@@ -337,6 +352,7 @@ export default {
     // POST /create-tournament — a player's tournament from the app's "+" screen
     // (see customTournaments.ts). Paid for by the player on chain, created on chain by our key.
     if (req.method === "POST" && url.pathname === "/create-tournament") {
+      if (networkOf(env) === "mainnet") return json({ error: "Player-made tournaments are switched off during the beta" }, 403);
       try {
         const result = await handleCreateCustom(env, await req.json().catch(() => null), url.origin, (p) =>
           createTournamentOnChain(env, p),
@@ -410,6 +426,18 @@ export default {
       }
     }
 
+    // POST /rpc — the app's Solana RPC on mainnet, forwarded to Helius so the key never ships in the app.
+    if (req.method === "POST" && url.pathname === "/rpc") return proxyRpc(env, await req.text());
+
+    // GET /pause?on=1|0 — admin kill switch: stops the cron from creating new tournaments (running ones finish).
+    if (req.method === "GET" && url.pathname === "/pause") {
+      if (!isAdmin(req, env)) return unauthorized();
+      const on = url.searchParams.get("on");
+      if (on === "1") await env.CACHE.put("creation-paused", "1");
+      if (on === "0") await env.CACHE.delete("creation-paused");
+      return json({ paused: (await env.CACHE.get("creation-paused")) === "1" });
+    }
+
     // GET /ai-limit?wallet= — free AI portfolios left today for this player (uses none).
     if (req.method === "GET" && url.pathname === "/ai-limit") {
       let wallet: string | null = null;
@@ -424,6 +452,7 @@ export default {
 
     // POST /faucet {"wallet": "..."} — devnet only: a few thousand test SKR for a wallet.
     if (req.method === "POST" && url.pathname === "/faucet") {
+      if (networkOf(env) === "mainnet") return new Response("Not found" + String.fromCharCode(10), { status: 404, headers: corsHeaders() });
       try {
         const b = (await req.json().catch(() => null)) as { wallet?: unknown } | null;
         return json(await claimTestSkr(env, b?.wallet));

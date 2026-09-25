@@ -61,6 +61,9 @@ pub fn handle_create_tournament(
     guaranteed_amount_lamports: u64,
     mint: Pubkey,
 ) -> Result<()> {
+    #[cfg(feature = "mainnet")]
+    require_keys_eq!(ctx.accounts.authority.key(), PLATFORM_AUTHORITY, PumpFantasyError::Unauthorized);
+
     require!(end_ts > start_ts, PumpFantasyError::NotEnded);
 
     if !currency::is_native(&mint) {

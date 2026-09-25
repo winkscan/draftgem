@@ -1,0 +1,17 @@
+# The MAINNET deployment: same code as wrangler.toml, its own name, secrets and KV namespace.
+#   npx wrangler deploy --config wrangler.mainnet.toml
+#   npx wrangler secret put <NAME> --config wrangler.mainnet.toml
+name = "draftgem-mainnet"
+main = "src/index.ts"
+compatibility_date = "2026-09-18"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NETWORK = "mainnet"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_MAINNET_KV_ID"

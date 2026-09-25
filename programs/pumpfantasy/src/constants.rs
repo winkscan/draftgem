@@ -50,4 +50,13 @@ pub const ENTRY_SEED: &[u8] = b"entry";
 /// (budget sum ≤ MAX_BUDGET_FP) still happens on-chain and can't be faked
 /// once the attestation is in the transaction — this only replaces "where
 /// did fp_cost come from", not "is the budget actually enforced".
+#[cfg(not(feature = "mainnet"))]
 pub const ATTESTATION_SIGNER: Pubkey = pubkey!("BFKxn8Et3r2fjHDt5DhMHZBzpKeXT6gKNATnF87MkSC4");
+#[cfg(feature = "mainnet")]
+pub const ATTESTATION_SIGNER: Pubkey = pubkey!("9GuwXo7gAnyCDZTAneauxW9v22cNdYmyypTjHutNwoFc");
+
+/// The only key allowed to create tournaments on mainnet. The authority decides prizes, so a tournament
+/// made by anyone else could pay its whole pool to its maker. (The devnet build leaves creation open so the
+/// tests can use random keys; the app also only ever shows tournaments made by the platform key.)
+#[cfg(feature = "mainnet")]
+pub const PLATFORM_AUTHORITY: Pubkey = pubkey!("27BDSBXfrhUBKXmWppS6VDfjPCMnm7LCEZZXcCmAVHNx");

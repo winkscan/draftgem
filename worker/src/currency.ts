@@ -43,19 +43,27 @@ export function readTokenAmount(data: Uint8Array): bigint {
 export type Currency = "SKR" | "SOL" | "ORE" | "USDC";
 
 // SKR, the Solana Mobile (Seeker) token, is the platform's main currency. Real SKR has 6 decimals; its mainnet
-// mint is SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3. This worker runs on DEVNET, where the real mint doesn't
-// exist, so it uses a test mint owned by the platform key (see faucet.ts). Switch to the mainnet mint together
-// with the rest of the mainnet migration.
+// mint is SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3. On DEVNET the real mint doesn't exist, so a test mint owned by
+// the platform key is used (see faucet.ts); which one applies follows the deployment's network (rpc.ts).
 export const SKR_MINT_MAINNET = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 export const SKR_MINT_DEVNET = "3KQM6MobTX4TZhoLyQgmKmvvexJ7wozY29FFK9rPUZgU";
+const USDC_MINT_MAINNET = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const USDC_MINT_DEVNET = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
+// Which network the running deployment is on (set per request by rpc.ts's useNetwork).
+let network: "devnet" | "mainnet" = "devnet";
+export function setNetwork(n: "devnet" | "mainnet") {
+  network = n;
+}
+const pick = (mainnet: string, devnet: string) => new PublicKey(network === "mainnet" ? mainnet : devnet);
 
 export const NATIVE_MINT = PublicKey.default;
 
 export const CURRENCIES: Record<Currency, { mint: PublicKey | null; decimals: number; label: string }> = {
-  SKR: { mint: new PublicKey(SKR_MINT_DEVNET), decimals: 6, label: "SKR" },
+  SKR: { get mint() { return pick(SKR_MINT_MAINNET, SKR_MINT_DEVNET); }, decimals: 6, label: "SKR" },
   SOL: { mint: null, decimals: 9, label: "SOL" },
   ORE: { mint: new PublicKey("oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp"), decimals: 11, label: "ORE" },
-  USDC: { mint: new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), decimals: 6, label: "USDC" },
+  USDC: { get mint() { return pick(USDC_MINT_MAINNET, USDC_MINT_DEVNET); }, decimals: 6, label: "USDC" },
 };
 
 export function mintFor(currency: Currency): PublicKey {

@@ -1,3 +1,4 @@
+import { IS_MAINNET } from "../../pumpfantasy/config";
 import { Image, StyleSheet, View } from "react-native";
 import { Text, TouchableRipple, ActivityIndicator } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -48,6 +49,11 @@ export function TopBar({
           <View style={styles.bar}>
             <View style={styles.left}>
               <DraftGemLogo height={28} />
+              {IS_MAINNET ? (
+                <View style={styles.beta}>
+                  <Text style={styles.betaText}>BETA</Text>
+                </View>
+              ) : null}
             </View>
             <View style={styles.right}>
               <UpdateBadge />
@@ -114,6 +120,8 @@ const styles = StyleSheet.create({
   },
   left: { flexDirection: "row", alignItems: "center", gap: 6 },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
+  beta: { borderRadius: 999, backgroundColor: C.glassStrong, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 6 },
+  betaText: { color: C.textOnHeaderMuted, fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
   pill: {
     backgroundColor: C.glassStrong,
     borderRadius: 999,

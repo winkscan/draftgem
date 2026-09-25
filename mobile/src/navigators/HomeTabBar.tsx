@@ -1,3 +1,4 @@
+import { IS_MAINNET } from "../pumpfantasy/config";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Portal } from "react-native-paper";
@@ -54,7 +55,8 @@ export function HomeTabBar({ state, navigation }: BottomTabBarProps) {
       {/* The "+" lives in a Portal — a separate layer drawn above the whole app — so nothing in the
           bar (elevation, draw order) can ever cover it. It is placed from the bottom of the screen:
           its centre sits on the bar's top edge, FAB_OVERHANG of it rising above. */}
-      {homeFocused && barHeight > 0 ? (
+      {/* Player-made tournaments are switched off during the mainnet beta. */}
+      {homeFocused && barHeight > 0 && !IS_MAINNET ? (
         <Portal>
           <View style={styles.fabLayer} pointerEvents="box-none">
             {/* Deliberately flat: no elevation, shadow or ripple. On Android those made the circle's
