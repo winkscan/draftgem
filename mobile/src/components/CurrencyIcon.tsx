@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { CURRENCIES, type Currency } from "../pumpfantasy/currency";
-import { SolanaIcon } from "./SolanaIcon";
+import { SolanaCoin } from "./SolanaIcon";
 import { TokenIcon } from "./TokenIcon";
 
 // USDC on devnet is a different mint from the real one, which has no picture of its own: the icon
@@ -12,6 +12,6 @@ const ICON_MINT: Record<Exclude<Currency, "SOL">, string> = {
 
 /** The picture of a tournament currency (SOL, ORE, USDC), round like the coin icons. */
 export function CurrencyIcon({ currency, size = 16 }: { currency: Currency; size?: number }) {
-  if (currency === "SOL") return <SolanaIcon size={size} />;
+  if (currency === "SOL") return <SolanaCoin size={size} />;
   return <TokenIcon mint={ICON_MINT[currency]} symbol={currency} size={size} />;
 }

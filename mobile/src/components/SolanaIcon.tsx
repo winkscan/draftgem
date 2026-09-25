@@ -1,3 +1,4 @@
+import { View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 // The Solana mark: three slanted bars with the brand's green-to-purple gradient.
@@ -23,5 +24,14 @@ export function SolanaIcon({ size = 18 }: { size?: number }) {
         fill="url(#solanaGradient)"
       />
     </Svg>
+  );
+}
+
+/** The SOL coin: the mark on a black circle, like the token's own picture. */
+export function SolanaCoin({ size = 18 }: { size?: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+      <SolanaIcon size={size * 0.56} />
+    </View>
   );
 }

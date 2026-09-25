@@ -8,7 +8,7 @@ import { useAuthorization } from "../../utils/useAuthorization";
 import { useConnection } from "../../utils/ConnectionProvider";
 import { useChrome } from "../../utils/Chrome";
 import { ellipsify, formatSol } from "../../pumpfantasy/format";
-import { SolanaIcon } from "../SolanaIcon";
+import { SolanaCoin } from "../SolanaIcon";
 import { PF_COLORS as C } from "../../theme";
 
 // The header of My Profile: the standard panel with the back arrow and title, and under it the wallet's
@@ -46,7 +46,7 @@ export function ProfileHeader({ title }: { title: string }) {
             ) : (
               <Text style={styles.balance}>{formatSol(balanceLamports ?? 0, 2)}</Text>
             )}
-            <SolanaIcon size={18} />
+            <SolanaCoin size={20} />
           </View>
         ) : null}
       </View>
