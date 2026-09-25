@@ -9,3 +9,5 @@ test-ledger
 mobile/PumpFantasy-preview.apk
 *.apk
 attestation-signer.json
+
+worker/.admin-token

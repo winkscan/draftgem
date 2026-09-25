@@ -15,7 +15,7 @@ import {
   type EntryAccount,
 } from "./accounts";
 import { fetchAllAccountsV2, fetchOneAccount } from "./gpaV2";
-import { PROGRAM_ID } from "./config";
+import { PLATFORM_AUTHORITY, PROGRAM_ID } from "./config";
 import { tournamentPda, entryPda } from "./pdas";
 
 export type { TournamentAccount, AssetPriceAccount, EntryAccount };
@@ -34,11 +34,14 @@ export function useTournaments() {
         fetchAllAccountsV2(connection, PROGRAM_ID, TOURNAMENT_DISCRIMINATOR, decodeTournament),
         fetchArchivedList(),
       ]);
-      const onChain = new Set(rows.map((r) => r.account.id.toString()));
+      // Only tournaments created by the platform key: anyone can create one with themselves as the
+      // authority, who then decides the winners. See PLATFORM_AUTHORITY.
+      const ours = rows.filter((r) => r.account.authority.toBase58() === PLATFORM_AUTHORITY);
+      const onChain = new Set(ours.map((r) => r.account.id.toString()));
       const closed = archived
         .filter((a) => !onChain.has(a.id))
         .map((a) => ({ publicKey: tournamentPda(BigInt(a.id))[0], account: toTournamentAccount(a) }));
-      return [...rows, ...closed].sort((a, b) => Number(b.account.id - a.account.id));
+      return [...ours, ...closed].sort((a, b) => Number(b.account.id - a.account.id));
     },
     refetchInterval: 20_000,
   });
@@ -52,7 +55,8 @@ export function useTournament(id: bigint | number | null) {
     queryKey: ["tournament", pda?.toBase58()],
     queryFn: async () => {
       const onChain = await fetchOneAccount(connection, pda!, decodeTournament);
-      if (onChain) return onChain;
+      // A tournament made by anyone but us is not ours to show (see PLATFORM_AUTHORITY): to the app it doesn't exist.
+      if (onChain) return onChain.authority.toBase58() === PLATFORM_AUTHORITY ? onChain : null;
       const archived = await fetchArchivedResult(id!.toString()); // closed after it finished
       return archived ? toTournamentAccount(archived.tournament) : null;
     },

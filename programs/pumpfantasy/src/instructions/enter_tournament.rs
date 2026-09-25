@@ -62,6 +62,27 @@ fn verify_attestation(
         data.len() == ED25519_MESSAGE_OFFSET + expected_message.len(),
         PumpFantasyError::MissingAttestation
     );
+
+    // The 16-byte header says WHERE the runtime reads the signature, key and message it verifies.
+    // Comparing the bytes at the fixed positions below is only meaningful if the header points at
+    // exactly those positions IN THIS instruction: otherwise an attacker signs anything with their
+    // own key (header pointing into another instruction's data) while these bytes just LOOK right.
+    let field = |at: usize| u16::from_le_bytes([data[at], data[at + 1]]);
+    require!(data[0] == 1 && data[1] == 0, PumpFantasyError::MissingAttestation); // one signature
+    require!(
+        field(2) as usize == ED25519_SIGNATURE_OFFSET && field(4) == u16::MAX,
+        PumpFantasyError::MissingAttestation
+    );
+    require!(
+        field(6) as usize == ED25519_PUBKEY_OFFSET && field(8) == u16::MAX,
+        PumpFantasyError::MissingAttestation
+    );
+    require!(
+        field(10) as usize == ED25519_MESSAGE_OFFSET
+            && field(12) as usize == expected_message.len()
+            && field(14) == u16::MAX,
+        PumpFantasyError::MissingAttestation
+    );
     require!(
         &data[ED25519_PUBKEY_OFFSET..ED25519_PUBKEY_OFFSET + ED25519_PUBKEY_LEN] == ATTESTATION_SIGNER.as_ref(),
         PumpFantasyError::MissingAttestation
@@ -265,6 +286,24 @@ pub fn handle_enter_tournament<'info>(
         let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
         anchor_lang::system_program::transfer(cpi_ctx, tournament.entry_fee_lamports)?;
     } else {
+        // Every account of the token transfer is pinned down: the fee must land in THE vault's own
+        // token account (its associated account for this mint), not in any account of the same mint
+        // the player names — otherwise the fee could go to themselves while still counting in the pool.
+        require_keys_eq!(ctx.accounts.token_program.key(), spl_token_interface::ID, PumpFantasyError::WrongTokenProgram);
+        require_keys_eq!(ctx.accounts.mint_account.key(), tournament.mint, PumpFantasyError::TokenAccountMintMismatch);
+        require_keys_eq!(
+            ctx.accounts.vault_token_account.key(),
+            spl_associated_token_account_interface::address::get_associated_token_address(
+                &ctx.accounts.vault.key(),
+                &tournament.mint,
+            ),
+            PumpFantasyError::TokenAccountOwnerMismatch
+        );
+        currency::require_token_account(
+            &ctx.accounts.vault_token_account.to_account_info(),
+            &tournament.mint,
+            &ctx.accounts.vault.key(),
+        )?;
         currency::require_token_account(
             &ctx.accounts.player_token_account.to_account_info(),
             &tournament.mint,

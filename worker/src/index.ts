@@ -236,6 +236,18 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+/** True when the request carries the admin token (constant-time compare). No token configured = nobody is admin. */
+function isAdmin(req: Request, env: Env): boolean {
+  const expected = env.ADMIN_TOKEN;
+  const got = req.headers.get("x-admin-token") ?? "";
+  if (!expected || expected.length < 24 || got.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ got.charCodeAt(i);
+  return diff === 0;
+}
+
+const unauthorized = () => new Response("Unauthorized"+String.fromCharCode(10), { status: 401, headers: corsHeaders() });
+
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     const tick = BigInt(Math.floor(event.scheduledTime / TICK_MS));
@@ -306,6 +318,8 @@ export default {
     // Manual run of the same maintenance pass the cron does (`curl <worker-url>/sync`);
     // `?full=1` scans every tournament (repair path for non-tick-aligned ones).
     if (req.method === "GET" && (url.pathname === "/sync" || url.pathname === "/settle")) {
+      // Admin only: it spends RPC credits and sends transactions, and parallel passes would race each other.
+      if (!isAdmin(req, env)) return unauthorized();
       try {
         const result = await runMaintenance(env, { full: url.searchParams.get("full") === "1" });
         return new Response(`${result}
@@ -382,6 +396,8 @@ export default {
     // favicon fetch) that used to land here created a tournament and spent
     // Helius credits + SOL.
     if (req.method === "GET" && url.pathname === "/create") {
+      // Admin only: every call spends the authority wallet's SOL on a new tournament.
+      if (!isAdmin(req, env)) return unauthorized();
       try {
         const id = BigInt(Date.now());
         const result = await createTournament(env, id, id);

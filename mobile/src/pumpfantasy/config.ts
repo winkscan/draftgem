@@ -15,6 +15,11 @@ export const WORKER_URL = "https://pumpfantasy-cron.swapkings.workers.dev";
 
 export const PROGRAM_ID = new PublicKey(idl.address);
 
+// The only key whose tournaments the app shows. The program lets anyone create a tournament with
+// themselves as its authority, and the authority decides who wins: a stranger's tournament could pay
+// the whole pool to its creator. Everything we run (cron and player-made ones) is created by this key.
+export const PLATFORM_AUTHORITY = "6oKrwPZtLyzuzf3Equyijp64FmAouMJSJ9ctGak3dPZR";
+
 // Mirrors constants::MAX_BUDGET_FP / RAKE_BPS / SCORE_FLOOR_BPS in the Rust
 // program — keep these in sync if the on-chain constants ever change.
 export const MAX_BUDGET_FP = 4_000;

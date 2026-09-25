@@ -20,4 +20,7 @@ export interface Env {
   ATTESTATION_SIGNER_SECRET_KEY: string;
   // KV namespace (wrangler.toml [[kv_namespaces]]) — see bridgedAssets.ts.
   CACHE: KVNamespace;
+  // Secret for the maintenance URLs (/sync, /settle, /create): sent as the X-Admin-Token header.
+  // `wrangler secret put ADMIN_TOKEN`. Without it those URLs answer 401 to everyone.
+  ADMIN_TOKEN?: string;
 }

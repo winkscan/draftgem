@@ -1071,3 +1071,161 @@ fn test_spl_tournament_full_lifecycle() {
     assert!(svm.get_account(&vault_token_account).is_none_or(|a| a.lamports == 0), "vault ATA is closed, rent reclaimed");
     assert!(svm.get_account(&tournament).is_none_or(|a| a.lamports == 0), "tournament account is closed");
 }
+
+/// Audit finding (2026-09-25): the ed25519 attestation check compared the bytes at the fixed
+/// positions of the previous instruction, but never checked the instruction's HEADER, which tells
+/// the runtime where the signature/key/message it actually verifies live. A forged instruction can
+/// show the real signer's key and an honest message at the fixed positions while its header points
+/// at another instruction carrying the attacker's own valid signature, so anyone could enter with
+/// invented (free) fp costs. Must be rejected.
+#[test]
+fn test_forged_ed25519_header_cannot_fake_the_attestation() {
+    let mut m = mini_tournament(10_000_000);
+    let player = Keypair::new();
+    m.svm.airdrop(&player.pubkey(), 1_000_000_000).unwrap();
+
+    let real = load_attestation_signer();
+    let expiry = m.svm.get_sysvar::<Clock>().unix_timestamp + 60;
+    let picks: [Pubkey; PICKS_PER_ENTRY] = std::array::from_fn(|i| m.mints[i]);
+    let fake_costs = [0u32; PICKS_PER_ENTRY]; // free coins: what the attacker wants
+    let message = attestation_message(&picks, &fake_costs, expiry);
+
+    // Instruction 0: an honest-looking ed25519 instruction signed by the ATTACKER's own key.
+    let attacker = SigningKey::from_bytes(&[9u8; 32]);
+    let carrier = build_ed25519_instruction(&attacker, &vec![0u8; message.len()]);
+
+    // Instruction 1: shows the REAL signer and the wanted message at the fixed positions, but its
+    // header points (instruction index 0) at the carrier for the bytes the runtime verifies.
+    let mut forged = Vec::new();
+    forged.extend_from_slice(&[1u8, 0u8]);
+    forged.extend_from_slice(&48u16.to_le_bytes()); // signature offset
+    forged.extend_from_slice(&0u16.to_le_bytes()); // ... in instruction 0
+    forged.extend_from_slice(&16u16.to_le_bytes()); // public key offset
+    forged.extend_from_slice(&0u16.to_le_bytes());
+    forged.extend_from_slice(&112u16.to_le_bytes()); // message offset
+    forged.extend_from_slice(&(message.len() as u16).to_le_bytes());
+    forged.extend_from_slice(&0u16.to_le_bytes());
+    forged.extend_from_slice(&real.verifying_key().to_bytes());
+    forged.extend_from_slice(&[0u8; 64]);
+    forged.extend_from_slice(&message);
+    let forged_ix = Instruction { program_id: solana_sdk_ids::ed25519_program::ID, accounts: vec![], data: forged };
+
+    let entry = entry_pda(&m.program_id, &m.tournament, &player.pubkey(), 0);
+    let mut metas = pumpfantasy::accounts::EnterTournament {
+        player: player.pubkey(),
+        tournament: m.tournament,
+        vault: m.vault,
+        vault_token_account: m.vault,
+        player_token_account: player.pubkey(),
+        mint_account: anchor_lang::solana_program::system_program::ID,
+        token_program: anchor_lang::solana_program::system_program::ID,
+        entry,
+        instructions_sysvar: solana_sdk_ids::sysvar::instructions::ID,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    }
+    .to_account_metas(None);
+    for mint in &picks {
+        metas.push(AccountMeta::new(asset_pda(&m.program_id, &m.tournament, mint), false));
+    }
+    let enter_ix = Instruction::new_with_bytes(
+        m.program_id,
+        &pumpfantasy::instruction::EnterTournament { entry_index: 0, picks, fp_costs: fake_costs, attestation_expiry: expiry }.data(),
+        metas,
+    );
+    let result = send(&mut m.svm, &player, vec![carrier, forged_ix, enter_ix]);
+    assert!(result.is_err(), "a forged ed25519 header must not pass as the backend's attestation");
+    assert!(m.svm.get_account(&entry).is_none(), "no entry was created");
+}
+
+/// Audit finding (2026-09-25): an SPL entry never checked WHICH token account received the fee, so
+/// a player could name any other account of the same mint (their own) as the "vault": the fee
+/// went to themselves while still counting in the prize pool, a free entry that leaves the vault
+/// short of the pool. The fee must land in the vault's own associated token account.
+#[test]
+fn test_spl_entry_fee_must_reach_the_vault_token_account() {
+    let program_id = pumpfantasy::ID;
+    let mut svm = LiteSVM::new();
+    svm.add_program(program_id, program_bytes()).unwrap();
+    let authority = Keypair::new();
+    svm.airdrop(&authority.pubkey(), 10_000_000_000).unwrap();
+    let token_program = spl_token_interface::ID;
+    let ata_program = spl_associated_token_account_interface::program::ID;
+    let mint = litesvm_token::CreateMint::new(&mut svm, &authority).decimals(6).send().expect("create mint");
+
+    let now = svm.get_sysvar::<Clock>().unix_timestamp;
+    let tournament = tournament_pda(&program_id, 43);
+    let vault = vault_pda(&program_id, &tournament);
+    let vault_ata = spl_associated_token_account_interface::address::get_associated_token_address_with_program_id(
+        &vault,
+        &mint,
+        &token_program,
+    );
+    let entry_fee: u64 = 5_000_000;
+    let create_ix = Instruction::new_with_bytes(
+        program_id,
+        &pumpfantasy::instruction::CreateTournament {
+            id: 43,
+            entry_fee_lamports: entry_fee,
+            start_ts: now + 100,
+            end_ts: now + 200,
+            entry_mode: pumpfantasy::EntryMode::Single,
+            guaranteed_amount_lamports: 0,
+            mint,
+        }
+        .data(),
+        pumpfantasy::accounts::CreateTournament {
+            authority: authority.pubkey(),
+            tournament,
+            vault,
+            vault_token_account: vault_ata,
+            mint_account: mint,
+            token_program,
+            associated_token_program: ata_program,
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+    send(&mut svm, &authority, vec![create_ix]).expect("create SPL tournament");
+
+    let player = Keypair::new();
+    svm.airdrop(&player.pubkey(), 1_000_000_000).unwrap();
+    let player_ata = litesvm_token::CreateAssociatedTokenAccount::new(&mut svm, &player, &mint).send().expect("player ATA");
+    litesvm_token::MintTo::new(&mut svm, &authority, &mint, &player_ata, entry_fee * 2).send().expect("fund player");
+    // A second token account of the same mint that the PLAYER owns: the would-be fake "vault".
+    let stash = litesvm_token::CreateAccount::new(&mut svm, &player, &mint).owner(&player.pubkey()).send().expect("stash account");
+
+    let signer = load_attestation_signer();
+    let mints: Vec<Pubkey> = (0..5).map(|_| Pubkey::new_unique()).collect();
+    let try_enter = |svm: &mut LiteSVM, vault_token_account: Pubkey| {
+        let expiry = svm.get_sysvar::<Clock>().unix_timestamp + 60;
+        let picks: [Pubkey; PICKS_PER_ENTRY] = std::array::from_fn(|i| mints[i]);
+        let fp_costs = [100u32; PICKS_PER_ENTRY];
+        let ed = build_ed25519_instruction(&signer, &attestation_message(&picks, &fp_costs, expiry));
+        let entry = entry_pda(&program_id, &tournament, &player.pubkey(), 0);
+        let mut metas = pumpfantasy::accounts::EnterTournament {
+            player: player.pubkey(),
+            tournament,
+            vault,
+            vault_token_account,
+            player_token_account: player_ata,
+            mint_account: mint,
+            token_program,
+            entry,
+            instructions_sysvar: solana_sdk_ids::sysvar::instructions::ID,
+            system_program: anchor_lang::solana_program::system_program::ID,
+        }
+        .to_account_metas(None);
+        for m in &picks {
+            metas.push(AccountMeta::new(asset_pda(&program_id, &tournament, m), false));
+        }
+        let ix = Instruction::new_with_bytes(
+            program_id,
+            &pumpfantasy::instruction::EnterTournament { entry_index: 0, picks, fp_costs, attestation_expiry: expiry }.data(),
+            metas,
+        );
+        send(svm, &player, vec![ed, ix])
+    };
+
+    assert!(try_enter(&mut svm, stash).is_err(), "the fee may not be sent to the player's own account");
+    assert!(try_enter(&mut svm, vault_ata).is_ok(), "the real vault token account works");
+}
