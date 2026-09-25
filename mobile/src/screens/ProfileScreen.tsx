@@ -33,9 +33,9 @@ export function ProfileScreen() {
   };
 
   const blocks = [
-    { icon: "trophy", title: "Tournaments", value: String(stats?.tournaments ?? 0), color: C.textPrimary },
-    { icon: "bolt", title: "Live Tournaments", value: String(stats?.live ?? 0), color: C.textPrimary },
-    { icon: "medal", title: "Total wins", value: String(stats?.wins ?? 0), color: C.textPrimary },
+    { icon: "trophy", title: "Tournaments", value: String(stats?.tournaments ?? 0) },
+    { icon: "bolt", title: "Live Tournaments", value: String(stats?.live ?? 0) },
+    { icon: "medal", title: "Total wins", value: String(stats?.wins ?? 0) },
   ];
 
   return (
@@ -46,13 +46,11 @@ export function ProfileScreen() {
         <View style={styles.grid}>
           {blocks.map((b) => (
             <View key={b.title} style={styles.block}>
-              <View style={styles.blockHead}>
-                <FontAwesome6 name={b.icon} size={14} color={C.textSecondary} />
-                <Text style={styles.blockTitle} numberOfLines={1}>
-                  {b.title}
-                </Text>
-              </View>
-              {isLoading ? <ActivityIndicator size={18} color={C.accent} style={styles.spinner} /> : <Text style={[styles.blockValue, { color: b.color }]}>{b.value}</Text>}
+              <FontAwesome6 name={b.icon} size={18} color={C.accent} />
+              <Text style={styles.blockTitle} numberOfLines={1} adjustsFontSizeToFit>
+                {b.title}
+              </Text>
+              {isLoading ? <ActivityIndicator size={18} color={C.accent} style={styles.spinner} /> : <Text style={styles.blockValue}>{b.value}</Text>}
             </View>
           ))}
         </View>
@@ -71,20 +69,19 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 16 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  grid: { flexDirection: "row", gap: 8 },
   block: {
-    width: "48%",
-    flexGrow: 1,
+    flex: 1,
+    alignItems: "flex-start",
     backgroundColor: C.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.cardBorder,
-    padding: 16,
-    gap: 10,
+    padding: 12,
+    gap: 8,
   },
-  blockHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  blockTitle: { color: C.textSecondary, fontWeight: "700", fontSize: 13, flexShrink: 1 },
-  blockValue: { fontWeight: "800", fontSize: 28 },
+  blockTitle: { color: C.textSecondary, fontWeight: "700", fontSize: 12, alignSelf: "stretch" },
+  blockValue: { color: C.textPrimary, fontWeight: "800", fontSize: 28 },
   spinner: { alignSelf: "flex-start", height: 34 },
   signOut: { height: 52, borderRadius: 999, backgroundColor: C.glassStrong, justifyContent: "center", alignItems: "center" },
   signOutText: { color: C.textPrimary, fontWeight: "800", fontSize: 15 },
