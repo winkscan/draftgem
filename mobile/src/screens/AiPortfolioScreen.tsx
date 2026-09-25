@@ -4,7 +4,7 @@ import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
-import { RISK_LEVELS, fetchAiPortfolio, setPendingAiPicks, type AiResult } from "../pumpfantasy/aiPortfolio";
+import { AiError, RISK_LEVELS, fetchAiPortfolio, setPendingAiPicks, type AiResult } from "../pumpfantasy/aiPortfolio";
 import { BottomBar } from "../components/BottomBar";
 import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard } from "../components/PortfolioCard";
@@ -28,16 +28,19 @@ export function AiPortfolioScreen() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
 
   const generate = async () => {
     setLoading(true);
     setError(null);
+    setPaused(false);
     try {
       // Ask for something different from what's on screen.
       setResult(await fetchAiPortfolio(risk, result?.picks.map((p) => p.mint) ?? []));
     } catch (e: any) {
       setResult(null);
       setError(e?.message ?? "The AI could not build a portfolio right now");
+      setPaused(e instanceof AiError && e.paused);
     } finally {
       setLoading(false);
     }
@@ -96,7 +99,7 @@ export function AiPortfolioScreen() {
               ))}
             </>
           ) : error ? (
-            <EmptyState icon="triangle-exclamation" label="No Assets" hint={error} />
+            <EmptyState icon={paused ? "pause" : "triangle-exclamation"} label={paused ? "AI Is Paused" : "No Assets"} hint={error} />
           ) : (
             <View style={styles.emptyBox}>
               <EmptyState icon="gem" label="No Assets Yet" hint="Set the risk level and press Generate." />

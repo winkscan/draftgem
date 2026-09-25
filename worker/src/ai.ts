@@ -1,7 +1,8 @@
 import type { Env } from "./env";
 import { getAllCandidates, type DiscoveredAsset } from "./tokenDiscovery";
 
-// "AI portfolio": Claude picks a 5-coin portfolio for a chosen risk level.
+// "AI portfolio": a language model picks a 5-coin portfolio for a chosen risk level. Two providers,
+// whichever key is set (Gemini first: its free tier costs nothing; otherwise Claude).
 //
 // The model never sees the whole 1000-coin pool: a shortlist of the most liquid coins of each
 // volatility category goes into the prompt (mint, category, FP price, typical hourly move, market cap,
@@ -26,6 +27,8 @@ const RISK_BRIEF = [
 ];
 
 export class AiUnavailableError extends Error {}
+/** The AI can't answer because its free/paid credits (or our own daily cap) are used up: the app shows "paused". */
+export class AiPausedError extends AiUnavailableError {}
 export class AiFailedError extends Error {}
 
 export interface AiPick {
@@ -63,15 +66,59 @@ const SYSTEM = `You build fantasy portfolios for DraftGem, a daily fantasy game 
 A player picks exactly 5 different coins. Each coin has a price in fantasy points (FP) set by its volatility category (Hold cheapest, then Farm, Pump, Moon, Degen most expensive) and the 5 prices must total at most ${BUDGET_FP} FP. The portfolio's score is the SUM of the five coins' percentage price changes over the round (one hour to one day), and a coin can lose at most 100%. Volatile coins move more in both directions: calm portfolios rarely score much either way, wild ones can score big or lose big.
 You choose ONLY from the coins listed, using their exact mint address. Match the requested risk level. Give each pick a short reason (max 90 characters) that names the actual property of the coin (category, typical move, liquidity, size, age), and a one-sentence summary of the portfolio's plan. Never invent data and never mention price predictions as facts.`;
 
-async function askOnce(env: Env, risk: number, coins: DiscoveredAsset[], feedback: string | null): Promise<unknown> {
-  const user =
+function buildUser(risk: number, coins: DiscoveredAsset[], feedback: string | null): string {
+  return (
     RISK_BRIEF[risk] +
     "\n\nAvailable coins (mint | symbol | category | FP price | typical 1-hour move | market cap | liquidity | age):\n" +
     coins.map(line).join("\n") +
     "\n\nPick 5 different coins, total at most " +
     BUDGET_FP +
-    " FP, and call submit_portfolio." +
-    (feedback ? "\n\nYour previous answer was rejected: " + feedback + " Fix it." : "");
+    " FP, and submit the portfolio." +
+    (feedback ? "\n\nYour previous answer was rejected: " + feedback + " Fix it." : "")
+  );
+}
+
+const PICKS_SCHEMA = {
+  type: "object",
+  properties: {
+    picks: {
+      type: "array",
+      minItems: 5,
+      maxItems: 5,
+      items: { type: "object", properties: { mint: { type: "string" }, reason: { type: "string" } }, required: ["mint", "reason"] },
+    },
+    summary: { type: "string" },
+  },
+  required: ["picks", "summary"],
+};
+
+/** Google Gemini (free tier via AI Studio): JSON out through a response schema. */
+async function askGemini(env: Env, user: string): Promise<unknown> {
+  const model = env.GEMINI_MODEL || "gemini-flash-latest";
+  const upper = (n: any): any =>
+    Array.isArray(n) ? n.map(upper) : n && typeof n === "object" ? Object.fromEntries(Object.entries(n).map(([k, v]) => [k, k === "type" ? String(v).toUpperCase() : upper(v)])) : n;
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY! },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { temperature: 1, responseMimeType: "application/json", responseSchema: upper(PICKS_SCHEMA), maxOutputTokens: 1200 },
+    }),
+  });
+  if (res.status === 429) throw new AiPausedError("The AI's free credits are used up. Generation resumes when they renew.");
+  if (!res.ok) throw new AiFailedError("AI service answered " + res.status);
+  const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new AiFailedError("AI gave no portfolio");
+  }
+}
+
+/** Anthropic Claude: a forced tool call. */
+async function askClaude(env: Env, user: string): Promise<unknown> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
@@ -107,11 +154,23 @@ async function askOnce(env: Env, risk: number, coins: DiscoveredAsset[], feedbac
       tool_choice: { type: "tool", name: "submit_portfolio" },
     }),
   });
+  if (res.status === 429) throw new AiPausedError("The AI's credits are used up. Generation resumes when they renew.");
+  if (res.status === 400 || res.status === 402) {
+    const detail = await res.text();
+    if (/credit balance|billing/i.test(detail)) throw new AiPausedError("The AI's credits are used up. Generation resumes when they renew.");
+    throw new AiFailedError("AI service answered " + res.status);
+  }
   if (!res.ok) throw new AiFailedError("AI service answered " + res.status);
   const body = (await res.json()) as { content?: { type: string; input?: unknown }[] };
   const call = body.content?.find((b) => b.type === "tool_use");
   if (!call) throw new AiFailedError("AI gave no portfolio");
   return call.input;
+}
+
+
+async function askOnce(env: Env, risk: number, coins: DiscoveredAsset[], feedback: string | null): Promise<unknown> {
+  const user = buildUser(risk, coins, feedback);
+  return env.GEMINI_API_KEY ? askGemini(env, user) : askClaude(env, user);
 }
 
 /** Returns a problem description, or the checked portfolio. */
@@ -134,13 +193,13 @@ function check(input: unknown, coins: DiscoveredAsset[], risk: number): string |
 }
 
 export async function generatePortfolio(env: Env, risk: number, exclude: string[]): Promise<AiPortfolio> {
-  if (!env.ANTHROPIC_API_KEY) throw new AiUnavailableError("AI is not set up yet");
+  if (!env.GEMINI_API_KEY && !env.ANTHROPIC_API_KEY) throw new AiUnavailableError("AI is not set up yet");
   if (!Number.isInteger(risk) || risk < 0 || risk >= RISK_LEVELS) throw new AiFailedError("risk must be 0-" + (RISK_LEVELS - 1));
 
   const day = new Date().toISOString().slice(0, 10);
   const key = "ai-count:" + day;
   const used = Number((await env.CACHE.get(key)) ?? "0");
-  if (used >= DAILY_CAP) throw new AiUnavailableError("The AI has reached today's limit — try again tomorrow");
+  if (used >= DAILY_CAP) throw new AiPausedError("Today's AI limit is reached. Generation resumes tomorrow.");
   await env.CACHE.put(key, String(used + 1), { expirationTtl: 2 * 24 * 3600 });
 
   const coins = shortlist(await getAllCandidates(env), new Set(exclude.filter((m) => typeof m === "string").slice(0, 20)));

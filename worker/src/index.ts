@@ -7,7 +7,7 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
-import { AiFailedError, AiUnavailableError, generatePortfolio } from "./ai";
+import { AiFailedError, AiPausedError, AiUnavailableError, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
@@ -395,6 +395,7 @@ export default {
         const exclude = Array.isArray(b?.exclude) ? (b!.exclude as unknown[]).filter((m): m is string => typeof m === "string") : [];
         return json(await generatePortfolio(env, Number(b?.risk), exclude));
       } catch (err) {
+        if (err instanceof AiPausedError) return json({ error: err.message, paused: true }, 503);
         if (err instanceof AiUnavailableError) return json({ error: err.message }, 503);
         if (err instanceof AiFailedError) return json({ error: err.message }, 502);
         return json({ error: err instanceof Error ? err.message : String(err) }, 500);

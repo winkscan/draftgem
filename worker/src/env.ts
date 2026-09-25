@@ -25,4 +25,7 @@ export interface Env {
   ADMIN_TOKEN?: string;
   // Anthropic API key for the AI portfolio (`wrangler secret put ANTHROPIC_API_KEY`). Without it /ai-portfolio answers 503.
   ANTHROPIC_API_KEY?: string;
+  // Or a Google Gemini key from AI Studio (free tier): `wrangler secret put GEMINI_API_KEY`. Used first when set.
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
 }

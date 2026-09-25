@@ -23,14 +23,21 @@ export interface AiResult {
   totalFp: number;
 }
 
+/** `paused`: the AI's credits (or the daily limit) are used up; it comes back when they renew. */
+export class AiError extends Error {
+  constructor(message: string, readonly paused: boolean) {
+    super(message);
+  }
+}
+
 export async function fetchAiPortfolio(risk: number, exclude: string[]): Promise<AiResult> {
   const res = await fetch(WORKER_URL + "/ai-portfolio", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ risk, exclude }),
   });
-  const body = (await res.json().catch(() => ({}))) as Partial<AiResult> & { error?: string };
-  if (!res.ok || !body.picks) throw new Error(body.error ?? "The AI could not build a portfolio right now");
+  const body = (await res.json().catch(() => ({}))) as Partial<AiResult> & { error?: string; paused?: boolean };
+  if (!res.ok || !body.picks) throw new AiError(body.error ?? "The AI could not build a portfolio right now", !!body.paused);
   return body as AiResult;
 }
 
