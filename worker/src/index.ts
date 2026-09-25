@@ -7,7 +7,7 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
-import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, generatePortfolio } from "./ai";
+import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, aiAllowance, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
@@ -402,12 +402,24 @@ export default {
         const exclude = Array.isArray(b?.exclude) ? (b!.exclude as unknown[]).filter((m): m is string => typeof m === "string") : [];
         return json(await generatePortfolio(env, Number(b?.risk), exclude, wallet, ip));
       } catch (err) {
-        if (err instanceof AiLimitError) return json({ error: err.message, limited: true, limit: err.limit }, 429);
-        if (err instanceof AiPausedError) return json({ error: err.message, paused: true }, 503);
+        if (err instanceof AiLimitError) return json({ error: err.message, limited: true, limit: err.limit, resetAt: err.resetAt }, 429);
+        if (err instanceof AiPausedError) return json({ error: err.message, paused: true, resetAt: err.resetAt }, 503);
         if (err instanceof AiUnavailableError) return json({ error: err.message }, 503);
         if (err instanceof AiFailedError) return json({ error: err.message }, 502);
         return json({ error: err instanceof Error ? err.message : String(err) }, 500);
       }
+    }
+
+    // GET /ai-limit?wallet= — free AI portfolios left today for this player (uses none).
+    if (req.method === "GET" && url.pathname === "/ai-limit") {
+      let wallet: string | null = null;
+      try {
+        const w = url.searchParams.get("wallet");
+        if (w) wallet = new PublicKey(w).toBase58();
+      } catch {
+        wallet = null;
+      }
+      return json(await aiAllowance(env, wallet, req.headers.get("cf-connecting-ip") ?? "unknown"));
     }
 
     // POST /faucet {"wallet": "..."} — devnet only: a few thousand test SKR for a wallet.

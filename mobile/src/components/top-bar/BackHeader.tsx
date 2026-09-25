@@ -8,7 +8,7 @@ import { PF_COLORS as C } from "../../theme";
 
 // The header of the simple stack screens (Create Tournament, Standings): the same panel as the lobby's
 // and a tournament's, with the usual back arrow and a title.
-export function BackHeader({ title }: { title: string }) {
+export function BackHeader({ title, right }: { title: string; /** Something on the title's line, at the right edge. */ right?: React.ReactNode }) {
   const navigation = useNavigation();
   const { setPanelHeader } = useChrome();
   useEffect(() => {
@@ -24,6 +24,7 @@ export function BackHeader({ title }: { title: string }) {
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
+        {right}
       </View>
     </View>
   );
@@ -33,5 +34,5 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: C.headerPanel, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   bar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
   back: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: -6 },
-  title: { color: C.textOnHeader, fontWeight: "800", fontSize: 18, flexShrink: 1 },
+  title: { color: C.textOnHeader, fontWeight: "800", fontSize: 18, flex: 1 },
 });

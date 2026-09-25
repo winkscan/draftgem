@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAuthorization } from "../utils/useAuthorization";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
+import { refreshAiAllowance, setAiAllowance, useAiAllowance, useCountdown } from "../pumpfantasy/aiLimit";
 import { AiError, RISK_LEVELS, fetchAiPortfolio, setPendingAiPicks, type AiResult } from "../pumpfantasy/aiPortfolio";
 import { BottomBar } from "../components/BottomBar";
 import { EmptyState } from "../components/EmptyState";
@@ -32,7 +33,18 @@ export function AiPortfolioScreen() {
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [limited, setLimited] = useState(false);
-  const [left, setLeft] = useState<{ left: number; limit: number } | null>(null);
+  const allowance = useAiAllowance();
+  const exhausted = !!allowance && allowance.left === 0;
+  const countdown = useCountdown(exhausted ? allowance!.resetAt : null);
+  const wallet = selectedAccount?.publicKey.toBase58() ?? null;
+  // How many free generations are left, in the header; refreshed on open and when the renewal time passes.
+  useEffect(() => {
+    refreshAiAllowance(wallet);
+    return () => setAiAllowance(null);
+  }, [wallet]);
+  useEffect(() => {
+    if (exhausted && countdown === "00:00:00") refreshAiAllowance(wallet);
+  }, [exhausted, countdown, wallet]);
 
   const generate = async () => {
     setLoading(true);
@@ -43,13 +55,14 @@ export function AiPortfolioScreen() {
       // Ask for something different from what's on screen.
       const r = await fetchAiPortfolio(risk, result?.picks.map((p) => p.mint) ?? [], selectedAccount?.publicKey.toBase58() ?? null);
       setResult(r);
-      if (r.left != null && r.limit != null) setLeft({ left: r.left, limit: r.limit });
+      if (r.left != null && r.limit != null && r.resetAt != null) setAiAllowance({ left: r.left, limit: r.limit, resetAt: r.resetAt });
     } catch (e: any) {
       setResult(null);
       setError(e?.message ?? "The AI could not build a portfolio right now");
       setPaused(e instanceof AiError && e.paused);
       setLimited(e instanceof AiError && e.limited);
-      if (e instanceof AiError && e.limited) setLeft((l) => (l ? { ...l, left: 0 } : null));
+      // Limit or pause: no generations for now. The header and the middle of the page count down to the renewal.
+      if (e instanceof AiError && e.resetAt != null && (e.limited || e.paused)) setAiAllowance({ left: 0, limit: e.limit, resetAt: e.resetAt });
     } finally {
       setLoading(false);
     }
@@ -78,18 +91,12 @@ export function AiPortfolioScreen() {
         </View>
         <Text style={styles.riskDescription}>{level.description}</Text>
 
-        <TouchableRipple style={[styles.generate, loading ? styles.generateBusy : undefined]} borderless disabled={loading} onPress={generate}>
+        <TouchableRipple style={[styles.generate, loading || exhausted ? styles.generateBusy : undefined]} borderless disabled={loading || exhausted} onPress={generate}>
           <View style={styles.generateInner}>
             <FontAwesome6 name="wand-magic-sparkles" size={15} color={C.accentTextOn} />
             <Text style={styles.generateText}>{result ? "Generate again" : "Generate"}</Text>
           </View>
         </TouchableRipple>
-
-        {left ? (
-          <Text style={styles.leftText}>
-            {left.left} of {left.limit} free portfolios left today
-          </Text>
-        ) : null}
 
         <View style={styles.result}>
           {loading ? (
@@ -115,6 +122,8 @@ export function AiPortfolioScreen() {
                 ))}
               </View>
             </>
+          ) : exhausted ? (
+            <EmptyState icon="hourglass-half" label={limited ? "Daily Limit Reached" : paused ? "AI Is Paused" : "Daily Limit Reached"} hint={"Reset in " + countdown} />
           ) : error ? (
             <EmptyState
               icon={limited ? "hourglass-half" : paused ? "pause" : "triangle-exclamation"}
@@ -157,7 +166,6 @@ const styles = StyleSheet.create({
   generateBusy: { opacity: 0.6 },
   generateInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
   generateText: { color: C.accentTextOn, fontWeight: "800", fontSize: 15 },
-  leftText: { color: C.textSecondary, fontSize: 12, textAlign: "center", marginTop: 10 },
   result: { marginTop: 24, gap: 10 },
   emptyBox: { minHeight: 200 },
   loading: { minHeight: 200, alignItems: "center", justifyContent: "center", gap: 12 },

@@ -24,11 +24,12 @@ export interface AiResult {
   /** Free generations left today, and the daily allowance. */
   left?: number;
   limit?: number;
+  resetAt?: number;
 }
 
 /** `paused`: the AI's credits (or the daily limit) are used up; it comes back when they renew. */
 export class AiError extends Error {
-  constructor(message: string, readonly paused: boolean, readonly limited = false) {
+  constructor(message: string, readonly paused: boolean, readonly limited = false, readonly resetAt: number | null = null, readonly limit = 0) {
     super(message);
   }
 }
@@ -39,8 +40,8 @@ export async function fetchAiPortfolio(risk: number, exclude: string[], wallet: 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ risk, exclude, wallet }),
   });
-  const body = (await res.json().catch(() => ({}))) as Partial<AiResult> & { error?: string; paused?: boolean; limited?: boolean };
-  if (!res.ok || !body.picks) throw new AiError(body.error ?? "The AI could not build a portfolio right now", !!body.paused, !!body.limited);
+  const body = (await res.json().catch(() => ({}))) as Partial<AiResult> & { error?: string; paused?: boolean; limited?: boolean; resetAt?: number };
+  if (!res.ok || !body.picks) throw new AiError(body.error ?? "The AI could not build a portfolio right now", !!body.paused, !!body.limited, body.resetAt ?? null, (body as { limit?: number }).limit ?? 0);
   return body as AiResult;
 }
 

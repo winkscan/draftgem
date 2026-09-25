@@ -18,8 +18,8 @@ const PER_TIER = 30; // shortlist size per volatility category
 // of the better models first, and the two Flash-Lite models carry the day: ~1000 requests, ~20 portfolios a minute.
 const DAILY_CAP = 700; // portfolios per day across all players (KV counter): stays under the Flash-Lite daily quotas
 // Free portfolios per player per day. One portfolio is one model call of about 6k tokens in and 0.4k out
-// (see `usage` in the response), so 10 a day per wallet keeps 40 active players inside the global cap.
-export const PER_WALLET_DAILY = 10;
+// (see `usage` in the response), so 5 a day per wallet keeps about 140 active players inside the global cap.
+export const PER_WALLET_DAILY = 5;
 const PER_ANONYMOUS_DAILY = 3; // no wallet connected: counted by IP only
 const PER_IP_DAILY = 40; // backstop against one machine inventing wallet addresses
 const TIERS = ["Hold", "Farm", "Pump", "Moon", "Degen"];
@@ -37,12 +37,30 @@ const RISK_BRIEF = [
 export class AiUnavailableError extends Error {}
 /** One player used up their free generations for today (the app shows how many they get and when they return). */
 export class AiLimitError extends Error {
-  constructor(message: string, readonly limit: number) {
+  constructor(message: string, readonly limit: number, readonly resetAt: number) {
     super(message);
   }
 }
 /** The AI can't answer because its free/paid credits (or our own daily cap) are used up: the app shows "paused". */
-export class AiPausedError extends AiUnavailableError {}
+export class AiPausedError extends AiUnavailableError {
+  constructor(message: string, readonly resetAt: number) {
+    super(message);
+  }
+}
+
+/** Epoch ms of the next 00:00 UTC (our own daily counters reset then). */
+export function nextUtcMidnight(): number {
+  const d = new Date();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+}
+
+/** Epoch ms of the next midnight in Pacific time: when Google's per-day free quotas renew. */
+export function nextPacificMidnight(): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0") % 24;
+  const secondsSinceMidnight = get("hour") * 3600 + get("minute") * 60 + get("second");
+  return Date.now() + (86400 - secondsSinceMidnight) * 1000;
+}
 export class AiFailedError extends Error {}
 
 export interface AiPick {
@@ -55,9 +73,10 @@ export interface AiPortfolio {
   summary: string;
   risk: number;
   totalFp: number;
-  /** Free generations this player has left today, and the daily allowance. */
+  /** Free generations this player has left today, the daily allowance, and when it renews (epoch ms). */
   left?: number;
   limit?: number;
+  resetAt?: number;
   /** Tokens the model used for this portfolio (for cost planning). */
   usage?: { model: string; input: number; output: number };
 }
@@ -175,7 +194,7 @@ async function askGemini(env: Env, user: string): Promise<unknown> {
       continue; // cut off or not JSON: try another model
     }
   }
-  if (dayQuotaHit && !minuteQuotaHit) throw new AiPausedError("The AI's free credits are used up. Generation resumes when they renew.");
+  if (dayQuotaHit && !minuteQuotaHit) throw new AiPausedError("The AI's free credits are used up.", nextPacificMidnight());
   if (minuteQuotaHit) throw new AiFailedError("The AI is busy right now — try again in a minute");
   throw new AiFailedError("The AI is busy right now (" + last + ") — try again in a moment");
 }
@@ -217,10 +236,10 @@ async function askClaude(env: Env, user: string): Promise<unknown> {
       tool_choice: { type: "tool", name: "submit_portfolio" },
     }),
   });
-  if (res.status === 429) throw new AiPausedError("The AI's credits are used up. Generation resumes when they renew.");
+  if (res.status === 429) throw new AiPausedError("The AI's credits are used up.", nextPacificMidnight());
   if (res.status === 400 || res.status === 402) {
     const detail = await res.text();
-    if (/credit balance|billing/i.test(detail)) throw new AiPausedError("The AI's credits are used up. Generation resumes when they renew.");
+    if (/credit balance|billing/i.test(detail)) throw new AiPausedError("The AI's credits are used up.", nextPacificMidnight());
     throw new AiFailedError("AI service answered " + res.status);
   }
   if (!res.ok) throw new AiFailedError("AI service answered " + res.status);
@@ -287,6 +306,14 @@ async function bump(env: Env, key: string, cap: number): Promise<number | null> 
   return used + 1;
 }
 
+/** How many free portfolios a player has left today (does not use one). */
+export async function aiAllowance(env: Env, wallet: string | null, ip: string): Promise<{ left: number; limit: number; resetAt: number }> {
+  const day = new Date().toISOString().slice(0, 10);
+  const limit = wallet ? PER_WALLET_DAILY : PER_ANONYMOUS_DAILY;
+  const used = Number((await env.CACHE.get("ai-user:" + day + ":" + (wallet ? "w:" + wallet : "ip:" + ip))) ?? "0");
+  return { left: Math.max(0, limit - used), limit, resetAt: nextUtcMidnight() };
+}
+
 export async function generatePortfolio(env: Env, risk: number, exclude: string[], wallet: string | null, ip: string): Promise<AiPortfolio> {
   if (!env.GEMINI_API_KEY && !env.ANTHROPIC_API_KEY) throw new AiUnavailableError("AI is not set up yet");
   if (!Number.isInteger(risk) || risk < 0 || risk >= RISK_LEVELS) throw new AiFailedError("risk must be 0-" + (RISK_LEVELS - 1));
@@ -297,12 +324,12 @@ export async function generatePortfolio(env: Env, risk: number, exclude: string[
   const who = wallet ? "w:" + wallet : "ip:" + ip;
   const used = await bump(env, "ai-user:" + day + ":" + who, limit);
   if (used == null) {
-    throw new AiLimitError("You've used your " + limit + " free AI portfolios for today. They come back at midnight UTC.", limit);
+    throw new AiLimitError("You've used your " + limit + " free AI portfolios for today.", limit, nextUtcMidnight());
   }
   if ((await bump(env, "ai-ip:" + day + ":" + ip, PER_IP_DAILY)) == null) {
-    throw new AiLimitError("Too many AI portfolios from this connection today. Try again tomorrow.", limit);
+    throw new AiLimitError("Too many AI portfolios from this connection today.", limit, nextUtcMidnight());
   }
-  if ((await bump(env, "ai-count:" + day, DAILY_CAP)) == null) throw new AiPausedError("Today's AI limit is reached. Generation resumes tomorrow.");
+  if ((await bump(env, "ai-count:" + day, DAILY_CAP)) == null) throw new AiPausedError("Today's AI limit is reached.", nextUtcMidnight());
 
   const coins = shortlist(await getAllCandidates(env), new Set(exclude.filter((m) => typeof m === "string").slice(0, 20)));
   if (coins.length < 20) throw new AiFailedError("Not enough coins to choose from right now");
@@ -311,7 +338,7 @@ export async function generatePortfolio(env: Env, risk: number, exclude: string[
   for (let attempt = 0; attempt < 3; attempt++) {
     lastUsage = null;
     const checked = check(await askOnce(env, risk, coins, feedback), coins, risk);
-    if (typeof checked !== "string") return { ...checked, left: limit - used, limit, usage: lastUsage ?? undefined };
+    if (typeof checked !== "string") return { ...checked, left: limit - used, limit, resetAt: nextUtcMidnight(), usage: lastUsage ?? undefined };
     feedback = checked;
     console.error("AI portfolio rejected (risk " + risk + "): " + checked);
   }

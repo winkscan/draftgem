@@ -6,6 +6,7 @@ import { AiPortfolioScreen, CreateTournamentScreen, DraftScreen, LeaderboardScre
 import { DraftHeader } from "../screens/DraftScreen";
 import { BackHeader } from "../components/top-bar/BackHeader";
 import { ProfileHeader } from "../components/top-bar/ProfileHeader";
+import { AiHeader } from "../components/top-bar/AiHeader";
 import { PF_COLORS as C } from "../theme";
 
 export type RootStackParamList = {
@@ -49,7 +50,7 @@ const AppStack = () => (
       component={AiPortfolioScreen}
       options={{
         title: "AI Portfolio",
-        header: ({ options }) => <BackHeader title={options.title ?? ""} />,
+        header: ({ options }) => <AiHeader title={options.title ?? ""} />,
       }}
     />
     <Stack.Screen
