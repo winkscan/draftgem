@@ -79,10 +79,10 @@ export function PnlShareModal({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.dialog} onPress={() => {}}>
           <View style={styles.head}>
-            <TouchableRipple style={styles.back} borderless onPress={onClose}>
-              <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
-            </TouchableRipple>
             <Text style={styles.title}>Share Profit/Loss Chart</Text>
+            <TouchableRipple style={styles.close} borderless onPress={onClose}>
+              <FontAwesome6 name="xmark" size={18} color={C.textPrimary} />
+            </TouchableRipple>
           </View>
 
           {/* Everything inside this view is what ends up in the picture. */}
@@ -99,22 +99,24 @@ export function PnlShareModal({
           </View>
 
           <View style={styles.buttons}>
-            <TouchableRipple style={styles.button} borderless onPress={copyLink}>
-              <View style={styles.buttonInner}>
-                <FontAwesome6 name={done === "link" ? "check" : "link"} size={14} color={C.textPrimary} />
-                <Text style={styles.buttonText}>{done === "link" ? "Copied" : "Copy link"}</Text>
-              </View>
-            </TouchableRipple>
-            <TouchableRipple style={styles.button} borderless onPress={copyImage}>
-              <View style={styles.buttonInner}>
-                <FontAwesome6 name={done === "image" ? "check" : "copy"} size={14} color={C.textPrimary} />
-                <Text style={styles.buttonText}>{done === "image" ? "Copied" : "Copy image"}</Text>
-              </View>
-            </TouchableRipple>
+            <View style={styles.buttonRow}>
+              <TouchableRipple style={[styles.button, styles.buttonOutline]} borderless onPress={copyLink}>
+                <View style={styles.buttonInner}>
+                  <FontAwesome6 name={done === "link" ? "check" : "link"} size={14} color={C.textPrimary} />
+                  <Text style={styles.buttonText}>{done === "link" ? "Copied" : "Copy link"}</Text>
+                </View>
+              </TouchableRipple>
+              <TouchableRipple style={[styles.button, styles.buttonOutline]} borderless onPress={copyImage}>
+                <View style={styles.buttonInner}>
+                  <FontAwesome6 name={done === "image" ? "check" : "copy"} size={14} color={C.textPrimary} />
+                  <Text style={styles.buttonText}>{done === "image" ? "Copied" : "Copy image"}</Text>
+                </View>
+              </TouchableRipple>
+            </View>
             <TouchableRipple style={[styles.button, styles.buttonPrimary]} borderless onPress={shareImage}>
               <View style={styles.buttonInner}>
-                <FontAwesome6 name="x-twitter" brand size={14} color={C.accentTextOn} />
-                <Text style={[styles.buttonText, { color: C.accentTextOn }]}>Share</Text>
+                <FontAwesome6 name="x-twitter" brand size={15} color={C.accent2TextOn} />
+                <Text style={[styles.buttonText, { color: C.accent2TextOn }]}>Share</Text>
               </View>
             </TouchableRipple>
           </View>
@@ -127,8 +129,8 @@ export function PnlShareModal({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", padding: 16 },
   dialog: { width: "100%", maxWidth: 420, backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.cardBorder, padding: 16, gap: 16 },
-  head: { flexDirection: "row", alignItems: "center", gap: 8 },
-  back: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: -4 },
+  head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  close: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginRight: -6 },
   title: { color: C.textPrimary, fontWeight: "800", fontSize: 17, flexShrink: 1 },
   shot: { backgroundColor: C.bg, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, paddingTop: 14, paddingHorizontal: 14, overflow: "hidden" },
   shotTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -136,9 +138,12 @@ const styles = StyleSheet.create({
   shotAddress: { color: C.textPrimary, fontWeight: "800", fontSize: 16, marginTop: 16 },
   shotAmount: { fontWeight: "800", fontSize: 34, marginTop: 2 },
   shotChart: { marginTop: 10, marginHorizontal: -14, height: 110 },
-  buttons: { flexDirection: "row", gap: 8 },
-  button: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, justifyContent: "center" },
-  buttonPrimary: { backgroundColor: C.accent, borderColor: C.accent },
+  // Same size and shape as the app's other buttons (52 high, fully round).
+  buttons: { gap: 12 },
+  buttonRow: { flexDirection: "row", gap: 12 },
+  button: { flex: 1, height: 52, borderRadius: 999, justifyContent: "center" },
+  buttonOutline: { borderWidth: 1, borderColor: C.cardBorder },
+  buttonPrimary: { backgroundColor: C.accent2 },
   buttonInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  buttonText: { color: C.textPrimary, fontWeight: "700", fontSize: 13 },
+  buttonText: { color: C.textPrimary, fontWeight: "800", fontSize: 15 },
 });
