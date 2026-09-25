@@ -14,6 +14,7 @@ import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tourna
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { payoutStructureOf, poolOf } from "../pumpfantasy/tournamentFilters";
 import { WORKER_URL } from "../pumpfantasy/config";
+import { CurrencyIcon } from "./CurrencyIcon";
 import { EmptyState } from "./EmptyState";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
 import { TournamentInfoModal } from "./TournamentInfoModal";
@@ -281,8 +282,9 @@ function TournamentCard({
             <FontAwesome6 name={copied ? "check" : "link"} size={13} color={copied ? C.accent2 : C.textSecondary} />
           </TouchableRipple>
           <View style={styles.ctaButton}>
+            {showView ? null : <CurrencyIcon currency={currency} size={16} />}
             <Text style={styles.ctaViewText} numberOfLines={1}>
-              {showView ? "View" : `${formatAmountCompact(t.entryFeeLamports, decimals)} ${currency}`}
+              {showView ? "View" : formatAmountCompact(t.entryFeeLamports, decimals)}
             </Text>
           </View>
         </View>
@@ -333,6 +335,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaButton: {
+    flexDirection: "row",
+    gap: 6,
     minWidth: 76,
     paddingHorizontal: 14,
     height: 34,

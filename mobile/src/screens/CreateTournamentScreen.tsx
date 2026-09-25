@@ -29,6 +29,7 @@ import {
 } from "../pumpfantasy/customTournaments";
 import { formatAmount, parseAmount, type Currency } from "../pumpfantasy/currency";
 import { BottomBar } from "../components/BottomBar";
+import { CurrencyIcon } from "../components/CurrencyIcon";
 import { PulseBadge } from "../components/PulseBadge";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
@@ -298,6 +299,7 @@ export function CreateTournamentScreen() {
           <Chip
             key={c}
             label={c}
+            icon={<CurrencyIcon currency={c} size={18} />}
             selected={currency === c}
             onPress={() => {
               setCurrency(c);
@@ -440,11 +442,13 @@ function OptionCard({
 
 function Chip({
   label,
+  icon,
   selected,
   onPress,
   disabled,
 }: {
   label: string;
+  icon?: React.ReactNode;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
@@ -456,7 +460,10 @@ function Chip({
       disabled={disabled}
       onPress={onPress}
     >
-      <Text style={[styles.chipText, selected ? styles.chipTextSelected : undefined]}>{label}</Text>
+      <View style={styles.chipInner}>
+        {icon}
+        <Text style={[styles.chipText, selected ? styles.chipTextSelected : undefined]}>{label}</Text>
+      </View>
     </TouchableRipple>
   );
 }
@@ -515,6 +522,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.cardBorder,
   },
+  chipInner: { flexDirection: "row", alignItems: "center", gap: 6 },
   chipSelected: { backgroundColor: C.accent, borderColor: C.accent },
   chipDisabled: { opacity: 0.4 },
   chipHint: { color: C.textSecondary, fontSize: 12, marginTop: 10, marginLeft: 4 },
