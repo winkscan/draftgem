@@ -35,7 +35,7 @@ export function ProfileScreen() {
   const blocks = [
     { icon: "trophy", title: "Tournaments", value: String(stats?.tournaments ?? 0) },
     { icon: "bolt", title: "Live Tournaments", value: String(stats?.live ?? 0) },
-    { icon: "medal", title: "Total wins", value: String(stats?.wins ?? 0) },
+    { icon: "medal", title: "Winning entries", value: String(stats?.wins ?? 0) },
   ];
 
   return (
