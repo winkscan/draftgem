@@ -60,7 +60,7 @@ export function AiPortfolioScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.riskHead}>
           <Text style={styles.riskTitle}>Risk level</Text>
-          <Text style={styles.riskName}>{level.name}</Text>
+          <Text style={[styles.riskName, { color: level.color }]}>{level.name}</Text>
         </View>
         <RiskSlider value={risk} steps={RISK_LEVELS.length} onChange={setRisk} />
         <View style={styles.ends}>

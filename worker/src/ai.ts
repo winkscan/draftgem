@@ -22,8 +22,8 @@ const RISK_BRIEF = [
   "STEADY (risk 1 of 5): protect capital. Use the calmest coins, Hold and Farm categories only, well-known and liquid. Avoid anything volatile.",
   "CAREFUL (risk 2 of 5): mostly calm coins (Hold, Farm) with at most one or two Pump coins for a little upside.",
   "BALANCED (risk 3 of 5): a deliberate mix of calm and volatile coins, spanning at least three different categories.",
-  "BOLD (risk 4 of 5): mostly volatile coins (Pump and Moon), at most one calm anchor.",
-  "MOONSHOT (risk 5 of 5): maximum risk and reward. Spend almost the whole budget on the most volatile coins (Moon, Degen). No calm coins.",
+  "BOLD (risk 4 of 5): mostly volatile coins (Pump and Moon), at most one calm anchor. Budget arithmetic: use at most one Degen coin; an example that fits is Moon + Moon + Pump + Pump + Farm.",
+  "MOONSHOT (risk 5 of 5): maximum risk and reward, the most volatile coins the budget allows. Budget arithmetic matters: three Degen coins already exceed the budget. Good shapes that fit: Degen + Degen + Pump (or Farm), or Degen + Moon + Moon + Farm, always checking the total is at most the budget. No Hold coins.",
 ];
 
 export class AiUnavailableError extends Error {}
@@ -66,12 +66,23 @@ const SYSTEM = `You build fantasy portfolios for DraftGem, a daily fantasy game 
 A player picks exactly 5 different coins. Each coin has a price in fantasy points (FP) set by its volatility category (Hold cheapest, then Farm, Pump, Moon, Degen most expensive) and the 5 prices must total at most ${BUDGET_FP} FP. The portfolio's score is the SUM of the five coins' percentage price changes over the round (one hour to one day), and a coin can lose at most 100%. Volatile coins move more in both directions: calm portfolios rarely score much either way, wild ones can score big or lose big.
 You choose ONLY from the coins listed, using their exact mint address. Match the requested risk level. Give each pick a short reason (max 90 characters) that names the actual property of the coin (category, typical move, liquidity, size, age), and a one-sentence summary of the portfolio's plan. Never invent data and never mention price predictions as facts.`;
 
+function priceTable(coins: DiscoveredAsset[]): string {
+  const seen = new Map<string, number>();
+  for (const c of coins) if (!seen.has(c.tier)) seen.set(c.tier, c.fpCost);
+  return TIERS.filter((t) => seen.has(t)).map((t) => t + " " + seen.get(t)).join(", ");
+}
+
 function buildUser(risk: number, coins: DiscoveredAsset[], feedback: string | null): string {
   return (
     RISK_BRIEF[risk] +
     "\n\nAvailable coins (mint | symbol | category | FP price | typical 1-hour move | market cap | liquidity | age):\n" +
     coins.map(line).join("\n") +
-    "\n\nPick 5 different coins, total at most " +
+    "\n\nCategory prices in FP: " +
+    priceTable(coins) +
+    ". The five prices must add up to at most " +
+    BUDGET_FP +
+    " FP, so wild picks are limited by the budget (two Degen coins already cost over half of it)." +
+    "\nPick 5 different coins, total at most " +
     BUDGET_FP +
     " FP, and submit the portfolio." +
     (feedback ? "\n\nYour previous answer was rejected: " + feedback + " Fix it." : "")
@@ -92,29 +103,51 @@ const PICKS_SCHEMA = {
   required: ["picks", "summary"],
 };
 
+// Best first. Older models (2.5 and earlier) are closed to new keys, and the newest ones are often
+// overloaded ("high demand", 503), so a request walks down this list until one answers.
+const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+
 /** Google Gemini (free tier via AI Studio): JSON out through a response schema. */
 async function askGemini(env: Env, user: string): Promise<unknown> {
-  const model = env.GEMINI_MODEL || "gemini-flash-latest";
   const upper = (n: any): any =>
     Array.isArray(n) ? n.map(upper) : n && typeof n === "object" ? Object.fromEntries(Object.entries(n).map(([k, v]) => [k, k === "type" ? String(v).toUpperCase() : upper(v)])) : n;
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY! },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: { temperature: 1, responseMimeType: "application/json", responseSchema: upper(PICKS_SCHEMA), maxOutputTokens: 1200 },
-    }),
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: SYSTEM }] },
+    contents: [{ role: "user", parts: [{ text: user }] }],
+    generationConfig: { temperature: 1, responseMimeType: "application/json", responseSchema: upper(PICKS_SCHEMA), maxOutputTokens: 4096 },
   });
-  if (res.status === 429) throw new AiPausedError("The AI's free credits are used up. Generation resumes when they renew.");
-  if (!res.ok) throw new AiFailedError("AI service answered " + res.status);
-  const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new AiFailedError("AI gave no portfolio");
+  let quotaHit = false;
+  let last = 0;
+  for (const model of [env.GEMINI_MODEL, ...GEMINI_MODELS].filter((m): m is string => !!m)) {
+    let res: Response;
+    try {
+      res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY! },
+        body,
+        signal: AbortSignal.timeout(15_000), // a model that thinks for minutes is skipped, not waited for
+      });
+    } catch {
+      last = 408;
+      continue;
+    }
+    last = res.status;
+    if (res.status === 429) {
+      quotaHit = true; // this model's free quota is spent; another model has its own
+      continue;
+    }
+    if (res.status === 503 || res.status === 404) continue; // overloaded or retired: next one
+    if (!res.ok) throw new AiFailedError("AI service answered " + res.status);
+    const out = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const text = out.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    try {
+      return JSON.parse(text);
+    } catch {
+      continue; // cut off or not JSON: try another model
+    }
   }
+  if (quotaHit) throw new AiPausedError("The AI's free credits are used up. Generation resumes when they renew.");
+  throw new AiFailedError("The AI is busy right now (" + last + ") — try again in a moment");
 }
 
 /** Anthropic Claude: a forced tool call. */
@@ -174,6 +207,25 @@ async function askOnce(env: Env, risk: number, coins: DiscoveredAsset[], feedbac
 }
 
 /** Returns a problem description, or the checked portfolio. */
+function fitToBudget(picks: AiPick[], byMint: Map<string, DiscoveredAsset>): { picks: AiPick[]; total: number } | null {
+  const chosen = picks.map((p) => ({ ...p }));
+  const all = [...byMint.values()];
+  const priceOf = (m: string) => byMint.get(m)!.fpCost;
+  let total = chosen.reduce((sum, p) => sum + priceOf(p.mint), 0);
+  for (let guard = 0; guard < 5 && total > BUDGET_FP; guard++) {
+    // The most expensive pick gives way to the most expensive unused coin that brings the total under the cap.
+    chosen.sort((a, b) => priceOf(b.mint) - priceOf(a.mint));
+    const worst = chosen[0];
+    const room = BUDGET_FP - (total - priceOf(worst.mint));
+    const used = new Set(chosen.map((p) => p.mint));
+    const swap = all.filter((c) => !used.has(c.mint) && c.fpCost <= room).sort((a, b) => b.fpCost - a.fpCost || (b.volatilityPct ?? 0) - (a.volatilityPct ?? 0))[0];
+    if (!swap) return null;
+    chosen[0] = { mint: swap.mint, reason: "Swapped in to fit the FP budget: " + swap.tier + " category, " + (swap.volatilityPct != null ? swap.volatilityPct.toFixed(1) + "%/h typical move." : "very active.") };
+    total = chosen.reduce((sum, p) => sum + priceOf(p.mint), 0);
+  }
+  return total <= BUDGET_FP ? { picks: chosen, total } : null;
+}
+
 function check(input: unknown, coins: DiscoveredAsset[], risk: number): string | AiPortfolio {
   const byMint = new Map(coins.map((c) => [c.mint, c]));
   const o = input as { picks?: { mint?: unknown; reason?: unknown }[]; summary?: unknown } | null;
@@ -188,7 +240,13 @@ function check(input: unknown, coins: DiscoveredAsset[], risk: number): string |
     total += byMint.get(p.mint)!.fpCost;
     picks.push({ mint: p.mint, reason: typeof p.reason === "string" ? p.reason.slice(0, 140) : "" });
   }
-  if (total > BUDGET_FP) return "the total price was " + total + " FP, over the " + BUDGET_FP + " FP budget.";
+  if (total > BUDGET_FP) {
+    // Wild portfolios often overshoot (a Degen coin costs 1600 of the 4000 FP): swap the priciest picks
+    // for the priciest coin that still fits, instead of failing the whole request.
+    const fixed = fitToBudget(picks, byMint);
+    if (!fixed) return "the total price was " + total + " FP, over the " + BUDGET_FP + " FP budget.";
+    return { picks: fixed.picks, summary: typeof o.summary === "string" ? o.summary.slice(0, 240) : "", risk, totalFp: fixed.total };
+  }
   return { picks, summary: typeof o.summary === "string" ? o.summary.slice(0, 240) : "", risk, totalFp: total };
 }
 
@@ -206,10 +264,11 @@ export async function generatePortfolio(env: Env, risk: number, exclude: string[
   if (coins.length < 20) throw new AiFailedError("Not enough coins to choose from right now");
 
   let feedback: string | null = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const checked = check(await askOnce(env, risk, coins, feedback), coins, risk);
     if (typeof checked !== "string") return checked;
     feedback = checked;
+    console.error("AI portfolio rejected (risk " + risk + "): " + checked);
   }
   throw new AiFailedError("The AI's portfolio didn't pass the checks — try again");
 }
