@@ -21,23 +21,26 @@ export interface AiResult {
   summary: string;
   risk: number;
   totalFp: number;
+  /** Free generations left today, and the daily allowance. */
+  left?: number;
+  limit?: number;
 }
 
 /** `paused`: the AI's credits (or the daily limit) are used up; it comes back when they renew. */
 export class AiError extends Error {
-  constructor(message: string, readonly paused: boolean) {
+  constructor(message: string, readonly paused: boolean, readonly limited = false) {
     super(message);
   }
 }
 
-export async function fetchAiPortfolio(risk: number, exclude: string[]): Promise<AiResult> {
+export async function fetchAiPortfolio(risk: number, exclude: string[], wallet: string | null): Promise<AiResult> {
   const res = await fetch(WORKER_URL + "/ai-portfolio", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ risk, exclude }),
+    body: JSON.stringify({ risk, exclude, wallet }),
   });
-  const body = (await res.json().catch(() => ({}))) as Partial<AiResult> & { error?: string; paused?: boolean };
-  if (!res.ok || !body.picks) throw new AiError(body.error ?? "The AI could not build a portfolio right now", !!body.paused);
+  const body = (await res.json().catch(() => ({}))) as Partial<AiResult> & { error?: string; paused?: boolean; limited?: boolean };
+  if (!res.ok || !body.picks) throw new AiError(body.error ?? "The AI could not build a portfolio right now", !!body.paused, !!body.limited);
   return body as AiResult;
 }
 

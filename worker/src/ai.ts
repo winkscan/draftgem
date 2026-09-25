@@ -13,7 +13,12 @@ import { getAllCandidates, type DiscoveredAsset } from "./tokenDiscovery";
 const MODEL = "claude-haiku-4-5-20251001"; // fast and cheap: a portfolio pick doesn't need a bigger model
 const BUDGET_FP = 4000;
 const PER_TIER = 30; // shortlist size per volatility category
-const DAILY_CAP = 400; // calls per day across all players (KV counter): keeps the bill bounded
+const DAILY_CAP = 400; // calls per day across all players (KV counter): keeps the free quota from running dry
+// Free portfolios per player per day. One portfolio is one model call of about 6k tokens in and 0.4k out
+// (see `usage` in the response), so 10 a day per wallet keeps 40 active players inside the global cap.
+export const PER_WALLET_DAILY = 10;
+const PER_ANONYMOUS_DAILY = 3; // no wallet connected: counted by IP only
+const PER_IP_DAILY = 40; // backstop against one machine inventing wallet addresses
 const TIERS = ["Hold", "Farm", "Pump", "Moon", "Degen"];
 
 export const RISK_LEVELS = 5;
@@ -27,6 +32,12 @@ const RISK_BRIEF = [
 ];
 
 export class AiUnavailableError extends Error {}
+/** One player used up their free generations for today (the app shows how many they get and when they return). */
+export class AiLimitError extends Error {
+  constructor(message: string, readonly limit: number) {
+    super(message);
+  }
+}
 /** The AI can't answer because its free/paid credits (or our own daily cap) are used up: the app shows "paused". */
 export class AiPausedError extends AiUnavailableError {}
 export class AiFailedError extends Error {}
@@ -41,6 +52,11 @@ export interface AiPortfolio {
   summary: string;
   risk: number;
   totalFp: number;
+  /** Free generations this player has left today, and the daily allowance. */
+  left?: number;
+  limit?: number;
+  /** Tokens the model used for this portfolio (for cost planning). */
+  usage?: { model: string; input: number; output: number };
 }
 
 function line(c: DiscoveredAsset): string {
@@ -108,6 +124,8 @@ const PICKS_SCHEMA = {
 const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 
 /** Google Gemini (free tier via AI Studio): JSON out through a response schema. */
+let lastUsage: { model: string; input: number; output: number } | null = null;
+
 async function askGemini(env: Env, user: string): Promise<unknown> {
   const upper = (n: any): any =>
     Array.isArray(n) ? n.map(upper) : n && typeof n === "object" ? Object.fromEntries(Object.entries(n).map(([k, v]) => [k, k === "type" ? String(v).toUpperCase() : upper(v)])) : n;
@@ -138,7 +156,11 @@ async function askGemini(env: Env, user: string): Promise<unknown> {
     }
     if (res.status === 503 || res.status === 404) continue; // overloaded or retired: next one
     if (!res.ok) throw new AiFailedError("AI service answered " + res.status);
-    const out = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const out = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+    };
+    lastUsage = { model, input: out.usageMetadata?.promptTokenCount ?? 0, output: (out.usageMetadata?.candidatesTokenCount ?? 0) + (out.usageMetadata?.thoughtsTokenCount ?? 0) };
     const text = out.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
     try {
       return JSON.parse(text);
@@ -250,23 +272,38 @@ function check(input: unknown, coins: DiscoveredAsset[], risk: number): string |
   return { picks, summary: typeof o.summary === "string" ? o.summary.slice(0, 240) : "", risk, totalFp: total };
 }
 
-export async function generatePortfolio(env: Env, risk: number, exclude: string[]): Promise<AiPortfolio> {
+async function bump(env: Env, key: string, cap: number): Promise<number | null> {
+  const used = Number((await env.CACHE.get(key)) ?? "0");
+  if (used >= cap) return null;
+  await env.CACHE.put(key, String(used + 1), { expirationTtl: 2 * 24 * 3600 });
+  return used + 1;
+}
+
+export async function generatePortfolio(env: Env, risk: number, exclude: string[], wallet: string | null, ip: string): Promise<AiPortfolio> {
   if (!env.GEMINI_API_KEY && !env.ANTHROPIC_API_KEY) throw new AiUnavailableError("AI is not set up yet");
   if (!Number.isInteger(risk) || risk < 0 || risk >= RISK_LEVELS) throw new AiFailedError("risk must be 0-" + (RISK_LEVELS - 1));
 
   const day = new Date().toISOString().slice(0, 10);
-  const key = "ai-count:" + day;
-  const used = Number((await env.CACHE.get(key)) ?? "0");
-  if (used >= DAILY_CAP) throw new AiPausedError("Today's AI limit is reached. Generation resumes tomorrow.");
-  await env.CACHE.put(key, String(used + 1), { expirationTtl: 2 * 24 * 3600 });
+  // Per-player allowance first: it's the one a player can hit, and it must not eat the shared budget.
+  const limit = wallet ? PER_WALLET_DAILY : PER_ANONYMOUS_DAILY;
+  const who = wallet ? "w:" + wallet : "ip:" + ip;
+  const used = await bump(env, "ai-user:" + day + ":" + who, limit);
+  if (used == null) {
+    throw new AiLimitError("You've used your " + limit + " free AI portfolios for today. They come back at midnight UTC.", limit);
+  }
+  if ((await bump(env, "ai-ip:" + day + ":" + ip, PER_IP_DAILY)) == null) {
+    throw new AiLimitError("Too many AI portfolios from this connection today. Try again tomorrow.", limit);
+  }
+  if ((await bump(env, "ai-count:" + day, DAILY_CAP)) == null) throw new AiPausedError("Today's AI limit is reached. Generation resumes tomorrow.");
 
   const coins = shortlist(await getAllCandidates(env), new Set(exclude.filter((m) => typeof m === "string").slice(0, 20)));
   if (coins.length < 20) throw new AiFailedError("Not enough coins to choose from right now");
 
   let feedback: string | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
+    lastUsage = null;
     const checked = check(await askOnce(env, risk, coins, feedback), coins, risk);
-    if (typeof checked !== "string") return checked;
+    if (typeof checked !== "string") return { ...checked, left: limit - used, limit, usage: lastUsage ?? undefined };
     feedback = checked;
     console.error("AI portfolio rejected (risk " + risk + "): " + checked);
   }

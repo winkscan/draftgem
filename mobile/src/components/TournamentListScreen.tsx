@@ -282,7 +282,7 @@ function TournamentCard({
             <FontAwesome6 name={copied ? "check" : "link"} size={13} color={copied ? C.accent2 : C.textSecondary} />
           </TouchableRipple>
           <View style={styles.ctaButton}>
-            {showView ? null : <CurrencyIcon currency={currency} size={16} />}
+            {showView ? null : <CurrencyIcon currency={currency} size={20} />}
             <Text style={styles.ctaViewText} numberOfLines={1}>
               {showView ? "View" : formatAmountCompact(t.entryFeeLamports, decimals)}
             </Text>

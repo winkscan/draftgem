@@ -59,7 +59,7 @@ export function TopBar({
                         <ActivityIndicator size={10} color={C.textOnHeader} />
                       ) : (
                         <>
-                          <CurrencyIcon currency="SKR" size={16} />
+                          <CurrencyIcon currency="SKR" size={20} />
                           <Text style={styles.balance}>{formatAmountCompact(skrBalance ?? 0n, CURRENCIES.SKR.decimals)}</Text>
                         </>
                       )}

@@ -7,7 +7,7 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
-import { AiFailedError, AiPausedError, AiUnavailableError, generatePortfolio } from "./ai";
+import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
 import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
@@ -391,10 +391,18 @@ export default {
     // POST /ai-portfolio {"risk": 0-4, "exclude": [mints]} — Claude builds a 5-coin portfolio for the risk level.
     if (req.method === "POST" && url.pathname === "/ai-portfolio") {
       try {
-        const b = (await req.json().catch(() => null)) as { risk?: unknown; exclude?: unknown } | null;
+        const b = (await req.json().catch(() => null)) as { risk?: unknown; exclude?: unknown; wallet?: unknown } | null;
+        let wallet: string | null = null;
+        try {
+          if (typeof b?.wallet === "string") wallet = new PublicKey(b.wallet).toBase58();
+        } catch {
+          wallet = null;
+        }
+        const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
         const exclude = Array.isArray(b?.exclude) ? (b!.exclude as unknown[]).filter((m): m is string => typeof m === "string") : [];
-        return json(await generatePortfolio(env, Number(b?.risk), exclude));
+        return json(await generatePortfolio(env, Number(b?.risk), exclude, wallet, ip));
       } catch (err) {
+        if (err instanceof AiLimitError) return json({ error: err.message, limited: true, limit: err.limit }, 429);
         if (err instanceof AiPausedError) return json({ error: err.message, paused: true }, 503);
         if (err instanceof AiUnavailableError) return json({ error: err.message }, 503);
         if (err instanceof AiFailedError) return json({ error: err.message }, 502);

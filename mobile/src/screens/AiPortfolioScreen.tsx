@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useAuthorization } from "../utils/useAuthorization";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useCandidates, type Candidate } from "../pumpfantasy/candidates";
 import { AiError, RISK_LEVELS, fetchAiPortfolio, setPendingAiPicks, type AiResult } from "../pumpfantasy/aiPortfolio";
@@ -17,6 +18,7 @@ export function AiPortfolioScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { tournamentId } = route.params as { tournamentId: string };
+  const { selectedAccount } = useAuthorization();
   const { data: candidates } = useCandidates();
   const byMint = useMemo(() => {
     const m = new Map<string, Candidate>();
@@ -29,18 +31,25 @@ export function AiPortfolioScreen() {
   const [result, setResult] = useState<AiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [limited, setLimited] = useState(false);
+  const [left, setLeft] = useState<{ left: number; limit: number } | null>(null);
 
   const generate = async () => {
     setLoading(true);
     setError(null);
     setPaused(false);
+    setLimited(false);
     try {
       // Ask for something different from what's on screen.
-      setResult(await fetchAiPortfolio(risk, result?.picks.map((p) => p.mint) ?? []));
+      const r = await fetchAiPortfolio(risk, result?.picks.map((p) => p.mint) ?? [], selectedAccount?.publicKey.toBase58() ?? null);
+      setResult(r);
+      if (r.left != null && r.limit != null) setLeft({ left: r.left, limit: r.limit });
     } catch (e: any) {
       setResult(null);
       setError(e?.message ?? "The AI could not build a portfolio right now");
       setPaused(e instanceof AiError && e.paused);
+      setLimited(e instanceof AiError && e.limited);
+      if (e instanceof AiError && e.limited) setLeft((l) => (l ? { ...l, left: 0 } : null));
     } finally {
       setLoading(false);
     }
@@ -76,6 +85,12 @@ export function AiPortfolioScreen() {
           </View>
         </TouchableRipple>
 
+        {left ? (
+          <Text style={styles.leftText}>
+            {left.left} of {left.limit} free portfolios left today
+          </Text>
+        ) : null}
+
         <View style={styles.result}>
           {loading ? (
             <View style={styles.loading}>
@@ -91,15 +106,21 @@ export function AiPortfolioScreen() {
                 slots={result.picks.map((p) => ({ key: p.mint, candidate: byMint.get(p.mint) }))}
               />
               {result.summary ? <Text style={styles.summary}>{result.summary}</Text> : null}
-              {result.picks.map((p) => (
-                <View key={p.mint} style={styles.reason}>
-                  <Text style={styles.reasonSymbol}>{byMint.get(p.mint)?.symbol ?? "?"}</Text>
-                  <Text style={styles.reasonText}>{p.reason}</Text>
-                </View>
-              ))}
+              <View style={styles.table}>
+                {result.picks.map((p, i) => (
+                  <View key={p.mint} style={[styles.tableRow, i > 0 ? styles.tableRowBorder : undefined]}>
+                    <Text style={[styles.reasonSymbol, styles.tableCell, styles.symbolCell]}>{byMint.get(p.mint)?.symbol ?? "?"}</Text>
+                    <Text style={[styles.reasonText, styles.tableCell]}>{p.reason}</Text>
+                  </View>
+                ))}
+              </View>
             </>
           ) : error ? (
-            <EmptyState icon={paused ? "pause" : "triangle-exclamation"} label={paused ? "AI Is Paused" : "No Assets"} hint={error} />
+            <EmptyState
+              icon={limited ? "hourglass-half" : paused ? "pause" : "triangle-exclamation"}
+              label={limited ? "Daily Limit Reached" : paused ? "AI Is Paused" : "No Assets"}
+              hint={error}
+            />
           ) : (
             <View style={styles.emptyBox}>
               <EmptyState icon="gem" label="No Assets Yet" hint="Set the risk level and press Generate." />
@@ -136,13 +157,19 @@ const styles = StyleSheet.create({
   generateBusy: { opacity: 0.6 },
   generateInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
   generateText: { color: C.accentTextOn, fontWeight: "800", fontSize: 15 },
+  leftText: { color: C.textSecondary, fontSize: 12, textAlign: "center", marginTop: 10 },
   result: { marginTop: 24, gap: 10 },
   emptyBox: { minHeight: 200 },
   loading: { minHeight: 200, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { color: C.textSecondary, fontSize: 13 },
   summary: { color: C.textPrimary, fontSize: 13, lineHeight: 19, marginTop: 4 },
-  reason: { flexDirection: "row", gap: 10 },
-  reasonSymbol: { color: C.textPrimary, fontWeight: "800", fontSize: 12, width: 64 },
+  // A table with hairline cell borders: barely visible, just enough to line the rows up.
+  table: { borderWidth: 1, borderColor: C.cardBorder, borderRadius: 12, overflow: "hidden", marginTop: 4 },
+  tableRow: { flexDirection: "row" },
+  tableRowBorder: { borderTopWidth: 1, borderTopColor: C.cardBorder },
+  tableCell: { paddingHorizontal: 10, paddingVertical: 8 },
+  symbolCell: { width: 78, borderRightWidth: 1, borderRightColor: C.cardBorder },
+  reasonSymbol: { color: C.textPrimary, fontWeight: "800", fontSize: 12 },
   reasonText: { color: C.textSecondary, fontSize: 12, flex: 1, lineHeight: 17 },
   use: { height: 52, borderRadius: 999, backgroundColor: C.accent2, justifyContent: "center", alignItems: "center" },
   useDisabled: { backgroundColor: C.glassStrong },
