@@ -132,6 +132,17 @@
   .vis span.on { background: var(--purple); color: #fff !important; }
   .share { margin-top: 14px; height: 44px; border-radius: 999px; background: var(--green); color: var(--green-ink); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 14px; }
 
+  .earn-card { display: grid; grid-template-columns: 1.1fr .9fr; gap: 44px; align-items: center; border: 1px solid var(--line); border-radius: 28px; padding: 48px; background: radial-gradient(60% 100% at 100% 0, rgba(20,241,149,.10), transparent 70%), var(--card); }
+  .earn-text p { color: var(--muted); font-size: 17px; }
+  .earn-text p b { color: var(--text); font-weight: 600; }
+  .earn-calc { border: 1px solid var(--line); border-radius: 20px; padding: 24px; background: var(--bg); }
+  .earn-calc h4 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 14px; }
+  .calc-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; font-size: 14px; color: var(--muted); }
+  .calc-row b { color: var(--text); font-weight: 700; }
+  .earn-calc input[type=range] { background: var(--wash); margin: 4px 0 8px; }
+  .calc-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding-top: 16px; border-top: 1px solid var(--line); font-weight: 600; }
+  .calc-total b { font-size: 28px; font-weight: 800; }
+
   /* AI slider */
   .levels { display: flex; justify-content: space-between; font-size: 12px; margin: 14px 0 6px; }
   .levels span { color: var(--muted); font-weight: 600; transition: color .2s; cursor: pointer; }
@@ -177,6 +188,7 @@
   @media (max-width: 860px) {
     .act-grid { grid-template-columns: 1fr; gap: 34px; }
     .act-grid.flip .act-text { order: 0; }
+    .earn-card { grid-template-columns: 1fr; padding: 28px 20px; gap: 30px; }
     .stats { grid-template-columns: repeat(2, 1fr); }
     .stat:first-child { grid-column: 1 / -1; }
     .nav-links a.hide-sm { display: none; }
@@ -292,6 +304,32 @@
   </div>
 </section>
 
+<!-- EARN -->
+<section class="act" id="earn">
+  <div class="wrap reveal">
+    <div class="earn-card">
+      <div class="earn-text">
+        <div class="eyebrow">Creators</div>
+        <h2>Run a tournament. <span class="grad">Earn 5% of every pool.</span></h2>
+        <p>Every player-made tournament pays its creator <b>5% of the prize pool</b>, sent automatically by the program when the round ends. Invite your friends, your community or your followers and earn every time they play.</p>
+        <ul class="ticks">
+          <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>You set the rules:</b> entry fee, prizes, round length, public or private.</span></li>
+          <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Paid on-chain:</b> your share goes straight to your wallet, no manual payouts.</span></li>
+        </ul>
+      </div>
+      <div class="earn-calc">
+        <h4>Example</h4>
+        <div class="calc-row"><span>Players</span><b class="mono" id="cPlayers">20</b></div>
+        <input type="range" id="cRange" min="2" max="200" step="1" value="20" aria-label="Number of players">
+        <div class="calc-row"><span>Entry fee</span><b class="mono">100 SKR</b></div>
+        <div class="calc-row"><span>Prize pool</span><b class="mono" id="cPool">2,000 SKR</b></div>
+        <div class="calc-total"><span>Your 5% as creator</span><b class="mono grad" id="cEarn">100 SKR</b></div>
+        <p class="ai-note">Illustration only: what you earn depends on how many players join.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ACT 03 -->
 <section class="act" id="ai">
   <div class="wrap act-grid">
@@ -378,7 +416,7 @@
   <div class="wrap">
     <div class="row">
       <a class="brand" href="#top"><img src="assets/mark.svg" alt="" style="height:26px"><span>DraftGem</span></a>
-      <div class="links"><a href="#draft">How it works</a><a href="#ai">AI</a><a href="#prizes">Prizes</a></div>
+      <div class="links"><a href="#draft">How it works</a><a href="#earn">Earn</a><a href="#ai">AI</a><a href="#prizes">Prizes</a></div>
       <span>© 2026 DraftGem</span>
     </div>
     <p class="legal">DraftGem is a game of skill in beta. Only use money you can afford to lose. You must be of legal age in your country, and the app may not be available where such games are restricted. Nothing here is investment advice.</p>
@@ -427,6 +465,15 @@
     const total = L.coins.reduce((a, c) => a + c[2], 0);
     note.textContent = `${L.note} Illustration: ${total.toLocaleString("en-US")} of 4,000 FP.`;
   }
+  const cRange = document.getElementById("cRange");
+  const calc = () => {
+    const n = +cRange.value, pool = n * 100;
+    document.getElementById("cPlayers").textContent = n;
+    document.getElementById("cPool").textContent = pool.toLocaleString("en-US") + " SKR";
+    document.getElementById("cEarn").textContent = (pool * 0.05).toLocaleString("en-US") + " SKR";
+  };
+  cRange.addEventListener("input", calc);
+  calc();
   risk.addEventListener("input", render);
   render();
 </script>
