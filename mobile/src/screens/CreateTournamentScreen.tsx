@@ -248,7 +248,17 @@ export function CreateTournamentScreen() {
   return (
     <View style={styles.screen}>
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>Who can join</Text>
+      <View style={styles.earnBanner}>
+        <View style={styles.earnIcon}>
+          <FontAwesome6 name="sack-dollar" size={18} color={C.accent2} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.earnTitle}>Earn 5% of every prize pool</Text>
+          <Text style={styles.earnText}>You get 5% of the pool of your tournament, paid to your wallet when it pays out. The platform takes another 5%.</Text>
+        </View>
+      </View>
+
+      <Text style={[styles.label, { marginTop: 24 }]}>Who can join</Text>
       <View style={styles.cardRow}>
         <OptionCard
           selected={visibility === "public"}
@@ -366,10 +376,6 @@ export function CreateTournamentScreen() {
         <SummaryRow
           icon="trophy"
           text={`${PAYOUT_CHOICES.find((p) => p.key === payout)?.description.replace(/\.$/, "")} — 90% of the pool`}
-        />
-        <SummaryRow
-          icon="sack-dollar"
-          text="You earn 5% of the prize pool, paid to your wallet when the tournament pays out. The platform takes 5%."
         />
         <SummaryRow icon="coins" text={`Creating a tournament costs ${createFee}`} last />
       </View>
@@ -489,6 +495,10 @@ const styles = StyleSheet.create({
   createDisabled: { backgroundColor: C.glassStrong },
   createTextDisabled: { color: C.textSecondary },
   content: { padding: 16, paddingBottom: 32 },
+  earnBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.accent2, borderRadius: 16, padding: 14 },
+  earnIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent2TextOn, alignItems: "center", justifyContent: "center" },
+  earnTitle: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15 },
+  earnText: { color: C.accent2TextOn, fontSize: 13, lineHeight: 18, marginTop: 2, opacity: 0.85 },
   label: { color: C.textPrimary, fontWeight: "700", fontSize: 14, marginTop: 20, marginBottom: 10 },
   cardRow: { flexDirection: "row", gap: 12 },
   option: {
