@@ -6,6 +6,8 @@ import { PublicKey } from "@solana/web3.js";
 
 export const NETWORK = "mainnet" as "devnet" | "mainnet";
 export const IS_MAINNET = NETWORK === "mainnet";
+// Can players create their own tournaments? (The worker enforces the same switch and the mainnet fee limits.)
+export const PLAYER_TOURNAMENTS = true;
 export const CLUSTER = (IS_MAINNET ? "mainnet-beta" : "devnet") as "mainnet-beta" | "devnet";
 
 // The Cloudflare Worker of the chosen network: it auto-creates tournaments, serves the coin pool

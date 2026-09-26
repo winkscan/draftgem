@@ -1,4 +1,5 @@
-import { networkOf, rpcUrl } from "./rpc";
+import { rpcUrl } from "./rpc";
+import { entryFeeCeiling, playerTournamentsOn } from "./limits";
 import { Connection, PublicKey } from "@solana/web3.js";
 import type { Env } from "./env";
 import type { TournamentStates } from "./tournamentState";
@@ -115,7 +116,7 @@ function hasControlChars(s: string): boolean {
 }
 
 /** Returns an error message, or the well-formed request. Does not touch the network. */
-export function validateCreateRequest(body: unknown, nowSec: number): { error: string } | { req: CreateRequest } {
+export function validateCreateRequest(body: unknown, nowSec: number, ceiling?: (currency: Currency) => number): { error: string } | { req: CreateRequest } {
   const b = body as Partial<CreateRequest> | null;
   if (!b || typeof b !== "object") return { error: "Body must be a JSON object" };
 
@@ -131,7 +132,7 @@ export function validateCreateRequest(body: unknown, nowSec: number): { error: s
   if (b.entryMode !== "single" && b.entryMode !== "multiple") return { error: "entryMode must be single or multiple" };
   if (b.payout === "pvp" && b.entryMode !== "single") return { error: "A PvP duel must be single entry" };
   const feeRange = ENTRY_FEE_RANGE[b.currency as Currency];
-  if (!Number.isInteger(b.entryFeeLamports) || (b.entryFeeLamports as number) < feeRange.min || (b.entryFeeLamports as number) > feeRange.max) {
+  if (!Number.isInteger(b.entryFeeLamports) || (b.entryFeeLamports as number) < feeRange.min || (b.entryFeeLamports as number) > (ceiling ? ceiling(b.currency as Currency) : feeRange.max)) {
     return { error: `Entry fee out of range for ${b.currency}` };
   }
   if (!ALLOWED_SECONDS.includes(b.startInSec as number)) return { error: "Unsupported entry window" };
@@ -237,10 +238,10 @@ export async function getCreateInfo(env: Env): Promise<{
   const currencies = Object.fromEntries(
     (Object.keys(CURRENCIES) as Currency[]).map((c) => [
       c,
-      { mint: CURRENCIES[c].mint?.toBase58() ?? null, decimals: CURRENCIES[c].decimals, minFee: ENTRY_FEE_RANGE[c].min, maxFee: ENTRY_FEE_RANGE[c].max },
+      { mint: CURRENCIES[c].mint?.toBase58() ?? null, decimals: CURRENCIES[c].decimals, minFee: ENTRY_FEE_RANGE[c].min, maxFee: entryFeeCeiling(env, c, ENTRY_FEE_RANGE[c].max) },
     ]),
   ) as Record<Currency, { mint: string | null; decimals: number; minFee: number; maxFee: number }>;
-  return { feeLamports: CREATE_FEE_LAMPORTS, treasury: treasuryAddress(env), available: networkOf(env) !== "mainnet" && active < MAX_ACTIVE_CUSTOM, currencies };
+  return { feeLamports: CREATE_FEE_LAMPORTS, treasury: treasuryAddress(env), available: playerTournamentsOn(env) && active < MAX_ACTIVE_CUSTOM, currencies };
 }
 
 /** Ids of custom tournaments the maintenance pass should look at: started, not yet fully settled, inside the work window. */
@@ -278,7 +279,7 @@ export async function handleCreateCustom(
   createOnChain: CreateOnChain,
 ): Promise<{ status: number; body: unknown }> {
   const nowSec = Math.floor(Date.now() / 1000);
-  const checked = validateCreateRequest(body, nowSec);
+  const checked = validateCreateRequest(body, nowSec, (c) => entryFeeCeiling(env, c, ENTRY_FEE_RANGE[c].max));
   if ("error" in checked) return { status: 400, body: { error: checked.error } };
   const req = checked.req;
 

@@ -24,6 +24,8 @@ export interface Env {
   // `wrangler secret put ADMIN_TOKEN`. Without it those URLs answer 401 to everyone.
   // "mainnet" on the mainnet deployment; anything else (unset) means devnet.
   NETWORK?: string;
+  // "on" lets players create their own tournaments on mainnet (see limits.ts).
+  PLAYER_TOURNAMENTS?: string;
   // The owner's own wallet: the platform's token revenue is swept there (treasury.ts). Unset = never swept.
   TREASURY_WALLET?: string;
   ADMIN_TOKEN?: string;

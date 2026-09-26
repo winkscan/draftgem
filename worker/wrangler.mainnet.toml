@@ -8,6 +8,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 NETWORK = "mainnet"
+# Players may create their own tournaments (within the mainnet fee limits). "off" switches it off again.
+PLAYER_TOURNAMENTS = "on"
 TREASURY_WALLET = "BAZrwd5FoT9s3S3MMpm8ZqCe3E5uXkHv5srS9Ybik8oL"
 
 [triggers]

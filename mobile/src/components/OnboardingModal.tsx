@@ -5,7 +5,7 @@ import { BlurView } from "expo-blur";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
-import { IS_MAINNET } from "../pumpfantasy/config";
+import { PLAYER_TOURNAMENTS } from "../pumpfantasy/config";
 import { PF_COLORS as C } from "../theme";
 
 const DISMISSED_KEY = "draftgem.onboardingDismissed.v1";
@@ -27,8 +27,8 @@ const ALL_STEPS = [
     image: require("../../assets/onboarding/onboarding-2.webp"),
     title: "Play with friends",
     body: "Create your own tournament with the + button: pick the entry fee, the prizes and the round length. Make it private and send the link to your friends to play just with them.",
-    // Player-made tournaments are switched off during the mainnet beta.
-    onlyWhen: !IS_MAINNET,
+    // Shown only while players can create tournaments.
+    onlyWhen: PLAYER_TOURNAMENTS,
   },
   {
     image: require("../../assets/onboarding/onboarding-3.webp"),

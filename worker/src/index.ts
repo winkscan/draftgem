@@ -9,6 +9,7 @@ import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
 import { coinDetails } from "./coins";
 import { sweepTreasury } from "./treasury";
+import { MAINNET_MAX_ENTRY_FEE, playerTournamentsOn } from "./limits";
 import { networkOf, proxyRpc, rpcUrl, useNetwork } from "./rpc";
 import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, aiAllowance, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
@@ -40,14 +41,6 @@ const PROGRAM_ID = new PublicKey("4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu")
 const ENTRY_FEE_LAMPORTS = 10_000_000; // 0.01 SOL
 // Round, easy-to-reason-about entry fees for the non-SOL cron tournaments — devnet has no
 // real market for either, so these aren't price-derived, just "a normal-looking amount".
-// Beta safety limits while real money is at stake and the program has had no outside audit: the largest
-// entry fee the worker will ever create, per currency (base units).
-const MAINNET_MAX_ENTRY_FEE: Record<Currency, number> = {
-  SKR: 500_000_000, // 500 SKR, about $10
-  SOL: 50_000_000, // 0.05 SOL
-  ORE: 500_000_000_000, // 5 ORE
-  USDC: 10_000_000, // 10 USDC
-};
 const SKR_ENTRY_FEE = 100_000_000; // 100 SKR (6 decimals), about $2: the entry fee of every automatic tournament
 const ROUND_DURATION_SECONDS = ROUND_SECONDS;
 
@@ -373,7 +366,7 @@ export default {
     // POST /create-tournament — a player's tournament from the app's "+" screen
     // (see customTournaments.ts). Paid for by the player on chain, created on chain by our key.
     if (req.method === "POST" && url.pathname === "/create-tournament") {
-      if (networkOf(env) === "mainnet") return json({ error: "Player-made tournaments are switched off during the beta" }, 403);
+      if (!playerTournamentsOn(env)) return json({ error: "Player-made tournaments are switched off during the beta" }, 403);
       try {
         const result = await handleCreateCustom(env, await req.json().catch(() => null), url.origin, (p) =>
           createTournamentOnChain(env, p),
