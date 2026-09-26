@@ -26,7 +26,7 @@ const ALL_STEPS = [
   {
     image: require("../../assets/onboarding/onboarding-2.webp"),
     title: "Play with friends",
-    body: "Create your own tournament with the + button: pick the entry fee, the prizes and the round length. Make it private and send the link to your friends to play just with them.",
+    body: "Create your own tournament with the + button: pick the entry fee, the prizes and the round length, and earn 5% of every prize pool you host. Make it private and send the link to your friends to play just with them.",
     // Shown only while players can create tournaments.
     onlyWhen: PLAYER_TOURNAMENTS,
   },

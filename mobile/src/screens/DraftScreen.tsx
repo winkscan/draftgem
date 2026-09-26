@@ -194,6 +194,7 @@ export function DraftScreen() {
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
       await queryClient.invalidateQueries({ queryKey: ["tournament"] });
       queryClient.invalidateQueries({ queryKey: ["tournaments"] }); // the lobby list (prize pool, entries) too
+      queryClient.invalidateQueries({ queryKey: ["my-entered-tournaments"] }); // so the lobby card flips from Enter to View right away
     } catch (e: any) {
       const message: string = e?.message ?? "Entry failed — see wallet for details.";
       if (tournament && Math.floor(Date.now() / 1000) >= Number(tournament.startTs)) {
