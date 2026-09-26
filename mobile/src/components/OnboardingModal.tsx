@@ -21,7 +21,7 @@ const ALL_STEPS = [
   {
     image: require("../../assets/onboarding/onboarding-1.webp"),
     title: "Pick a tournament",
-    body: "Open the Lobby and choose a tournament. The entry fee is paid in SKR, and entries close the moment the round starts.",
+    body: "Open the Lobby and choose a tournament: check its entry fee and prizes, then join. Entries close the moment the round starts.",
   },
   {
     image: require("../../assets/onboarding/onboarding-2.webp"),
@@ -58,15 +58,16 @@ export function OnboardingModal() {
   const [step, setStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const opacity = useRef(new Animated.Value(0)).current;
-  const slide = useRef(new Animated.Value(0)).current; // the picture and text slide in from the swipe's side
+  const fade = useRef(new Animated.Value(1)).current; // the picture and text fade out into the dark and back in
   const stepRef = useRef(0);
   stepRef.current = step;
 
-  const goTo = (next: number, dir: 1 | -1) => {
+  const goTo = (next: number, _dir: 1 | -1) => {
     if (next < 0 || next >= STEPS.length) return;
-    setStep(next);
-    slide.setValue(dir * 36);
-    Animated.timing(slide, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+    Animated.timing(fade, { toValue: 0, duration: 130, useNativeDriver: true }).start(() => {
+      setStep(next);
+      Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    });
   };
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
@@ -125,7 +126,7 @@ export function OnboardingModal() {
             <Pressable style={styles.closeBtn} onPress={close}>
               <FontAwesome6 name="xmark" size={14} color="#fff" />
             </Pressable>
-            <Animated.View style={{ transform: [{ translateX: slide }] }}>
+            <Animated.View style={{ opacity: fade }}>
               <Image source={current.image} style={styles.image} resizeMode="cover" />
             </Animated.View>
             <View style={styles.body}>
@@ -135,7 +136,7 @@ export function OnboardingModal() {
                 ))}
               </View>
 
-              <Animated.View style={{ transform: [{ translateX: slide }] }}>
+              <Animated.View style={{ opacity: fade }}>
                 <Text style={styles.title}>{current.title}</Text>
                 <Text style={styles.description}>{current.body}</Text>
               </Animated.View>
