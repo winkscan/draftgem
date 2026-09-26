@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DraftGem: Daily Fantasy Crypto on Solana</title>
+<meta name="description" content="Pick 5 Solana coins within a 4,000 FP budget, compete for a prize pool and get paid on-chain. Built for Solana Mobile, with an AI that drafts for you.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="DraftGem: Daily Fantasy Crypto on Solana">
+<meta property="og:description" content="Pick 5 coins. Beat the field. Prizes are paid on-chain by a Solana program.">
+<meta property="og:image" content="assets/icon.png">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000;
+    --card: #0d0c11;
+    --card2: #16141d;
+    --line: rgba(236,228,253,.12);
+    --wash: rgba(236,228,253,.08);
+    --text: #fff;
+    --muted: #ababba;
+    --purple: #9945ff;
+    --purple-hi: #b278ff;
+    --purple-text: #b98cff;
+    --green: #14f195;
+    --green-ink: #04140d;
+    --red: #f11212;
+    --max: 1120px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font: 400 16px/1.6 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; display: block; }
+  .wrap { width: min(var(--max), 100% - 40px); margin-inline: auto; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .grad { background: linear-gradient(90deg, var(--purple) 0%, var(--green) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); background: rgba(0,0,0,.72); border-bottom: 1px solid var(--line); }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.01em; }
+  .brand img { height: 28px; width: auto; }
+  .nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; color: var(--muted); }
+  .nav-links a:hover { color: var(--text); }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 22px; border-radius: 999px; font-weight: 700; font-size: 15px; border: 1px solid transparent; cursor: pointer; transition: transform .15s, background .15s, border-color .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-green { background: var(--green); color: var(--green-ink); }
+  .btn-green:hover { background: #45f5ad; }
+  .btn-purple { background: var(--purple); color: #fff; }
+  .btn-purple:hover { background: var(--purple-hi); }
+  .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
+  .btn-ghost:hover { border-color: rgba(236,228,253,.4); }
+  .btn-sm { height: 38px; padding: 0 18px; font-size: 14px; }
+  .btn svg { width: 16px; height: 16px; }
+
+  /* hero */
+  .hero { position: relative; text-align: center; padding: 96px 0 72px; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: -200px 0 auto; height: 620px; background: radial-gradient(50% 60% at 50% 40%, rgba(153,69,255,.28), transparent 70%), radial-gradient(30% 40% at 78% 50%, rgba(20,241,149,.14), transparent 70%); pointer-events: none; }
+  .hero > .wrap { position: relative; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--wash); font-size: 13px; color: var(--muted); margin-bottom: 26px; }
+  .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+  h1 { font-size: clamp(38px, 6.4vw, 68px); line-height: 1.06; letter-spacing: -.035em; font-weight: 800; }
+  .hero p.lead { max-width: 640px; margin: 22px auto 34px; font-size: 18px; color: var(--muted); }
+  .hero p.lead b { color: var(--text); font-weight: 600; }
+  .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero-shot { margin: 64px auto 0; width: min(760px, 100%); border: 1px solid var(--line); border-radius: 22px; background: var(--card); padding: 10px; box-shadow: 0 30px 80px rgba(153,69,255,.18); }
+  .hero-shot img { border-radius: 14px; width: 100%; }
+
+  /* marquee */
+  .marquee-label { text-align: center; font-size: 12px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-bottom: 22px; }
+  .marquee { overflow: hidden; border-block: 1px solid var(--line); padding: 20px 0; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+  .track { display: flex; gap: 14px; width: max-content; animation: scroll 38s linear infinite; }
+  .chip { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .chip .dot { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--purple), var(--green)); }
+  @keyframes scroll { to { transform: translateX(-50%); } }
+
+  /* acts */
+  section.act { padding: 110px 0 0; }
+  .act-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .act-grid.flip .act-text { order: 2; }
+  .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .16em; color: var(--green); margin-bottom: 16px; text-transform: uppercase; }
+  h2 { font-size: clamp(28px, 4vw, 42px); line-height: 1.12; letter-spacing: -.03em; font-weight: 800; margin-bottom: 18px; }
+  .act-text p { color: var(--muted); font-size: 17px; }
+  .act-text p b { color: var(--text); font-weight: 600; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 26px; }
+  .tag { padding: 5px 13px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); font-size: 13px; color: var(--purple-text); font-weight: 600; }
+  ul.ticks { list-style: none; display: grid; gap: 12px; margin: 24px 0 28px; }
+  ul.ticks li { display: flex; gap: 12px; color: var(--muted); font-size: 16px; }
+  ul.ticks li b { color: var(--text); font-weight: 600; }
+  ul.ticks svg { flex: none; width: 20px; height: 20px; margin-top: 3px; color: var(--green); }
+  .frame { border: 1px solid var(--line); border-radius: 20px; background: var(--card); padding: 10px; }
+  .frame img { border-radius: 12px; width: 100%; }
+  a.more { color: var(--green); font-weight: 600; font-size: 15px; }
+  a.more:hover { text-decoration: underline; }
+
+  /* budget bar mock */
+  .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--card); padding: 26px; }
+  .panel h4 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 18px; }
+  .fp { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .fp .big { font-size: 34px; font-weight: 800; color: var(--green); letter-spacing: -.02em; }
+  .fp .of { color: var(--muted); font-size: 14px; }
+  .bar { height: 4px; border-radius: 4px; background: var(--wash); overflow: hidden; margin-bottom: 20px; }
+  .bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--purple), var(--green)); transform-origin: left; }
+  .slots { display: grid; gap: 8px; }
+  .slot { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+  .slot span:first-child { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .slot .cat { font-size: 11px; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+  .c-hold { background: rgba(20,241,149,.12); color: var(--green); }
+  .c-mid { background: rgba(153,69,255,.18); color: var(--purple-text); }
+  .c-degen { background: rgba(241,18,18,.14); color: #ff6a6a; }
+  .slot .fpv { color: var(--muted); font-family: "JetBrains Mono", monospace; }
+
+  /* AI slider */
+  .levels { display: flex; justify-content: space-between; font-size: 12px; margin: 14px 0 6px; }
+  .levels span { color: var(--muted); font-weight: 600; transition: color .2s; cursor: pointer; }
+  .levels span.on { color: var(--lc); }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--green), var(--purple), var(--red)); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #0d0c11; box-shadow: 0 0 0 2px var(--purple); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 4px solid #0d0c11; box-shadow: 0 0 0 2px var(--purple); cursor: pointer; }
+  .ai-out { margin-top: 24px; display: grid; gap: 8px; }
+  .ai-note { margin-top: 16px; font-size: 13px; color: var(--muted); }
+
+  /* prizes */
+  .prize-list { display: grid; gap: 10px; }
+  .prize { display: grid; grid-template-columns: 96px 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; }
+  .prize b { background: #fff; color: #000; border-radius: 999px; text-align: center; font-size: 13px; padding: 3px 0; }
+  .prize span { color: var(--muted); font-size: 14px; }
+  .prize em { font-style: normal; font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--green); }
+
+  /* proof */
+  section.proof { padding: 120px 0 0; text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 44px; }
+  .stat { border: 1px solid var(--line); border-radius: 18px; background: var(--card); padding: 32px 16px; }
+  .stat .n { font-size: clamp(30px, 4vw, 46px); font-weight: 800; letter-spacing: -.03em; }
+  .stat .l { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+  /* final */
+  section.final { padding: 120px 0; }
+  .final-card { position: relative; overflow: hidden; text-align: center; border: 1px solid var(--line); border-radius: 28px; padding: 76px 24px; background: var(--card); }
+  .final-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 90% at 50% 120%, rgba(153,69,255,.4), transparent 70%), radial-gradient(40% 60% at 90% -10%, rgba(20,241,149,.16), transparent 70%); }
+  .final-card > * { position: relative; }
+  .final-card p { color: var(--muted); max-width: 520px; margin: 0 auto 30px; font-size: 17px; }
+  .soon { margin-top: 18px; font-size: 13px; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--line); padding: 36px 0 48px; color: var(--muted); font-size: 13px; }
+  footer .row { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+  footer .links { display: flex; gap: 22px; }
+  footer .links a:hover { color: var(--text); }
+  footer .legal { margin-top: 22px; font-size: 12px; line-height: 1.7; opacity: .75; max-width: 820px; }
+
+  .js .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s, transform .7s; }
+  .js .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .track { animation: none; } html { scroll-behavior: auto; } }
+
+  @media (max-width: 860px) {
+    .act-grid { grid-template-columns: 1fr; gap: 34px; }
+    .act-grid.flip .act-text { order: 0; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .nav-links a.hide-sm { display: none; }
+    .hero { padding-top: 64px; }
+    section.act { padding-top: 84px; }
+  }
+</style>
+</head>
+<body>
+<script>document.documentElement.classList.add("js")</script>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/logo.svg" alt="DraftGem"></a>
+    <div class="nav-links">
+      <a class="hide-sm" href="#draft">How it works</a>
+      <a class="hide-sm" href="#ai">AI portfolio</a>
+      <a class="hide-sm" href="#prizes">Prizes</a>
+      <a class="btn btn-green btn-sm" href="#get">Get the app</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="pill"><i></i> Built for Solana Mobile · Live on Solana</div>
+    <h1>Pick 5 coins. Beat the field.<br><span class="grad">Get paid on-chain.</span></h1>
+    <p class="lead">DraftGem is <b>daily fantasy for crypto</b>. Draft five Solana coins inside a 4,000 FP budget, enter a tournament in <b>SKR</b>, and watch the standings live. An <b>AI</b> can build your portfolio for you.</p>
+    <div class="cta-row">
+      <a class="btn btn-green" href="#get">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2l1.5 3H15.5L17 2h1.7L17.2 5.1A7 7 0 0 1 20 11H4a7 7 0 0 1 2.8-5.9L5.3 2H7zm2 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM4 12h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/></svg>
+        Get the Android app
+      </a>
+      <a class="btn btn-ghost" href="#draft">How it works</a>
+    </div>
+    <div class="hero-shot"><img src="assets/onboarding-1.webp" alt="The DraftGem lobby with live tournaments" width="1280" height="720"></div>
+  </div>
+</header>
+
+<div class="wrap" style="margin-top:8px">
+  <p class="marquee-label">Currencies &amp; tech</p>
+</div>
+<div class="marquee" aria-hidden="true">
+  <div class="track" id="track">
+    <span class="chip"><span class="dot"></span>SKR</span>
+    <span class="chip"><span class="dot"></span>SOL</span>
+    <span class="chip"><span class="dot"></span>ORE</span>
+    <span class="chip"><span class="dot"></span>USDC</span>
+    <span class="chip"><span class="dot"></span>Solana Mobile</span>
+    <span class="chip"><span class="dot"></span>Mobile Wallet Adapter</span>
+    <span class="chip"><span class="dot"></span>Anchor program</span>
+    <span class="chip"><span class="dot"></span>Seeker</span>
+  </div>
+</div>
+
+<!-- ACT 01 -->
+<section class="act" id="draft">
+  <div class="wrap act-grid">
+    <div class="act-text reveal">
+      <div class="eyebrow">Act 01 · Draft</div>
+      <h2>Five coins, one budget. <span class="grad">Every pick is a trade-off.</span></h2>
+      <p>Every coin has a price in fantasy points (FP) set by <b>how much it really moves</b>. Calm coins are cheap, wild ones are expensive. You get <b>4,000 FP</b> for <b>5 coins</b>, so going all-in on degens is impossible, and playing only safe rarely wins.</p>
+      <div class="tags"><span class="tag">Hold · 100 FP</span><span class="tag">Balanced picks</span><span class="tag">Degen · 1,600 FP</span></div>
+      <ul class="ticks">
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Prices follow reality.</b> A coin's cost comes from its measured hourly move, not a guess.</span></li>
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Signed on-chain.</b> Each FP price is attested and verified by the program on entry.</span></li>
+      </ul>
+    </div>
+    <div class="reveal">
+      <div class="panel" id="budget">
+        <h4>Your portfolio</h4>
+        <div class="fp"><span class="big mono" id="fpBig">4,000</span><span class="of">of 4,000 FP used</span></div>
+        <div class="bar"><i id="fpBar"></i></div>
+        <div class="slots">
+          <div class="slot"><span>Coin A <span class="cat c-hold">Hold</span></span><span class="fpv">100 FP</span></div>
+          <div class="slot"><span>Coin B <span class="cat c-mid">Steady</span></span><span class="fpv">500 FP</span></div>
+          <div class="slot"><span>Coin C <span class="cat c-mid">Bold</span></span><span class="fpv">900 FP</span></div>
+          <div class="slot"><span>Coin D <span class="cat c-degen">Degen</span></span><span class="fpv">1,600 FP</span></div>
+          <div class="slot"><span>Coin E <span class="cat c-mid">Bold</span></span><span class="fpv">900 FP</span></div>
+        </div>
+        <p class="ai-note">Illustration: five slots, one budget.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACT 02 -->
+<section class="act">
+  <div class="wrap act-grid flip">
+    <div class="act-text reveal">
+      <div class="eyebrow">Act 02 · Compete</div>
+      <h2>Join the lobby, or <span class="grad">run your own tournament.</span></h2>
+      <p>A new one-hour SKR tournament opens all the time. Prefer your own rules? Tap <b>+</b>, pick the entry fee, the prizes and the round length, then share a link.</p>
+      <ul class="ticks">
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Rounds of 1, 6, 12 or 24 hours.</b> Entries lock when the round starts.</span></li>
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Public or private.</b> Send a private link and play only with friends.</span></li>
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>SKR, SOL, ORE or USDC.</b> Choose the currency for your tournament.</span></li>
+      </ul>
+    </div>
+    <div class="reveal"><div class="frame"><img src="assets/onboarding-2.webp" alt="Creating a tournament and inviting friends" loading="lazy" width="1280" height="720"></div></div>
+  </div>
+</section>
+
+<!-- ACT 03 -->
+<section class="act" id="ai">
+  <div class="wrap act-grid">
+    <div class="act-text reveal">
+      <div class="eyebrow">Act 03 · AI</div>
+      <h2>No time to think? <span class="grad">Let the AI draft it.</span></h2>
+      <p>Slide from <b>Steady</b> to <b>Moonshot</b> and press Generate. A language model builds a five-coin portfolio for your risk level, with a one-line reason for every pick.</p>
+      <ul class="ticks">
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Never trusted blindly.</b> The server checks five distinct coins and the FP budget before you see the result.</span></li>
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>You stay in charge.</b> Use the portfolio as is, or tweak it in the draft.</span></li>
+      </ul>
+    </div>
+    <div class="reveal">
+      <div class="panel">
+        <h4>AI portfolio · risk level</h4>
+        <div class="levels" id="levels"></div>
+        <input type="range" id="risk" min="0" max="4" step="1" value="2" aria-label="Risk level">
+        <div class="ai-out" id="aiOut"></div>
+        <p class="ai-note" id="aiNote"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACT 04 -->
+<section class="act" id="prizes">
+  <div class="wrap act-grid flip">
+    <div class="act-text reveal">
+      <div class="eyebrow">Act 04 · Get paid</div>
+      <h2>Scored by the program. <span class="grad">Paid by the program.</span></h2>
+      <p>Each coin's result is its % change from the start price to the end price (never worse than −100%). Your score is the <b>sum of your five coins</b>. The Solana program computes it from recorded prices and pays winners straight to their wallets.</p>
+      <ul class="ticks">
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Ties split the prize.</b> Tied players share their combined slots.</span></li>
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Transparent fees.</b> 5% to the platform, plus 5% to the creator in player-made tournaments.</span></li>
+        <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Your keys, your wallet.</b> Everything is signed with Mobile Wallet Adapter. The app never holds your keys.</span></li>
+      </ul>
+    </div>
+    <div class="reveal">
+      <div class="panel">
+        <h4>Prize structures</h4>
+        <div class="prize-list">
+          <div class="prize"><b>Top 1</b><span>Winner takes the pool</span><em>1 paid</em></div>
+          <div class="prize"><b>Top 3</b><span>50 / 30 / 15 split</span><em>3 paid</em></div>
+          <div class="prize"><b>Top 30%</b><span>Tapering prizes by rank</span><em>30% paid</em></div>
+          <div class="prize"><b>Top 50%</b><span>Half the field cashes</span><em>50% paid</em></div>
+          <div class="prize"><b>PvP</b><span>A duel, head to head</span><em>1 v 1</em></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF -->
+<section class="proof">
+  <div class="wrap reveal">
+    <div class="eyebrow">By the numbers</div>
+    <h2>Simple rules. <span class="grad">Verifiable results.</span></h2>
+    <div class="stats">
+      <div class="stat"><div class="n grad"><span data-count="4000">0</span></div><div class="l">FP budget per portfolio</div></div>
+      <div class="stat"><div class="n grad"><span data-count="5">0</span></div><div class="l">coins in every portfolio</div></div>
+      <div class="stat"><div class="n grad"><span data-count="4">0</span></div><div class="l">currencies: SKR, SOL, ORE, USDC</div></div>
+      <div class="stat"><div class="n grad"><span data-count="5">0</span><span>%</span></div><div class="l">platform fee, taken by the program</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL -->
+<section class="final" id="get">
+  <div class="wrap reveal">
+    <div class="final-card">
+      <h2>Ready to draft your first portfolio?</h2>
+      <p>Download DraftGem, connect your Solana wallet and join a tournament in a minute.</p>
+      <div class="cta-row">
+        <a class="btn btn-green" href="#">Get the Android app</a>
+        <a class="btn btn-ghost" href="#draft">See how it works</a>
+      </div>
+      <p class="soon">Android · Solana Mobile · Mobile Wallet Adapter</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <a class="brand" href="#top"><img src="assets/mark.svg" alt="" style="height:26px"><span>DraftGem</span></a>
+      <div class="links"><a href="#draft">How it works</a><a href="#ai">AI</a><a href="#prizes">Prizes</a></div>
+      <span>© 2026 DraftGem</span>
+    </div>
+    <p class="legal">DraftGem is a game of skill in beta. Only use money you can afford to lose. You must be of legal age in your country, and the app may not be available where such games are restricted. Nothing here is investment advice.</p>
+  </div>
+</footer>
+
+<script>
+  // marquee: duplicate the chips for a seamless loop
+  const track = document.getElementById("track");
+  track.innerHTML += track.innerHTML;
+
+  // scroll reveal
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+  // count-up numbers
+  const co = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    co.unobserve(e.target);
+    const to = +e.target.dataset.count, t0 = Date.now(), dur = 1400;
+    const timer = setInterval(() => {
+      const p = Math.min(1, (Date.now() - t0) / dur);
+      e.target.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString("en-US");
+      if (p >= 1) clearInterval(timer);
+    }, 30);
+  }), { threshold: 0.6 });
+  document.querySelectorAll("[data-count]").forEach((el) => co.observe(el));
+
+  // AI risk slider demo (illustration only, not real picks)
+  const LEVELS = [
+    { n: "Steady", c: "#14f195", note: "Calm coins, small swings.", coins: [["Coin A", "Hold", 100, "c-hold"], ["Coin B", "Hold", 300, "c-hold"], ["Coin C", "Steady", 700, "c-hold"], ["Coin D", "Steady", 900, "c-hold"], ["Coin E", "Steady", 900, "c-hold"]] },
+    { n: "Careful", c: "#6ff2b3", note: "Mostly safe, one spicy pick.", coins: [["Coin A", "Hold", 100, "c-hold"], ["Coin B", "Steady", 500, "c-hold"], ["Coin C", "Steady", 700, "c-hold"], ["Coin D", "Bold", 1200, "c-mid"], ["Coin E", "Steady", 1500, "c-hold"]] },
+    { n: "Balanced", c: "#b98cff", note: "A mix across the range.", coins: [["Coin A", "Hold", 100, "c-hold"], ["Coin B", "Steady", 500, "c-hold"], ["Coin C", "Bold", 900, "c-mid"], ["Coin D", "Bold", 900, "c-mid"], ["Coin E", "Degen", 1600, "c-degen"]] },
+    { n: "Bold", c: "#d27cff", note: "Volatility on purpose.", coins: [["Coin A", "Steady", 400, "c-hold"], ["Coin B", "Bold", 800, "c-mid"], ["Coin C", "Bold", 900, "c-mid"], ["Coin D", "Degen", 1000, "c-degen"], ["Coin E", "Degen", 900, "c-degen"]] },
+    { n: "Moonshot", c: "#ff6a6a", note: "High risk, high reward.", coins: [["Coin A", "Bold", 500, "c-mid"], ["Coin B", "Degen", 800, "c-degen"], ["Coin C", "Degen", 800, "c-degen"], ["Coin D", "Degen", 900, "c-degen"], ["Coin E", "Degen", 1000, "c-degen"]] },
+  ];
+  const levelsEl = document.getElementById("levels"), out = document.getElementById("aiOut"), note = document.getElementById("aiNote"), risk = document.getElementById("risk");
+  LEVELS.forEach((l, i) => { const s = document.createElement("span"); s.textContent = l.n; s.style.setProperty("--lc", l.c); s.onclick = () => { risk.value = i; render(); }; levelsEl.appendChild(s); });
+  function render() {
+    const i = +risk.value, L = LEVELS[i];
+    [...levelsEl.children].forEach((s, k) => s.classList.toggle("on", k === i));
+    out.innerHTML = L.coins.map((c) => `<div class="slot"><span>${c[0]} <span class="cat ${c[3]}">${c[1]}</span></span><span class="fpv">${c[2].toLocaleString("en-US")} FP</span></div>`).join("");
+    const total = L.coins.reduce((a, c) => a + c[2], 0);
+    note.textContent = `${L.note} Illustration: ${total.toLocaleString("en-US")} of 4,000 FP.`;
+  }
+  risk.addEventListener("input", render);
+  render();
+</script>
+</body>
+</html>
