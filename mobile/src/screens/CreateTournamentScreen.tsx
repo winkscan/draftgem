@@ -31,6 +31,7 @@ import { formatAmount, parseAmount, type Currency } from "../pumpfantasy/currenc
 import { BottomBar } from "../components/BottomBar";
 import { CurrencyIcon } from "../components/CurrencyIcon";
 import { PulseBadge } from "../components/PulseBadge";
+import { ensureHasSol } from "../pumpfantasy/balanceCheck";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
 
@@ -125,6 +126,7 @@ export function CreateTournamentScreen() {
           startInSec,
           durationSec,
         };
+        await ensureHasSol(connection, creator, latest.feeLamports, "create a tournament");
         const ts = Math.floor(Date.now() / 1000);
         const signature = await payCreationFee(connection, creator, signAndSendTransaction, latest, params, ts);
         payment = { signature, ts, params };

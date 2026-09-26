@@ -13,8 +13,9 @@ import { useCandidates, CATEGORY_TABS, type Candidate, type CategoryTab } from "
 import { fetchAttestation } from "../pumpfantasy/attestation";
 import { enterTournament } from "../pumpfantasy/actions";
 import { tournamentPda } from "../pumpfantasy/pdas";
+import { ensureCanEnter } from "../pumpfantasy/balanceCheck";
 import { MAX_BUDGET_FP, PICKS_PER_ENTRY } from "../pumpfantasy/config";
-import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
+import { NATIVE_MINT, currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { useTournamentMeta } from "../pumpfantasy/customTournaments";
 import { TokenIcon } from "../components/TokenIcon";
 import { useChrome } from "../utils/Chrome";
@@ -184,6 +185,7 @@ export function DraftScreen() {
         const account = await connect();
         player = account.publicKey;
       }
+      await ensureCanEnter(connection, player, tournamentPda(id)[0], tournament?.mint ?? NATIVE_MINT, tournament?.entryFeeLamports ?? 0n, picked.map((p) => p.mint));
       const attestation = await fetchAttestation(picked.map((p) => p.mint));
       const entryIndex = isMultiple ? myEntries?.length ?? 0 : 0;
       await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex, tournament?.mint);
