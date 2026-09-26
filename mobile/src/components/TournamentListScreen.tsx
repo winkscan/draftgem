@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { PublicKey } from "@solana/web3.js";
-import { useTournaments, useMyEnteredTournaments, type TournamentAccount } from "../pumpfantasy/hooks";
+import { useTournaments, useMyEnteredTournaments, finishedStatusLabel, type TournamentAccount } from "../pumpfantasy/hooks";
 import { useTournamentMeta, PAYOUT_CHOICES, type TournamentMeta } from "../pumpfantasy/customTournaments";
 import { useAuthorization } from "../utils/useAuthorization";
 import { formatDuration, formatCountdown } from "../pumpfantasy/format";
@@ -237,7 +237,7 @@ function TournamentCard({
     thirdValue = formatCountdown(Number(t.endTs), now);
   } else {
     thirdLabel = "Status";
-    thirdValue = t.status === "finalized" ? "Paid out" : t.status === "cancelled" ? "Cancelled" : "Awaiting results";
+    thirdValue = finishedStatusLabel(t);
   }
 
   const copyLink = async () => {

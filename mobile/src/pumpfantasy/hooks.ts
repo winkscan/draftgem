@@ -73,6 +73,17 @@ export function useTournament(id: bigint | number | null) {
   });
 }
 
+/**
+ * The header/card status of a finished round. "finalized" on chain only means the scores are locked: the prizes are
+ * sent afterwards, one transaction per winner. The archive is written once every prize has been claimed, so only an
+ * archived tournament is really "Paid out".
+ */
+export function finishedStatusLabel(t: TournamentAccount): string {
+  if (t.status === "cancelled") return "Cancelled";
+  if (t.status === "finalized") return isArchivedTournament(t) ? "Paid out" : "Paying out…";
+  return "Awaiting results";
+}
+
 /** True for a tournament rebuilt from the archive (no on-chain account behind it). */
 export const isArchivedTournament = (t: TournamentAccount | null | undefined) => !!t && t.bump === 0 && t.vaultBump === 0;
 

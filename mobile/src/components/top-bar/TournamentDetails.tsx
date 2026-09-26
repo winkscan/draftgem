@@ -10,6 +10,7 @@ import { payoutStructureOf, poolOf } from "../../pumpfantasy/tournamentFilters";
 import { tournamentDayLabel, tournamentDisplayName } from "../../pumpfantasy/tournamentNames";
 import { getTournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { WORKER_URL } from "../../pumpfantasy/config";
+import { finishedStatusLabel } from "../../pumpfantasy/hooks";
 import { ModeBadges, PayoutBadge } from "../ModeBadge";
 import { PF_COLORS as C } from "../../theme";
 
@@ -47,7 +48,7 @@ export function TournamentDetails({
       ? ["Starts in", formatCountdown(Number(t.startTs), now)]
       : phase === "live"
         ? ["Ends in", formatCountdown(Number(t.endTs), now)]
-        : ["Status", t.status === "finalized" ? "Paid out" : t.status === "cancelled" ? "Cancelled" : "Awaiting results"];
+        : ["Status", finishedStatusLabel(t)];
 
   const copyLink = async () => {
     const url = `${WORKER_URL}/t/${t.id.toString()}`;
