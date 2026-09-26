@@ -13,7 +13,7 @@ PLAYER_TOURNAMENTS = "on"
 TREASURY_WALLET = "BAZrwd5FoT9s3S3MMpm8ZqCe3E5uXkHv5srS9Ybik8oL"
 
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["* * * * *"]
 
 [[kv_namespaces]]
 binding = "CACHE"

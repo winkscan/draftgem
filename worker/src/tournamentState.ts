@@ -8,6 +8,8 @@ import type { Env } from "./env";
 //   settled: entries scored, tournament finalized, winners paid (or refunded)
 export interface TournamentFlags {
   start?: boolean;
+  // The round has started but some start prices are still missing: the every-minute pass keeps retrying (index.ts).
+  startPending?: boolean;
   end?: boolean;
   settled?: boolean;
 }

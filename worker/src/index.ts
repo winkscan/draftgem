@@ -13,7 +13,7 @@ import { MAINNET_MAX_ENTRY_FEE, playerTournamentsOn } from "./limits";
 import { networkOf, proxyRpc, rpcUrl, useNetwork } from "./rpc";
 import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, aiAllowance, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
-import { activeCustomIds, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
+import { activeCustomIds, loadIndex, getCreateInfo, getMetaMap, handleCreateCustom, landingPage, profilePage } from "./customTournaments";
 import { loadStates, saveStates } from "./tournamentState";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, CURRENCIES, TOKEN_PROGRAM_ID, getAssociatedTokenAddress, mintFor, type Currency } from "./currency";
 import type { Env } from "./env";
@@ -195,7 +195,7 @@ async function createTournamentOnChain(env: Env, p: TournamentParams): Promise<s
 // then (same tick, same candidate list, sequential because settlement needs the
 // end prices just written) settle, finalize and pay out. Progress flags live in
 // KV so finished work is never re-read from the chain.
-async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<string> {
+async function runMaintenance(env: Env, opts: { full?: boolean; quick?: boolean }): Promise<string> {
   const connection = new Connection(rpcUrl(env), "confirmed");
   const loaded = await loadStates(env);
   const lines: string[] = [];
@@ -208,6 +208,7 @@ async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<strin
     } catch (err) {
       lines.push(`Prices failed: ${err instanceof Error ? err.message : String(err)}`);
     }
+    if (opts.quick) return lines.join("\n"); // the every-minute pass only retries missing start prices
     try {
       lines.push(`Settlement: ${await settleTournaments(env, connection, candidates, loaded.states)}`);
     } catch (err) {
@@ -266,6 +267,23 @@ const unauthorized = () => new Response("Unauthorized"+String.fromCharCode(10), 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     useNetwork(env);
+    // The cron fires every minute. Off the 5-minute mark it only retries start prices that are still missing (players see
+    // no percentages until every coin has one) and does nothing at all, not even an RPC call, when none are pending.
+    if (event.scheduledTime % TICK_MS >= 60_000) {
+      const { states } = await loadStates(env);
+      const now = Math.floor(Date.now() / 1000);
+      // Player-made tournaments start at arbitrary seconds: look at them from the minute they start, no waiting for the 5-minute mark.
+      const customStarting = (await loadIndex(env)).some((m) => now >= m.startTs && now < m.startTs + 1800 && !states[m.id]?.start);
+      const pending = customStarting || Object.values(states).some((s) => s.startPending && !s.start);
+      if (pending) {
+        ctx.waitUntil(
+          runMaintenance(env, { quick: true })
+            .then((result) => console.log("quick: " + result))
+            .catch((err) => console.error("Quick pass failed:", err)),
+        );
+      }
+      return;
+    }
     const tick = BigInt(Math.floor(event.scheduledTime / TICK_MS));
     // The cron still fires every 5 min (prices, settlement), but a new tournament is only minted on
     // every CREATE_EVERY_TICKS-th tick (every 30 min). The rotation seed counts creations, not

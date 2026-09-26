@@ -200,7 +200,7 @@ async function submitMissingEndPrices(
   return { count, complete: count === unresolved.length };
 }
 
-export const TICK_MS = 300_000; // must match wrangler.toml's cron cadence
+export const TICK_MS = 300_000; // the 5-minute grid; the cron itself fires every minute (see index.ts scheduled)
 /** A new tournament is minted every this-many ticks (12 x 5 min = 1 hour); the maintenance pass still runs every tick. */
 export const CREATE_EVERY_TICKS = 12;
 export const ROUND_SECONDS = 3600; // round length of the tournaments the cron makes: 1 hour (index.ts)
@@ -293,7 +293,10 @@ export async function syncPrices(
     if (!st.start && nowSec >= startTs) {
       const r = await registerMissingStartPrices(env, connection, authority, c.pubkey, startTs, nowSec, budget);
       registered += r.count;
-      if (r.complete) st.start = true;
+      if (r.complete) {
+        st.start = true;
+        delete st.startPending;
+      } else st.startPending = true;
     }
     // End prices need every start price first (an unregistered coin has no asset account to resolve).
     if (st.start && !st.end && nowSec >= endTs) {

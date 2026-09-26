@@ -186,7 +186,7 @@ async function verifyPayment(env: Env, req: CreateRequest, nowSec: number): Prom
   return null;
 }
 
-async function loadIndex(env: Env): Promise<CustomMeta[]> {
+export async function loadIndex(env: Env): Promise<CustomMeta[]> {
   return ((await env.CACHE.get(INDEX_KEY, "json")) as CustomMeta[] | null) ?? [];
 }
 

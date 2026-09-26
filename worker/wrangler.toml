@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 # mobile side for why cadence > round length leaves Live empty part of the
 # time.
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["* * * * *"]
 
 # Holds the last good cross-chain market caps for wrapped coins (see
 # src/bridgedAssets.ts) — CoinGecko rate-limits Workers' shared egress IP and
