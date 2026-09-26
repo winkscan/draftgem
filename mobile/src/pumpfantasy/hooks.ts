@@ -36,7 +36,15 @@ export function useTournaments() {
       ]);
       // Only tournaments created by the platform key: anyone can create one with themselves as the
       // authority, who then decides the winners. See PLATFORM_AUTHORITY.
-      const ours = rows.filter((r) => r.account.authority.toBase58() === PLATFORM_AUTHORITY);
+      const archivedById = new Map(archived.map((t) => [t.id, t]));
+      // While a finished tournament is being wound down its entries are already closed on chain (its entry count reads 0)
+      // but its account is still there for a few minutes: the archive, written before anything is closed, is the truth.
+      const ours = rows
+        .filter((r) => r.account.authority.toBase58() === PLATFORM_AUTHORITY)
+        .map((r) => {
+          const a = archivedById.get(r.account.id.toString());
+          return a ? { publicKey: r.publicKey, account: toTournamentAccount(a) } : r;
+        });
       const onChain = new Set(ours.map((r) => r.account.id.toString()));
       const closed = archived
         .filter((a) => !onChain.has(a.id))
