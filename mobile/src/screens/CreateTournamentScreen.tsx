@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ScrollView, Share, StyleSheet, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Modal, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -64,6 +65,19 @@ export function CreateTournamentScreen() {
   const { selectedAccount } = useAuthorization();
   const { connect, signAndSendTransaction } = useMobileWallet();
   const { data: info } = useCreateInfo();
+  // The green "earn 5%" block can be dismissed for good (asked to confirm first).
+  const [earnHidden, setEarnHidden] = useState(true); // hidden until the saved choice is read, so it does not flash
+  const [confirmHide, setConfirmHide] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(EARN_HIDDEN_KEY)
+      .then((v) => setEarnHidden(v === "1"))
+      .catch(() => setEarnHidden(false));
+  }, []);
+  const hideEarnForever = () => {
+    setConfirmHide(false);
+    setEarnHidden(true);
+    AsyncStorage.setItem(EARN_HIDDEN_KEY, "1").catch(() => {});
+  };
 
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [payout, setPayout] = useState<PayoutChoice>("p50");
@@ -248,7 +262,11 @@ export function CreateTournamentScreen() {
   return (
     <View style={styles.screen}>
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {!earnHidden ? (
       <View style={styles.earnBanner}>
+        <Pressable style={styles.earnClose} hitSlop={10} onPress={() => setConfirmHide(true)}>
+          <FontAwesome6 name="xmark" size={12} color={C.accent2TextOn} />
+        </Pressable>
         <View style={styles.earnIcon}>
           <FontAwesome6 name="sack-dollar" size={18} color={C.accent2} />
         </View>
@@ -257,8 +275,9 @@ export function CreateTournamentScreen() {
           <Text style={styles.earnText}>You get 5% of the pool of your tournament, paid to your wallet when it pays out. The platform takes another 5%.</Text>
         </View>
       </View>
+      ) : null}
 
-      <Text style={[styles.label, { marginTop: 24 }]}>Who can join</Text>
+      <Text style={[styles.label, { marginTop: earnHidden ? 0 : 24 }]}>Who can join</Text>
       <View style={styles.cardRow}>
         <OptionCard
           selected={visibility === "public"}
@@ -387,6 +406,23 @@ export function CreateTournamentScreen() {
 
     </ScrollView>
 
+    <Modal visible={confirmHide} transparent animationType="fade" onRequestClose={() => setConfirmHide(false)}>
+      <View style={styles.dialogBackdrop}>
+        <View style={styles.dialog}>
+          <Text style={styles.dialogTitle}>Hide this block?</Text>
+          <Text style={styles.dialogText}>You won't see this block again.</Text>
+          <View style={styles.dialogButtons}>
+            <TouchableRipple style={styles.dialogCancel} borderless onPress={() => setConfirmHide(false)}>
+              <Text style={styles.dialogCancelText}>Cancel</Text>
+            </TouchableRipple>
+            <TouchableRipple style={styles.dialogConfirm} borderless onPress={hideEarnForever}>
+              <Text style={styles.dialogConfirmText}>Confirm</Text>
+            </TouchableRipple>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
     <View style={styles.footer}>
       <TouchableRipple
         style={[styles.primary, styles.createButton, !ready ? styles.createDisabled : undefined, busy ? styles.disabled : undefined]}
@@ -486,6 +522,8 @@ function SummaryRow({ icon, text, last }: { icon: string; text: string; last?: b
   );
 }
 
+const EARN_HIDDEN_KEY = "draftgem.earnBannerHidden.v1";
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   scroll: { flex: 1 },
@@ -495,9 +533,19 @@ const styles = StyleSheet.create({
   createDisabled: { backgroundColor: C.glassStrong },
   createTextDisabled: { color: C.textSecondary },
   content: { padding: 16, paddingBottom: 32 },
+  earnClose: { position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(4,20,13,0.12)", alignItems: "center", justifyContent: "center", zIndex: 1 },
+  dialogBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: 32 },
+  dialog: { width: "100%", maxWidth: 320, backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 20 },
+  dialogTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 17, marginBottom: 6 },
+  dialogText: { color: C.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 18 },
+  dialogButtons: { flexDirection: "row", gap: 10 },
+  dialogCancel: { flex: 1, height: 44, borderRadius: 999, backgroundColor: C.glassStrong, alignItems: "center", justifyContent: "center" },
+  dialogCancelText: { color: C.textPrimary, fontWeight: "700", fontSize: 14 },
+  dialogConfirm: { flex: 1, height: 44, borderRadius: 999, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  dialogConfirmText: { color: C.accentTextOn, fontWeight: "800", fontSize: 14 },
   earnBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.accent2, borderRadius: 16, padding: 14 },
   earnIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent2TextOn, alignItems: "center", justifyContent: "center" },
-  earnTitle: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15 },
+  earnTitle: { color: C.accent2TextOn, fontWeight: "800", fontSize: 15, paddingRight: 22 },
   earnText: { color: C.accent2TextOn, fontSize: 13, lineHeight: 18, marginTop: 2, opacity: 0.85 },
   label: { color: C.textPrimary, fontWeight: "700", fontSize: 14, marginTop: 20, marginBottom: 10 },
   cardRow: { flexDirection: "row", gap: 12 },
