@@ -269,11 +269,58 @@ function EntryDeposit() {
   );
 }
 
+function AiPortfolio() {
+  return (
+    <View>
+      <Paragraph>
+        Short of time, or unsure which coins to pick? The AI button on the draft page (next to your budget) builds a
+        5-coin portfolio for you.
+      </Paragraph>
+
+      <Heading>How to use it</Heading>
+      <Paragraph>
+        Open the AI page, set the risk level on the slider, from Steady (calm coins) to Moonshot (the wildest coins the
+        budget allows), and press Generate. The portfolio appears with a short reason for each coin. Not what you had in
+        mind? Generate again for a new one. When you like it, press Use portfolio: it fills your five slots on the draft
+        page, where you can still change anything by hand.
+      </Paragraph>
+
+      <Heading>How it works</Heading>
+      <Paragraph>
+        A language model (Google Gemini) receives the most liquid coins of every category with their FP price, typical
+        hourly move, market cap, liquidity and age, and picks five that fit the chosen risk. Higher risk means more
+        Moon and Degen coins; lower risk means more Hold and Farm coins.
+      </Paragraph>
+
+      <Heading>What is checked</Heading>
+      <Paragraph>
+        You never see an unchecked answer. Every portfolio has exactly five different coins from the list, and the
+        total price stays within your 4,000 FP budget. If the model goes over the budget, the priciest picks are swapped
+        for ones that fit.
+      </Paragraph>
+
+      <Heading>Limits</Heading>
+      <Paragraph>
+        Each wallet gets 5 free generations per day. The counter is at the top of the AI page, and it shows a countdown
+        when they are used up (they renew at 00:00 UTC). If the AI's own free credits run out, it pauses until they
+        renew.
+      </Paragraph>
+
+      <Heading>What it does not do</Heading>
+      <Paragraph>
+        It sees only public coin data, never your wallet, and it does not predict prices or promise a good result. The
+        score still depends on how the market moves during the round.
+      </Paragraph>
+    </View>
+  );
+}
+
 export const GUIDE_TOPICS: GuideTopic[] = [
   { id: "fantasy-points", title: "Fantasy Points & your budget", icon: "coins", body: <FantasyPoints /> },
   { id: "coin-categories", title: "Coin categories", icon: "layer-group", body: <CoinCategories /> },
   { id: "tournament-types", title: "Tournament types", icon: "shuffle", body: <TournamentTypes /> },
   { id: "create-tournament", title: "Create your own tournament", icon: "circle-plus", body: <CreateYourOwn /> },
+  { id: "ai-portfolio", title: "AI portfolio", icon: "wand-magic-sparkles", body: <AiPortfolio /> },
   { id: "entry-deposit", title: "Entry deposit & refunds", icon: "rotate-left", body: <EntryDeposit /> },
 ];
 
