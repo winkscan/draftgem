@@ -97,11 +97,12 @@ async function persistAuthorization(auth: WalletAuthorization | null): Promise<v
 }
 
 export const APP_IDENTITY = {
-  // Shown in the wallet's connect prompt. The uri stays as-is: changing it can
-  // invalidate wallets' cached authorization and force everyone to reconnect.
+  // Shown in the wallet when connecting and signing. The wallet displays the domain of uri and loads the icon
+  // (relative to uri) from it: the landing page at draftgem.app serves assets/favicon.png. Changing the uri makes
+  // wallets forget earlier authorizations once, so players connect again.
   name: "DraftGem",
-  uri: "https://pumpfantasy.app",
-  icon: "favicon.ico",
+  uri: "https://draftgem.app",
+  icon: "assets/favicon.png",
 };
 
 export function useAuthorization() {
