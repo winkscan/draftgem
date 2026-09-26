@@ -2,11 +2,11 @@ import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { CORE_D, FACETS, G_D } from "./markData";
 import { WORDMARK_PATHS } from "./wordmarkPaths";
 
-// The full logo (mark + "DraftGem"), one vector, from assets/logo.svg (viewBox 620x140).
+// The full logo (mark + "DraftGem"), one vector, from assets/logo.svg (viewBox 640x140).
 export function DraftGemLogo({ height = 28 }: { height?: number }) {
-  const width = (height * 620) / 140;
+  const width = (height * 640) / 140;
   return (
-    <Svg width={width} height={height} viewBox="0 0 620 140" fill="none">
+    <Svg width={width} height={height} viewBox="0 0 640 140" fill="none">
       <Defs>
         {FACETS.map((f, i) => (
           <LinearGradient key={i} id={`logoFacet${i}`} x1={f.grad.x1} y1={f.grad.y1} x2={f.grad.x2} y2={f.grad.y2} gradientUnits="userSpaceOnUse">
