@@ -315,12 +315,42 @@ function AiPortfolio() {
   );
 }
 
+function RedDay() {
+  return (
+    <View>
+      <Paragraph>
+        What if the whole market falls and every portfolio ends the round in the red? The winners are still decided by
+        who did best, not by who made a profit.
+      </Paragraph>
+
+      <Heading>The smaller loss wins</Heading>
+      <Paragraph>
+        Portfolios are ranked by score, from the highest to the lowest, and a score of -3% ranks above -15%. So on a red
+        day the winner is the portfolio that lost the least. The prizes are paid out to the top places exactly as on any
+        other day, and the prize pool is made of the entry fees, so it is shared out whatever the market did.
+      </Paragraph>
+
+      <Heading>What it means for your picks</Heading>
+      <Paragraph>
+        Calm coins (Hold and Farm) tend to lose less when everything falls, while wild coins (Moon and Degen) can lose
+        much more, though they can also gain the most on a green day. A coin can never lose more than 100% in your score.
+        Building a balanced portfolio, or letting the AI build one for the risk level you want, is how you play both kinds
+        of days.
+      </Paragraph>
+
+      <Heading>Ties</Heading>
+      <Paragraph>If two portfolios end with exactly the same score, they share the prize for the places they occupy.</Paragraph>
+    </View>
+  );
+}
+
 export const GUIDE_TOPICS: GuideTopic[] = [
   { id: "fantasy-points", title: "Fantasy Points & your budget", icon: "coins", body: <FantasyPoints /> },
   { id: "coin-categories", title: "Coin categories", icon: "layer-group", body: <CoinCategories /> },
   { id: "tournament-types", title: "Tournament types", icon: "shuffle", body: <TournamentTypes /> },
   { id: "create-tournament", title: "Create your own tournament", icon: "circle-plus", body: <CreateYourOwn /> },
   { id: "ai-portfolio", title: "AI portfolio", icon: "wand-magic-sparkles", body: <AiPortfolio /> },
+  { id: "red-day", title: "When everyone loses", icon: "arrow-trend-down", body: <RedDay /> },
   { id: "entry-deposit", title: "Entry deposit & refunds", icon: "rotate-left", body: <EntryDeposit /> },
 ];
 

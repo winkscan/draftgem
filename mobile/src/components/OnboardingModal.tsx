@@ -5,6 +5,7 @@ import { BlurView } from "expo-blur";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import { IS_MAINNET } from "../pumpfantasy/config";
 import { PF_COLORS as C } from "../theme";
 
 const DISMISSED_KEY = "draftgem.onboardingDismissed.v1";
@@ -15,8 +16,8 @@ const DISMISSED_KEY = "draftgem.onboardingDismissed.v1";
 const CARD_WIDTH = Dimensions.get("window").width - 40;
 const IMAGE_HEIGHT = Math.round((CARD_WIDTH * 9) / 16);
 
-// The four steps of a game, 16:9 pictures in assets/onboarding (onboarding-1..4.webp).
-const STEPS = [
+// The steps of the guide, 16:9 pictures in assets/onboarding (onboarding-1..5.webp).
+const ALL_STEPS = [
   {
     image: require("../../assets/onboarding/onboarding-1.webp"),
     title: "Pick a tournament",
@@ -37,7 +38,16 @@ const STEPS = [
     title: "Collect the results",
     body: "When the round ends the prizes are paid out on-chain to the winners. Check the final standings in Results.",
   },
-] as const;
+  {
+    image: require("../../assets/onboarding/onboarding-5.webp"),
+    title: "Play with friends",
+    body: "Create your own tournament with the + button: pick the entry fee, the prizes and the round length. Make it private and send the link to your friends to play just with them.",
+    // Player-made tournaments are switched off during the mainnet beta.
+    onlyWhen: !IS_MAINNET,
+  },
+] as { image: number; title: string; body: string; onlyWhen?: boolean }[];
+
+const STEPS = ALL_STEPS.filter((st) => st.onlyWhen !== false);
 
 // Shown at app start unless "Don't show this again" was ticked. Mounted once at the navigation root so it
 // appears whichever tab a new player lands on (same flow as SwapKings' onboarding).
