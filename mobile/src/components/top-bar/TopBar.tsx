@@ -58,7 +58,7 @@ export function TopBar({
             <View style={styles.right}>
               <UpdateBadge />
               <View>
-                <TouchableRipple style={styles.pill} onPress={selectedAccount ? () => navigation.navigate("Profile") : connect} borderless>
+                <TouchableRipple style={[styles.pill, !selectedAccount ? styles.pillSignedOut : undefined]} onPress={selectedAccount ? () => navigation.navigate("Profile") : connect} borderless>
                   {selectedAccount ? (
                     <View style={styles.pillContent}>
                       {isFetching && skrBalance == null ? (
@@ -129,6 +129,8 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingVertical: 4,
   },
+  // Signed out: "Connect" and the wallet glyph, with the same 12px on the right as on the left, at the connected pill's height.
+  pillSignedOut: { paddingRight: 12, minHeight: 32, justifyContent: "center" },
   pillContent: { flexDirection: "row", alignItems: "center", gap: 8 },
   walletCircle: {
     width: 24,
