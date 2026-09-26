@@ -29,6 +29,8 @@ type WalletAuthorization = Readonly<{
   accounts: Account[];
   authToken: AuthToken;
   selectedAccount: Account;
+  /** The network the wallet authorized us for: a token from another network is no good after a switch. */
+  chain?: string;
 }>;
 
 function getAccountFromAuthorizedAccount(account: AuthorizedAccount): Account {
@@ -80,7 +82,14 @@ async function fetchAuthorization(): Promise<WalletAuthorization | null> {
   if (!cacheFetchResult) {
     return null;
   }
-  return JSON.parse(cacheFetchResult, cacheReviver);
+  const cached = JSON.parse(cacheFetchResult, cacheReviver) as WalletAuthorization;
+  // Authorized for another network (e.g. before the switch from devnet to mainnet): the wallet would refuse
+  // it ("authorization request failed"), so forget it and let the wallet ask afresh.
+  if (cached.chain !== CHAIN_IDENTIFIER) {
+    await AsyncStorage.removeItem(AUTHORIZATION_STORAGE_KEY);
+    return null;
+  }
+  return cached;
 }
 
 async function persistAuthorization(auth: WalletAuthorization | null): Promise<void> {
@@ -114,18 +123,26 @@ export function useAuthorization() {
         authorizationResult,
         authorization?.selectedAccount
       );
-      await setAuthorization(nextAuthorization);
-      return nextAuthorization;
+      const withChain = { ...nextAuthorization, chain: CHAIN_IDENTIFIER };
+      await setAuthorization(withChain);
+      return withChain;
     },
     [authorization]
   );
   const authorizeSession = useCallback(
     async (wallet: AuthorizeAPI) => {
-      const authorizationResult = await wallet.authorize({
-        identity: APP_IDENTITY,
-        chain: CHAIN_IDENTIFIER,
-        auth_token: authorization?.authToken,
-      });
+      let authorizationResult: AuthorizationResult;
+      try {
+        authorizationResult = await wallet.authorize({
+          identity: APP_IDENTITY,
+          chain: CHAIN_IDENTIFIER,
+          auth_token: authorization?.authToken,
+        });
+      } catch (e) {
+        // The wallet refused the remembered authorization: ask again without it.
+        if (!authorization?.authToken) throw e;
+        authorizationResult = await wallet.authorize({ identity: APP_IDENTITY, chain: CHAIN_IDENTIFIER });
+      }
       return (await handleAuthorizationResult(authorizationResult)).selectedAccount;
     },
     [authorization, handleAuthorizationResult]
