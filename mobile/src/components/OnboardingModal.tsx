@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Image, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, View } from "react-native";
 import { Checkbox, Portal, Text, TouchableRipple } from "react-native-paper";
 import { BlurView } from "expo-blur";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -25,25 +25,25 @@ const ALL_STEPS = [
   },
   {
     image: require("../../assets/onboarding/onboarding-2.webp"),
-    title: "Build your portfolio",
-    body: "Choose 5 coins within a 4,000 FP budget: calm coins are cheap, wild ones cost more. No time to think? Let the AI build it for you.",
-  },
-  {
-    image: require("../../assets/onboarding/onboarding-3.webp"),
-    title: "Play it live",
-    body: "When the round starts, follow the standings live. Your score is the sum of your five coins' moves, so every swing counts.",
-  },
-  {
-    image: require("../../assets/onboarding/onboarding-4.webp"),
-    title: "Collect the results",
-    body: "When the round ends the prizes are paid out on-chain to the winners. Check the final standings in Results.",
-  },
-  {
-    image: require("../../assets/onboarding/onboarding-5.webp"),
     title: "Play with friends",
     body: "Create your own tournament with the + button: pick the entry fee, the prizes and the round length. Make it private and send the link to your friends to play just with them.",
     // Player-made tournaments are switched off during the mainnet beta.
     onlyWhen: !IS_MAINNET,
+  },
+  {
+    image: require("../../assets/onboarding/onboarding-3.webp"),
+    title: "Build your portfolio",
+    body: "Choose 5 coins within a 4,000 FP budget: calm coins are cheap, wild ones cost more. No time to think? Let the AI build it for you.",
+  },
+  {
+    image: require("../../assets/onboarding/onboarding-4.webp"),
+    title: "Play it live",
+    body: "When the round starts, follow the standings live. Your score is the sum of your five coins' moves, so every swing counts.",
+  },
+  {
+    image: require("../../assets/onboarding/onboarding-5.webp"),
+    title: "Collect the results",
+    body: "When the round ends the prizes are paid out on-chain to the winners. Check the final standings in Results.",
   },
 ] as { image: number; title: string; body: string; onlyWhen?: boolean }[];
 
@@ -58,6 +58,29 @@ export function OnboardingModal() {
   const [step, setStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const opacity = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(0)).current; // the picture and text slide in from the swipe's side
+  const stepRef = useRef(0);
+  stepRef.current = step;
+
+  const goTo = (next: number, dir: 1 | -1) => {
+    if (next < 0 || next >= STEPS.length) return;
+    setStep(next);
+    slide.setValue(dir * 36);
+    Animated.timing(slide, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+  };
+  const goToRef = useRef(goTo);
+  goToRef.current = goTo;
+
+  // Swipe the card left for the next step, right for the previous one.
+  const swipe = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50) goToRef.current(stepRef.current + 1, 1);
+        else if (g.dx > 50) goToRef.current(stepRef.current - 1, -1);
+      },
+    }),
+  ).current;
 
   useEffect(() => {
     AsyncStorage.getItem(DISMISSED_KEY)
@@ -90,7 +113,7 @@ export function OnboardingModal() {
       (navigation as any).navigate("HomeStack", { screen: "Lobby" });
       return;
     }
-    setStep((s) => s + 1);
+    goTo(step + 1, 1);
   };
 
   return (
@@ -98,11 +121,13 @@ export function OnboardingModal() {
       <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
         <BlurView intensity={45} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
         <View style={styles.positioner} pointerEvents="box-none">
-          <View style={styles.card}>
+          <View style={styles.card} {...swipe.panHandlers}>
             <Pressable style={styles.closeBtn} onPress={close}>
               <FontAwesome6 name="xmark" size={14} color="#fff" />
             </Pressable>
-            <Image source={current.image} style={styles.image} resizeMode="cover" />
+            <Animated.View style={{ transform: [{ translateX: slide }] }}>
+              <Image source={current.image} style={styles.image} resizeMode="cover" />
+            </Animated.View>
             <View style={styles.body}>
               <View style={styles.progressRow}>
                 {STEPS.map((_, i) => (
@@ -110,8 +135,10 @@ export function OnboardingModal() {
                 ))}
               </View>
 
-              <Text style={styles.title}>{current.title}</Text>
-              <Text style={styles.description}>{current.body}</Text>
+              <Animated.View style={{ transform: [{ translateX: slide }] }}>
+                <Text style={styles.title}>{current.title}</Text>
+                <Text style={styles.description}>{current.body}</Text>
+              </Animated.View>
 
               <TouchableRipple onPress={() => setDontShowAgain((v) => !v)} style={styles.checkboxRow}>
                 <View style={styles.checkboxRowInner} pointerEvents="none">
@@ -124,12 +151,22 @@ export function OnboardingModal() {
                 <TouchableRipple style={styles.skip} borderless onPress={close}>
                   <Text style={styles.skipText}>Skip</Text>
                 </TouchableRipple>
-                <TouchableRipple style={styles.primary} borderless onPress={handlePrimary}>
-                  <View style={styles.primaryInner}>
-                    <Text style={styles.primaryText}>{isLastStep ? "Let's play" : "Next"}</Text>
-                    <FontAwesome6 name={isLastStep ? "gem" : "arrow-right"} size={13} color={C.accentTextOn} />
-                  </View>
-                </TouchableRipple>
+                <View style={styles.rightButtons}>
+                  {step > 0 ? (
+                    <TouchableRipple style={styles.back} borderless onPress={() => goTo(step - 1, -1)}>
+                      <View style={styles.primaryInner}>
+                        <FontAwesome6 name="arrow-left" size={13} color={C.textPrimary} />
+                        <Text style={styles.backText}>Back</Text>
+                      </View>
+                    </TouchableRipple>
+                  ) : null}
+                  <TouchableRipple style={styles.primary} borderless onPress={handlePrimary}>
+                    <View style={styles.primaryInner}>
+                      <Text style={styles.primaryText}>{isLastStep ? "Let's play" : "Next"}</Text>
+                      <FontAwesome6 name={isLastStep ? "gem" : "arrow-right"} size={13} color={C.accentTextOn} />
+                    </View>
+                  </TouchableRipple>
+                </View>
               </View>
             </View>
           </View>
@@ -176,6 +213,9 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
   skip: { paddingHorizontal: 16, height: 44, borderRadius: 999, justifyContent: "center" },
   skipText: { color: C.textSecondary, fontWeight: "700", fontSize: 14 },
+  rightButtons: { flexDirection: "row", alignItems: "center", gap: 8 },
+  back: { height: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: C.glassStrong, justifyContent: "center" },
+  backText: { color: C.textPrimary, fontWeight: "800", fontSize: 14 },
   primary: { height: 44, paddingHorizontal: 22, borderRadius: 999, backgroundColor: C.accent, justifyContent: "center" },
   primaryInner: { flexDirection: "row", alignItems: "center", gap: 8 },
   primaryText: { color: C.accentTextOn, fontWeight: "800", fontSize: 14 },
