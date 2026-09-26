@@ -85,13 +85,14 @@ export function useAssetPrices(tournament: PublicKey | null, archivedId: bigint 
       if (archivedId != null) {
         const archived = await fetchArchivedResult(archivedId.toString());
         if (archived) return toAssetRows(archived);
+        throw new Error("archive not available yet"); // never fall back to the chain: its accounts are closed. Retried below.
       }
       return fetchAllAccountsV2(connection, PROGRAM_ID, ASSET_PRICE_DISCRIMINATOR, decodeAssetPrice, [
         { memcmp: { offset: ASSET_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
       ]);
     },
     enabled: !!tournament,
-    refetchInterval: archivedId != null ? false : 15_000,
+    refetchInterval: archivedId != null ? (q) => (q.state.data ? false : 8_000) : 15_000,
   });
 }
 
@@ -131,6 +132,7 @@ export function useMyEntries(tournament: PublicKey | null, player: PublicKey | n
             .filter((r) => r.account.player.toBase58() === me)
             .sort((a, b) => a.account.entryIndex - b.account.entryIndex);
         }
+        throw new Error("archive not available yet");
       }
       const rows = await fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
@@ -139,7 +141,8 @@ export function useMyEntries(tournament: PublicKey | null, player: PublicKey | n
       return rows.sort((a, b) => a.account.entryIndex - b.account.entryIndex);
     },
     enabled: !!tournament && !!player,
-    refetchInterval: archivedId != null ? false : 10_000,
+    refetchInterval: archivedId != null ? (q) => (q.state.data ? false : 8_000) : 10_000,
+    retry: archivedId != null ? 6 : 3,
   });
 }
 
@@ -157,13 +160,15 @@ export function useTournamentEntries(tournament: PublicKey | null, archivedId: b
       if (archivedId != null) {
         const archived = await fetchArchivedResult(archivedId.toString());
         if (archived) return toEntryRows(archived);
+        throw new Error("archive not available yet");
       }
       return fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
       ]);
     },
     enabled: !!tournament,
-    refetchInterval: archivedId != null ? false : 20_000,
+    refetchInterval: archivedId != null ? (q) => (q.state.data ? false : 8_000) : 20_000,
+    retry: archivedId != null ? 6 : 3,
   });
 }
 
@@ -194,7 +199,7 @@ export function useMyEnteredTournaments(player: PublicKey | null) {
             const result = await queryClient.fetchQuery({
               queryKey: ["archived-result", t.id],
               queryFn: () => fetchArchivedResult(t.id),
-              staleTime: Infinity,
+              staleTime: (q) => (q.state.data ? Infinity : 0), // a missing archive may just not be published yet
             });
             if (result?.entries.some((e) => e.player === me)) entered.add(tournamentPda(BigInt(t.id))[0].toBase58());
           } catch {

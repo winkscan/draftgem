@@ -279,7 +279,8 @@ export default {
     }
     ctx.waitUntil(loadUnderlyingMarketCaps(env).catch((err) => console.error("Market-cap refresh failed:", err)));
     ctx.waitUntil(
-      runMaintenance(env, {})
+      // Once an hour a full scan as well: it also finds tournaments whose id is not on the 5-minute grid (made by hand).
+      runMaintenance(env, { full: tick % 12n === 0n })
         .then((result) => console.log(result))
         .catch((err) => console.error("Maintenance failed:", err)),
     );

@@ -85,7 +85,7 @@ export function useMyStats(player: PublicKey | null) {
             const result = await queryClient.fetchQuery({
               queryKey: ["archived-result", t.id],
               queryFn: () => fetchArchivedResult(t.id),
-              staleTime: Infinity,
+              staleTime: (q) => (q.state.data ? Infinity : 0),
             });
             const tKey = tournamentPda(BigInt(t.id))[0].toBase58();
             for (const e of result?.entries ?? []) {

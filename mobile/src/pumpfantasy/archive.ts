@@ -75,7 +75,7 @@ export function useArchivedResult(id: bigint | number | null, enabled = true) {
     queryKey: ["archived-result", id?.toString()],
     queryFn: () => fetchArchivedResult(id!.toString()),
     enabled: id != null && enabled,
-    staleTime: Infinity,
+    staleTime: (q) => (q.state.data ? Infinity : 0), // null = not published yet: ask again
     retry: false,
   });
 }
