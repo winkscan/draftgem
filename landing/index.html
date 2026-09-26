@@ -56,11 +56,12 @@
   .btn-purple:hover { background: var(--purple-hi); }
   .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
   .btn-ghost:hover { border-color: rgba(236,228,253,.4); }
+  .btn.is-disabled { opacity: .45; cursor: not-allowed; pointer-events: none; filter: grayscale(.4); }
   .btn-sm { height: 38px; padding: 0 18px; font-size: 14px; }
   .btn svg { width: 16px; height: 16px; }
 
   /* hero */
-  .hero { position: relative; text-align: center; padding: 96px 0 72px; overflow: hidden; }
+  .hero { position: relative; text-align: center; padding: 96px 0 24px; overflow: hidden; }
   .hero::before { content: ""; position: absolute; inset: -200px 0 auto; height: 620px; background: radial-gradient(50% 60% at 50% 40%, rgba(153,69,255,.28), transparent 70%), radial-gradient(30% 40% at 78% 50%, rgba(20,241,149,.14), transparent 70%); pointer-events: none; }
   .hero > .wrap { position: relative; }
   .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--wash); font-size: 13px; color: var(--muted); margin-bottom: 26px; }
@@ -112,9 +113,20 @@
   .slot span:first-child { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .slot .cat { font-size: 11px; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
   .c-hold { background: rgba(20,241,149,.12); color: var(--green); }
-  .c-mid { background: rgba(153,69,255,.18); color: var(--purple-text); }
+  .c-farm { background: rgba(20,241,149,.08); color: #7ff3c4; }
+  .c-pump { background: rgba(153,69,255,.18); color: var(--purple-text); }
+  .c-moon { background: rgba(214,92,255,.18); color: #e59cff; }
   .c-degen { background: rgba(241,18,18,.14); color: #ff6a6a; }
   .slot .fpv { color: var(--muted); font-family: "JetBrains Mono", monospace; }
+
+  .form { display: grid; gap: 8px; }
+  .form .row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+  .form .row span { color: var(--muted); }
+  .form .row b { font-weight: 700; }
+  .vis { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--wash); }
+  .vis span { padding: 3px 12px; border-radius: 999px; font-size: 12px; color: var(--muted) !important; }
+  .vis span.on { background: var(--purple); color: #fff !important; }
+  .share { margin-top: 14px; height: 44px; border-radius: 999px; background: var(--green); color: var(--green-ink); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 14px; }
 
   /* AI slider */
   .levels { display: flex; justify-content: space-between; font-size: 12px; margin: 14px 0 6px; }
@@ -178,7 +190,7 @@
       <a class="hide-sm" href="#draft">How it works</a>
       <a class="hide-sm" href="#ai">AI portfolio</a>
       <a class="hide-sm" href="#prizes">Prizes</a>
-      <a class="btn btn-green btn-sm" href="#get">Get the app</a>
+      <span class="btn btn-green btn-sm is-disabled" aria-disabled="true" title="Coming soon">Get the app</span>
     </div>
   </div>
 </nav>
@@ -189,13 +201,12 @@
     <h1>Pick 5 coins. Beat the field.<br><span class="grad">Get paid on-chain.</span></h1>
     <p class="lead">DraftGem is <b>daily fantasy for crypto</b>. Draft five Solana coins inside a 4,000 FP budget, enter a tournament in <b>SKR</b>, and watch the standings live. An <b>AI</b> can build your portfolio for you.</p>
     <div class="cta-row">
-      <a class="btn btn-green" href="#get">
+      <span class="btn btn-green is-disabled" aria-disabled="true" title="Coming soon">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2l1.5 3H15.5L17 2h1.7L17.2 5.1A7 7 0 0 1 20 11H4a7 7 0 0 1 2.8-5.9L5.3 2H7zm2 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM4 12h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/></svg>
         Get the Android app
-      </a>
+      </span>
       <a class="btn btn-ghost" href="#draft">How it works</a>
     </div>
-    <div class="hero-shot"><img src="assets/onboarding-1.webp" alt="The DraftGem lobby with live tournaments" width="1280" height="720"></div>
   </div>
 </header>
 
@@ -222,7 +233,7 @@
       <div class="eyebrow">Act 01 · Draft</div>
       <h2>Five coins, one budget. <span class="grad">Every pick is a trade-off.</span></h2>
       <p>Every coin has a price in fantasy points (FP) set by <b>how much it really moves</b>. Calm coins are cheap, wild ones are expensive. You get <b>4,000 FP</b> for <b>5 coins</b>, so going all-in on degens is impossible, and playing only safe rarely wins.</p>
-      <div class="tags"><span class="tag">Hold · 100 FP</span><span class="tag">Balanced picks</span><span class="tag">Degen · 1,600 FP</span></div>
+      <div class="tags"><span class="tag">Hold · 100 FP</span><span class="tag">Farm · 300</span><span class="tag">Pump · 650</span><span class="tag">Moon · 1,000</span><span class="tag">Degen · 1,600</span></div>
       <ul class="ticks">
         <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Prices follow reality.</b> A coin's cost comes from its measured hourly move, not a guess.</span></li>
         <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Signed on-chain.</b> Each FP price is attested and verified by the program on entry.</span></li>
@@ -231,14 +242,14 @@
     <div class="reveal">
       <div class="panel" id="budget">
         <h4>Your portfolio</h4>
-        <div class="fp"><span class="big mono" id="fpBig">4,000</span><span class="of">of 4,000 FP used</span></div>
-        <div class="bar"><i id="fpBar"></i></div>
+        <div class="fp"><span class="big mono" id="fpBig">3,650</span><span class="of">of 4,000 FP used</span></div>
+        <div class="bar"><i id="fpBar" style="width:91.25%"></i></div>
         <div class="slots">
           <div class="slot"><span>Coin A <span class="cat c-hold">Hold</span></span><span class="fpv">100 FP</span></div>
-          <div class="slot"><span>Coin B <span class="cat c-mid">Steady</span></span><span class="fpv">500 FP</span></div>
-          <div class="slot"><span>Coin C <span class="cat c-mid">Bold</span></span><span class="fpv">900 FP</span></div>
-          <div class="slot"><span>Coin D <span class="cat c-degen">Degen</span></span><span class="fpv">1,600 FP</span></div>
-          <div class="slot"><span>Coin E <span class="cat c-mid">Bold</span></span><span class="fpv">900 FP</span></div>
+          <div class="slot"><span>Coin B <span class="cat c-farm">Farm</span></span><span class="fpv">300 FP</span></div>
+          <div class="slot"><span>Coin C <span class="cat c-pump">Pump</span></span><span class="fpv">650 FP</span></div>
+          <div class="slot"><span>Coin D <span class="cat c-moon">Moon</span></span><span class="fpv">1,000 FP</span></div>
+          <div class="slot"><span>Coin E <span class="cat c-degen">Degen</span></span><span class="fpv">1,600 FP</span></div>
         </div>
         <p class="ai-note">Illustration: five slots, one budget.</p>
       </div>
@@ -259,7 +270,20 @@
         <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>SKR, SOL, ORE or USDC.</b> Choose the currency for your tournament.</span></li>
       </ul>
     </div>
-    <div class="reveal"><div class="frame"><img src="assets/onboarding-2.webp" alt="Creating a tournament and inviting friends" loading="lazy" width="1280" height="720"></div></div>
+    <div class="reveal">
+      <div class="panel">
+        <h4>Create tournament</h4>
+        <div class="form">
+          <div class="row"><span>Name</span><b>Friday night</b></div>
+          <div class="row"><span>Entry fee</span><b class="mono">100 SKR</b></div>
+          <div class="row"><span>Prizes</span><b>Top 3</b></div>
+          <div class="row"><span>Round</span><b>1 hour</b></div>
+          <div class="row"><span>Visibility</span><b class="vis"><span class="on">Private</span><span>Public</span></b></div>
+        </div>
+        <div class="share">Share link</div>
+        <p class="ai-note">Illustration: a private tournament for friends.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -336,10 +360,10 @@
       <h2>Ready to draft your first portfolio?</h2>
       <p>Download DraftGem, connect your Solana wallet and join a tournament in a minute.</p>
       <div class="cta-row">
-        <a class="btn btn-green" href="#">Get the Android app</a>
+        <span class="btn btn-green is-disabled" aria-disabled="true" title="Coming soon">Get the Android app</span>
         <a class="btn btn-ghost" href="#draft">See how it works</a>
       </div>
-      <p class="soon">Android · Solana Mobile · Mobile Wallet Adapter</p>
+      <p class="soon">Coming soon · Android · Solana Mobile · Mobile Wallet Adapter</p>
     </div>
   </div>
 </section>
@@ -378,12 +402,15 @@
   document.querySelectorAll("[data-count]").forEach((el) => co.observe(el));
 
   // AI risk slider demo (illustration only, not real picks)
+  // Real categories and FP prices (see the app's Guide): Hold 100, Farm 300, Pump 650, Moon 1,000, Degen 1,600. Every portfolio fits 4,000 FP.
+  const CAT = { Hold: [100, "c-hold"], Farm: [300, "c-farm"], Pump: [650, "c-pump"], Moon: [1000, "c-moon"], Degen: [1600, "c-degen"] };
+  const mk = (names) => names.map((n, i) => ["Coin " + "ABCDE"[i], n, CAT[n][0], CAT[n][1]]);
   const LEVELS = [
-    { n: "Steady", c: "#14f195", note: "Calm coins, small swings.", coins: [["Coin A", "Hold", 100, "c-hold"], ["Coin B", "Hold", 300, "c-hold"], ["Coin C", "Steady", 700, "c-hold"], ["Coin D", "Steady", 900, "c-hold"], ["Coin E", "Steady", 900, "c-hold"]] },
-    { n: "Careful", c: "#6ff2b3", note: "Mostly safe, one spicy pick.", coins: [["Coin A", "Hold", 100, "c-hold"], ["Coin B", "Steady", 500, "c-hold"], ["Coin C", "Steady", 700, "c-hold"], ["Coin D", "Bold", 1200, "c-mid"], ["Coin E", "Steady", 1500, "c-hold"]] },
-    { n: "Balanced", c: "#b98cff", note: "A mix across the range.", coins: [["Coin A", "Hold", 100, "c-hold"], ["Coin B", "Steady", 500, "c-hold"], ["Coin C", "Bold", 900, "c-mid"], ["Coin D", "Bold", 900, "c-mid"], ["Coin E", "Degen", 1600, "c-degen"]] },
-    { n: "Bold", c: "#d27cff", note: "Volatility on purpose.", coins: [["Coin A", "Steady", 400, "c-hold"], ["Coin B", "Bold", 800, "c-mid"], ["Coin C", "Bold", 900, "c-mid"], ["Coin D", "Degen", 1000, "c-degen"], ["Coin E", "Degen", 900, "c-degen"]] },
-    { n: "Moonshot", c: "#ff6a6a", note: "High risk, high reward.", coins: [["Coin A", "Bold", 500, "c-mid"], ["Coin B", "Degen", 800, "c-degen"], ["Coin C", "Degen", 800, "c-degen"], ["Coin D", "Degen", 900, "c-degen"], ["Coin E", "Degen", 1000, "c-degen"]] },
+    { n: "Steady", c: "#14f195", note: "Calm coins, small swings.", coins: mk(["Hold", "Hold", "Farm", "Farm", "Pump"]) },
+    { n: "Careful", c: "#6ff2b3", note: "Mostly calm, a couple of movers.", coins: mk(["Farm", "Farm", "Pump", "Pump", "Moon"]) },
+    { n: "Balanced", c: "#b98cff", note: "A mix across the range.", coins: mk(["Hold", "Farm", "Pump", "Moon", "Degen"]) },
+    { n: "Bold", c: "#d27cff", note: "Volatility on purpose.", coins: mk(["Farm", "Pump", "Moon", "Moon", "Moon"]) },
+    { n: "Moonshot", c: "#ff6a6a", note: "The wildest coins the budget allows: two Degens at most.", coins: mk(["Hold", "Farm", "Farm", "Degen", "Degen"]) },
   ];
   const levelsEl = document.getElementById("levels"), out = document.getElementById("aiOut"), note = document.getElementById("aiNote"), risk = document.getElementById("risk");
   LEVELS.forEach((l, i) => { const s = document.createElement("span"); s.textContent = l.n; s.style.setProperty("--lc", l.c); s.onclick = () => { risk.value = i; render(); }; levelsEl.appendChild(s); });
