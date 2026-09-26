@@ -25,6 +25,7 @@ import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard, SlotCard, entryBadge } from "../components/PortfolioCard";
 import { EntrySuccess } from "../components/EntrySuccess";
 import { takePendingAiPicks } from "../pumpfantasy/aiPortfolio";
+import { saveCoinSnapshots, useCoinMap } from "../pumpfantasy/coinLookup";
 import { EntryFailure } from "../components/EntryFailure";
 import { useDraftTab, useEntrySuccess } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
@@ -98,8 +99,11 @@ export function DraftScreen() {
   // not just a summary line — resolve the stored raw-mint picks back to
   // their Candidate entries so the same icon/symbol slots render.
   const viewingExistingSingleEntry = !isMultiple && !!myEntry;
+  // Every coin in my portfolios, resolved even when it has left the pool since (see coinLookup.ts).
+  const myMints = useMemo(() => [...(myEntry?.picks ?? []), ...(myEntries ?? []).flatMap((e) => e.account.picks)].map((p) => p.toBase58()), [myEntry, myEntries]);
+  const coinMap = useCoinMap(myMints);
   const displayedSlots: (Candidate | undefined)[] = viewingExistingSingleEntry
-    ? myEntry!.picks.map((pick) => candidatesByMint.get(pick.toBase58()))
+    ? myEntry!.picks.map((pick) => coinMap.get(pick.toBase58()))
     : Array.from({ length: PICKS_PER_ENTRY }, (_, i) => picked[i]);
 
   // Back from the AI page with "Use portfolio": fill the five slots with its coins.
@@ -183,6 +187,7 @@ export function DraftScreen() {
       const attestation = await fetchAttestation(picked.map((p) => p.mint));
       const entryIndex = isMultiple ? myEntries?.length ?? 0 : 0;
       await enterTournament(connection, player, signAndSendTransaction, id, attestation, entryIndex, tournament?.mint);
+      saveCoinSnapshots(picked); // keep the price and category you paid, whatever the pool does later
       setJustEntered({ entryNo: entryIndex + 1, picks: picked });
       setPicked([]); // clear the drafted picks so Multiple mode can start the next entry right away
       await queryClient.invalidateQueries({ queryKey: ["entry"] });
@@ -243,7 +248,7 @@ export function DraftScreen() {
       {isMultiple && (tab === "mine" || entriesClosed) ? (
         <MyEntriesList
           entries={myEntries ?? []}
-          candidatesByMint={candidatesByMint}
+          candidatesByMint={coinMap}
           entriesClosed={entriesClosed}
           tournament={tournament}
         />
@@ -254,7 +259,7 @@ export function DraftScreen() {
               <PortfolioCard
                 portfolioNo={myEntry!.entryIndex + 1}
                 badge={entryBadge(tournament)}
-                slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: candidatesByMint.get(pick.toBase58()) }))}
+                slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: coinMap.get(pick.toBase58()) }))}
               />
             </View>
           ) : (

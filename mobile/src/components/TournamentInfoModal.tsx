@@ -16,6 +16,7 @@ import { ellipsify } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { RAKE_BPS, WORKER_URL } from "../pumpfantasy/config";
 import { TokenIcon } from "./TokenIcon";
+import { useCoinMap } from "../pumpfantasy/coinLookup";
 import { EmptyState } from "./EmptyState";
 import { PortfolioCard, entryBadge } from "./PortfolioCard";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
@@ -57,8 +58,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
   );
   const { data: allEntries } = useTournamentEntries(tournamentKey, archivedId);
 
-  const candidatesByMint = new Map<string, Candidate>();
-  for (const c of candidates ?? []) candidatesByMint.set(c.mint, c);
+  const candidatesByMint = useCoinMap((myEntries ?? []).flatMap((e) => e.account.picks.map((p) => p.toBase58())));
 
   const copyLink = async () => {
     if (!t) return;

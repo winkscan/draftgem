@@ -7,6 +7,7 @@ import { refreshVolatility } from "./volatility";
 import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
+import { coinDetails } from "./coins";
 import { networkOf, proxyRpc, rpcUrl, useNetwork } from "./rpc";
 import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, aiAllowance, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
@@ -298,6 +299,19 @@ export default {
       try {
         const candidates = await getAllCandidates(env);
         return json({ candidates });
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+    }
+
+    // GET /coins?mints=a,b,c — details of specific coins (portfolio cards of coins that left the pool).
+    if (req.method === "GET" && url.pathname === "/coins") {
+      try {
+        const mints = (url.searchParams.get("mints") ?? "").split(",").filter(Boolean);
+        return new Response(JSON.stringify({ coins: await coinDetails(env, mints) }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300", ...corsHeaders() },
+        });
       } catch (err) {
         return json({ error: err instanceof Error ? err.message : String(err) }, 500);
       }

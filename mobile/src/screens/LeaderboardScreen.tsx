@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { FlatList, Linking, StyleSheet, View } from "react-native";
+import { useCoinMap } from "../pumpfantasy/coinLookup";
 import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard } from "../components/PortfolioCard";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
@@ -68,11 +69,8 @@ export function LeaderboardScreen() {
     return m;
   }, [assets]);
 
-  const candidatesByMint = useMemo(() => {
-    const m = new Map<string, Candidate>();
-    for (const c of candidates ?? []) m.set(c.mint, c);
-    return m;
-  }, [candidates]);
+  // Every coin in the standings, including ones that have since left the pool.
+  const candidatesByMint = useCoinMap(useMemo(() => (entries ?? []).flatMap((e) => e.account.picks.map((p) => p.toBase58())), [entries]));
 
   const now = Math.floor(Date.now() / 1000);
   const phase = tournament ? getTournamentPhase(tournament, now) : "upcoming";
