@@ -147,7 +147,7 @@
 
   /* proof */
   section.proof { padding: 120px 0 0; text-align: center; }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 44px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-top: 44px; }
   .stat { border: 1px solid var(--line); border-radius: 18px; background: var(--card); padding: 32px 16px; }
   .stat .n { font-size: clamp(30px, 4vw, 46px); font-weight: 800; letter-spacing: -.03em; }
   .stat .l { color: var(--muted); font-size: 14px; margin-top: 6px; }
@@ -174,6 +174,7 @@
     .act-grid { grid-template-columns: 1fr; gap: 34px; }
     .act-grid.flip .act-text { order: 0; }
     .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat:first-child { grid-column: 1 / -1; }
     .nav-links a.hide-sm { display: none; }
     .hero { padding-top: 64px; }
     section.act { padding-top: 84px; }
@@ -199,7 +200,7 @@
   <div class="wrap">
     <div class="pill"><i></i> Built for Solana Mobile · Live on Solana</div>
     <h1>Pick 5 coins. Beat the field.<br><span class="grad">Get paid on-chain.</span></h1>
-    <p class="lead">DraftGem is <b>daily fantasy for crypto</b>. Draft five Solana coins inside a 4,000 FP budget, enter a tournament in <b>SKR</b>, and watch the standings live. An <b>AI</b> can build your portfolio for you.</p>
+    <p class="lead">DraftGem is <b>daily fantasy for crypto</b>. Draft five Solana coins inside a 4,000 FP budget, enter a tournament in <b>SKR, SOL, ORE or USDC</b>, and watch the standings live. An <b>AI</b> can build your portfolio for you.</p>
     <div class="cta-row">
       <span class="btn btn-green is-disabled" aria-disabled="true" title="Coming soon">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2l1.5 3H15.5L17 2h1.7L17.2 5.1A7 7 0 0 1 20 11H4a7 7 0 0 1 2.8-5.9L5.3 2H7zm2 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM4 12h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/></svg>
@@ -263,7 +264,7 @@
     <div class="act-text reveal">
       <div class="eyebrow">Act 02 · Compete</div>
       <h2>Join the lobby, or <span class="grad">run your own tournament.</span></h2>
-      <p>A new one-hour SKR tournament opens all the time. Prefer your own rules? Tap <b>+</b>, pick the entry fee, the prizes and the round length, then share a link.</p>
+      <p>A new one-hour tournament opens all the time. Prefer your own rules? Tap <b>+</b>, pick the entry fee, the prizes and the round length, then share a link.</p>
       <ul class="ticks">
         <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Rounds of 1, 6, 12 or 24 hours.</b> Entries lock when the round starts.</span></li>
         <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0z"/></svg><span><b>Public or private.</b> Send a private link and play only with friends.</span></li>
@@ -345,6 +346,7 @@
     <div class="eyebrow">By the numbers</div>
     <h2>Simple rules. <span class="grad">Verifiable results.</span></h2>
     <div class="stats">
+      <div class="stat"><div class="n grad"><span data-count="1000">0</span><span>+</span></div><div class="l">coins to choose from</div></div>
       <div class="stat"><div class="n grad"><span data-count="4000">0</span></div><div class="l">FP budget per portfolio</div></div>
       <div class="stat"><div class="n grad"><span data-count="5">0</span></div><div class="l">coins in every portfolio</div></div>
       <div class="stat"><div class="n grad"><span data-count="4">0</span></div><div class="l">currencies: SKR, SOL, ORE, USDC</div></div>
