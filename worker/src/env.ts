@@ -24,6 +24,8 @@ export interface Env {
   // `wrangler secret put ADMIN_TOKEN`. Without it those URLs answer 401 to everyone.
   // "mainnet" on the mainnet deployment; anything else (unset) means devnet.
   NETWORK?: string;
+  // The owner's own wallet: the platform's token revenue is swept there (treasury.ts). Unset = never swept.
+  TREASURY_WALLET?: string;
   ADMIN_TOKEN?: string;
   // Anthropic API key for the AI portfolio (`wrangler secret put ANTHROPIC_API_KEY`). Without it /ai-portfolio answers 503.
   ANTHROPIC_API_KEY?: string;

@@ -8,6 +8,7 @@ import type { PriceBudget } from "./priceHistory";
 import { settleTournaments } from "./settlement";
 import { getResult, listResults } from "./archive";
 import { coinDetails } from "./coins";
+import { sweepTreasury } from "./treasury";
 import { networkOf, proxyRpc, rpcUrl, useNetwork } from "./rpc";
 import { AiFailedError, AiLimitError, AiPausedError, AiUnavailableError, aiAllowance, generatePortfolio } from "./ai";
 import { FaucetError, claimTestSkr } from "./faucet";
@@ -218,6 +219,12 @@ async function runMaintenance(env: Env, opts: { full?: boolean }): Promise<strin
       lines.push(`Settlement: ${await settleTournaments(env, connection, candidates, loaded.states)}`);
     } catch (err) {
       lines.push(`Settlement failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    // The platform's revenue does not stay on the worker's hot key: it goes to the owner's wallet.
+    try {
+      lines.push(`Treasury: ${await sweepTreasury(env, connection)}`);
+    } catch (err) {
+      lines.push(`Treasury failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     // Last, and only with what tournament prices left over: re-measure a few coins' volatility.
     try {

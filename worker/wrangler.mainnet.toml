@@ -8,6 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 NETWORK = "mainnet"
+TREASURY_WALLET = "BAZrwd5FoT9s3S3MMpm8ZqCe3E5uXkHv5srS9Ybik8oL"
 
 [triggers]
 crons = ["*/5 * * * *"]
