@@ -31,6 +31,8 @@ type WalletAuthorization = Readonly<{
   selectedAccount: Account;
   /** The network the wallet authorized us for: a token from another network is no good after a switch. */
   chain?: string;
+  /** identity.uri at the time this was authorized — see the identityUri check in fetchAuthorization. */
+  identityUri?: string;
 }>;
 
 function getAccountFromAuthorizedAccount(account: AuthorizedAccount): Account {
@@ -89,6 +91,14 @@ async function fetchAuthorization(): Promise<WalletAuthorization | null> {
     await AsyncStorage.removeItem(AUTHORIZATION_STORAGE_KEY);
     return null;
   }
+  // Authorized under an older identity.uri (e.g. before the pumpfantasy.app → draftgem.app rename): reauthorizing
+  // with the cached auth_token keeps working, but most wallets only re-read the app's name/icon on a *fresh*
+  // authorize() call, not a silent reauthorize — so the wallet UI would keep showing the old name forever.
+  // Forget it once so the next connect is a fresh authorize() and the wallet picks up the new identity.
+  if (cached.identityUri !== APP_IDENTITY.uri) {
+    await AsyncStorage.removeItem(AUTHORIZATION_STORAGE_KEY);
+    return null;
+  }
   return cached;
 }
 
@@ -124,7 +134,7 @@ export function useAuthorization() {
         authorizationResult,
         authorization?.selectedAccount
       );
-      const withChain = { ...nextAuthorization, chain: CHAIN_IDENTIFIER };
+      const withChain = { ...nextAuthorization, chain: CHAIN_IDENTIFIER, identityUri: APP_IDENTITY.uri };
       await setAuthorization(withChain);
       return withChain;
     },
