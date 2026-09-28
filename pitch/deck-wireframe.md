@@ -82,10 +82,14 @@ own mark — this is the hero shot, slightly larger and more dramatically lit th
   prize pool. Crypto never got its version — especially not one built for a phone, with a
   crypto-native wallet from the start.
 
-**Image prompt (scene):** The card is almost bare — just a dim, undecorated price chart line
-drifting across it, no badges, no tournament cards, no scoring, no floating props around it at
-all. Smaller and further back than the other slides, with more black empty space around it,
-conveying "nothing built for this yet."
+**Image prompt (scene):** No single unified card this time — instead, five or six small UI
+fragments (a candlestick-chart snippet, a lone percentage tag, a plain coin icon, a short price
+line, a bare number) scattered apart across the frame at different depths and slight, inconsistent
+tilts, each dim and desaturated (muted grey-blue, no violet/mint glow), with **no card, frame, or
+connecting line holding any of them together** and noticeably more black empty space between them
+than in any other slide. It should read as "real pieces of market data, drifting with nothing
+tying them into a game" — a visibly emptier, less confident composition than slide 03's single
+unified card, not just a fainter version of the same shot.
 
 ---
 
