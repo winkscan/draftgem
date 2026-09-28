@@ -4,10 +4,10 @@ import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { TournamentAccount } from "../../pumpfantasy/accounts";
 import { PAYOUT_CHOICES, type TournamentMeta } from "../../pumpfantasy/customTournaments";
-import { currencyForMint, decimalsForMint, formatAmountCompact } from "../../pumpfantasy/currency";
+import { currencyForMint, decimalsForMint } from "../../pumpfantasy/currency";
 import { formatCountdown, formatDuration } from "../../pumpfantasy/format";
-import { payoutStructureOf, poolOf } from "../../pumpfantasy/tournamentFilters";
-import { tournamentDayLabel, tournamentDisplayName } from "../../pumpfantasy/tournamentNames";
+import { payoutStructureOf, tournamentTitle } from "../../pumpfantasy/tournamentFilters";
+import { tournamentDisplayName } from "../../pumpfantasy/tournamentNames";
 import { getTournamentPhase } from "../../pumpfantasy/tournamentPhase";
 import { WORKER_URL } from "../../pumpfantasy/config";
 import { finishedStatusLabel } from "../../pumpfantasy/hooks";
@@ -40,7 +40,7 @@ export function TournamentDetails({
   const payout = payoutStructureOf(t, meta ? { [t.id.toString()]: meta } : undefined);
   const payoutLabel = PAYOUT_CHOICES.find((p) => p.key === payout)?.label ?? "50%";
   const decimals = decimalsForMint(t.mint);
-  const title = `${formatAmountCompact(poolOf(t), decimals)} ${currencyForMint(t.mint)} ${tournamentDayLabel(t.startTs)} ${tournamentDisplayName(t.id, meta)}`;
+  const title = tournamentTitle(t, tournamentDisplayName(t.id, meta), decimals, currencyForMint(t.mint));
 
   const phase = getTournamentPhase(t, now);
   const [thirdLabel, thirdValue] =

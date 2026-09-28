@@ -1,5 +1,7 @@
 import type { TournamentAccount } from "./accounts";
 import type { TournamentPhase } from "./tournamentPhase";
+import { formatAmountCompact } from "./currency";
+import { tournamentDayLabel } from "./tournamentNames";
 
 // Filters shared by Lobby / Live / Results (one set of choices, three lists).
 // Three layers, top to bottom in the header: scope tabs, payout-structure
@@ -92,6 +94,17 @@ function matchesEntry(t: TournamentAccount, entry: EntryFilter): boolean {
 /** The pool to advertise: the real one, or the house-guaranteed floor if that's bigger. */
 export const poolOf = (t: TournamentAccount) =>
   t.prizePoolLamports > t.guaranteedAmountLamports ? t.prizePoolLamports : t.guaranteedAmountLamports;
+
+/**
+ * The tournament title as shown in the Lobby/Live/Results cards and the panel header. Nobody has entered
+ * yet and there is no house guarantee: showing "0 SKR" reads as an empty, dead tournament, so the pool is
+ * left out of the title until it is actually worth announcing.
+ */
+export function tournamentTitle(t: TournamentAccount, name: string, decimals: number, currency: string): string {
+  const day = tournamentDayLabel(t.startTs);
+  if (poolOf(t) === 0n) return `${day} ${name}`;
+  return `${formatAmountCompact(poolOf(t), decimals)} ${currency} ${day} ${name}`;
+}
 
 const cmpBig = (a: bigint, b: bigint) => (a < b ? -1 : a > b ? 1 : 0);
 

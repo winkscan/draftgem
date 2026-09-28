@@ -12,7 +12,7 @@ import { formatDuration, formatCountdown } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
 import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
-import { payoutStructureOf, poolOf } from "../pumpfantasy/tournamentFilters";
+import { payoutStructureOf, tournamentTitle } from "../pumpfantasy/tournamentFilters";
 import { WORKER_URL } from "../pumpfantasy/config";
 import { CurrencyIcon } from "./CurrencyIcon";
 import { EmptyState } from "./EmptyState";
@@ -221,7 +221,6 @@ function TournamentCard({
   const payout = payoutStructureOf(t, meta ? { [t.id.toString()]: meta } : undefined);
   const payoutLabel = PAYOUT_CHOICES.find((p) => p.key === payout)?.label ?? "50%";
   const name = tournamentDisplayName(t.id, meta);
-  const pool = poolOf(t);
   const currency = currencyForMint(t.mint);
   const decimals = decimalsForMint(t.mint);
 
@@ -263,7 +262,7 @@ function TournamentCard({
             <ModeBadges tournament={t} />
             <PayoutBadge label={payoutLabel} />
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {formatAmountCompact(pool, decimals)} {currency} {tournamentDayLabel(t.startTs)} {name}
+              {tournamentTitle(t, name, decimals, currency)}
             </Text>
             {meta?.visibility === "private" ? <FontAwesome6 name="lock" size={11} color={C.textSecondary} /> : null}
           </View>
