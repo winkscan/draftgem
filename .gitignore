@@ -12,3 +12,4 @@ attestation-signer.json
 
 worker/.admin-token
 worker/.admin-token-mainnet
+mainnet-authority.json
