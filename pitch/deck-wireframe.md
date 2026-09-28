@@ -5,13 +5,14 @@ equal halves: **text on the left, illustration on the right**. Page background i
 (`#000000`) — so every illustration prompt below is written for a black canvas, matching the app.
 
 Each slide entry below has: a **headline**, **body copy** (what goes on the left half), and an
-**image prompt** (what goes on the right half, feed straight into an image generator).
+**image prompt** (what goes on the right half, feed straight into an image generator). Every
+illustration renders at a fixed **644 × 727 px**.
 
 ---
 
 ## Visual style — prepend to every image prompt
 
-> Dark, premium fintech/gaming illustration on a **pure solid black background (#000000), no
+> **Output size: 644 × 727 px.** Dark, premium fintech/gaming illustration on a **pure solid black background (#000000), no
 > background gradient, no scenery**. Subject is built from angular, faceted crystal/gem shapes —
 > flat polygon facets, each filled with a smooth linear gradient. Use this exact gradient family
 > across facets (mix 2–4 per image): teal `#4EE8D6→#29BAC6`, cyan `#49D4F3→#388DDC`, blue
