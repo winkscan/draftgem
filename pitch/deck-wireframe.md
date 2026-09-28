@@ -12,35 +12,45 @@ illustration renders at a fixed **644 × 727 px**.
 
 ## Visual style — prepend to every image prompt
 
-> **Output size: 644 × 727 px.** A polished 3D product-render on a **pure solid black background
-> (#000000), no scenery, no background gradient**. Centerpiece: a modern dark-glass smartphone
-> floating at a dynamic 3/4 angle in the black void, its screen showing a close-up render of the
-> **DraftGem app's real interface** — dark card panels (`#0d0c11`) with a thin hairline lavender
-> border, white bold sans-serif UI text and numbers, a violet-purple glow (`#9945ff`) on primary
-> buttons/accents and a mint-green glow (`#14f195`) on gains and prizes, red (`#f11212`) only on
-> losses. The DraftGem gem-mark logo (a black octagon holding a white "G", ringed by faceted
-> gradient shards) appears once, small, in the app's own top bar on screen — never floating loose
-> or oversized. A few small glowing UI fragments echo the screen's content near the phone: a thin
-> gradient progress bar, a round coin icon, a small pill badge — connected to the phone by faint
-> neon threads. Soft volumetric neon light spilling off the phone's edges, realistic materials
-> (matte phone body, glossy glass screen), shallow depth of field with the phone in sharp focus,
-> cinematic three-quarter product-shot angle. No people, no cartoon or flat-vector look, no
-> unrelated brand logos. High detail, 4K, photoreal-meets-glassmorphism — the same look as the
-> app's own onboarding art, not abstract shapes.
->
-> **Phone geometry — get this right, it's the most common failure:** a single, anatomically
-> correct modern smartphone — straight parallel edges, uniform rounded corners of the same
-> radius, a flat rectangular screen with even bezels on every side, no bent, warped, melted or
-> curved-glass distortion anywhere on the body. One consistent camera lens and one consistent
-> perspective for the whole phone and its screen content together — the screen's UI grid must sit
-> flush and flat on the phone's face and recede with the *same* vanishing point as the phone body,
-> never tilted, sheared, or stretched independently of it. Natural, mild 3/4 rotation only — avoid
-> wide-angle/fisheye lens distortion, avoid an exaggerated tilt that bends the rectangle, avoid
-> foreshortening that makes the top and bottom edges different lengths. Exactly one phone, fully
-> in frame, not cropped or cut off by the image edge, no duplicated or extra screens, no warped or
-> mismatched UI elements repeating.
+Same visual language as the app's own in-app guide illustrations (`assets/onboarding/*.webp`) —
+**not a smartphone**, a floating tilted **UI card**.
 
-Each prompt below is just the **scene on screen** — prepend the paragraph above to it.
+> **Output size: 644 × 727 px.** A polished 3D render on a **pure solid black background
+> (#000000), no scenery, no background gradient**. Centerpiece: a single flat rounded-rectangle
+> **UI card** — the DraftGem app's own screen content rendered as a solid glassy/metallic slab
+> with a thin colored rim-light along its edge (violet-to-teal), floating and tilted at a
+> confident 3/4 angle in the black void, as if lying on an invisible plane receding away from the
+> viewer. **This is a floating screen panel, not a phone or device** — no bezel margin around the
+> content, no camera cutout, no side buttons, no device body wider than the screen itself. On its
+> face: dark card panels (`#0d0c11`) with a thin hairline lavender border, bold white sans-serif
+> UI text and numbers, rounded pill badges, a violet-purple glow (`#9945ff`) on primary
+> buttons/accents, a mint-green glow (`#14f195`) on gains/prizes/confirmations, red (`#f11212`)
+> only on losses. Real, legible short UI copy and numbers on the card face (not gibberish).
+> Around the card, 2–4 small **floating 3D decorative props** relevant to the scene — pick from:
+> the DraftGem gem-mark logo (a black octagon holding a white "G", ringed by faceted gradient
+> shards) with a couple of sparkle particles; a glowing padlock; round avatar-bubble icons
+> connected to the card by thin glowing cable-like lines; a paper-airplane icon; a small trophy;
+> round coin discs with a bold letter/symbol on them; a chain-link "copy" icon; an "AI" wand-and-
+> stars pill badge — each prop lit with its own soft neon glow (violet, teal, or mint), matching
+> the reference onboarding art's playful-but-premium mix of UI realism and floating iconography.
+> Soft volumetric light bloom, cinematic three-quarter product-shot angle, shallow depth of field
+> with the card in sharp focus. No people, no unrelated brand logos, no cartoon-flat/sticker look
+> for the card itself (the small floating props may be a little more playful/rounded, same as the
+> reference art). High detail, 4K.
+>
+> **Card geometry — get this right, it's the most common failure:** one single rectangular card,
+> straight parallel edges, uniform corner radius on all four corners, perfectly flat face (no
+> warped, bent, melted or curved-glass distortion anywhere on it). One consistent perspective for
+> the whole card and everything printed on its face together — the UI grid must sit flush and flat
+> on the card and recede with the *same* vanishing point as the card's own edges, never tilted or
+> stretched independently of it. A natural, moderate tilt only (roughly like a card resting on a
+> table and viewed from slightly above/beside it) — avoid wide-angle/fisheye distortion, avoid an
+> exaggerated tilt that bends the rectangle, avoid the top and bottom edges coming out different
+> lengths. Exactly one card, fully in frame, not cropped by the image edge, no duplicated or
+> extra copies of the same card, no warped or mismatched UI elements repeating on it.
+
+Each prompt below is just the **scene on the card + which floating props to use** — prepend the
+paragraph above to it.
 
 ---
 
@@ -53,11 +63,11 @@ Each prompt below is just the **scene on screen** — prepend the paragraph abov
 - Draft 5 coins. Beat the field. Get paid on-chain.
 - CLOCK IN — Solana Mobile Hackathon · Solana mainnet
 
-**Image prompt (scene):** The phone's screen shows the DraftGem Lobby: the top bar with the gem
-logo and "DraftGem", a wallet pill reading "195", below it a tournament card — a badge reading
-"50%", the title "100 SKR · Saturday pump", and a row of stats "Players · Duration · Starts in".
-The phone is held dead-center, slightly larger and more dramatically lit than on the other
-slides, like a hero shot.
+**Image prompt (scene):** The card shows the DraftGem Lobby: a top bar with "DraftGem", a wallet
+pill reading "195", and below it a tournament card fragment — a badge reading "50%", the title
+"100 SKR · Saturday pump", and a row of stats "Players · Duration · Starts in". Floating props: the
+gem-mark logo, large, up in the top-left corner with a few sparkle particles, echoing the app's
+own mark — this is the hero shot, slightly larger and more dramatically lit than the other slides.
 
 ---
 
@@ -72,11 +82,10 @@ slides, like a hero shot.
   prize pool. Crypto never got its version — especially not one built for a phone, with a
   crypto-native wallet from the start.
 
-**Image prompt (scene):** The phone's screen is almost dark — no app open, just a plain price
-chart candlestick line drifting with no cards, no scoring, no structure around it, dimly lit. The
-phone sits smaller and further back than on the other slides, with more black empty space around
-it, and none of the usual glowing UI fragments floating nearby — conveying "nothing built for
-this yet."
+**Image prompt (scene):** The card is almost bare — just a dim, undecorated price chart line
+drifting across it, no badges, no tournament cards, no scoring, no floating props around it at
+all. Smaller and further back than the other slides, with more black empty space around it,
+conveying "nothing built for this yet."
 
 ---
 
@@ -90,10 +99,10 @@ this yet."
   outcome — only what the market actually did.
 - Built mobile-first for Solana Mobile, signed end-to-end with Mobile Wallet Adapter.
 
-**Image prompt (scene):** The phone's screen shows the Draft page mid-build: a thin green FP
-progress bar near the top reading "3,650 of 4,000 FP", and below it five coin slot cards in a
-column, each with a round coin icon, a category pill ("Hold", "Farm", "Pump", "Moon", "Degen" in
-their own colors), and an FP number on the right.
+**Image prompt (scene):** The card shows the Draft page mid-build: a thin green FP progress bar
+near the top reading "3,650 of 4,000 FP", and below it five coin slot rows, each with a round coin
+icon, a category pill ("Hold", "Farm", "Pump", "Moon", "Degen" in their own colors) and an FP
+number on the right. A small "AI" wand-and-stars pill badge floats near the bottom-right corner.
 
 ---
 
@@ -110,10 +119,10 @@ their own colors), and an FP number on the right.
 - No pooled jackpot, no lottery mechanic. A fixed entry fee, a transparent prize structure shown
   before you play, and a program that pays out exactly what it promised.
 
-**Image prompt (scene):** The phone's screen shows the Results page: a "Place / Player / Score /
-Prize" table header, with one highlighted purple-outlined row reading "1 · You #1 · −2.71% ·
-95 SKR", and below the table a caption line about how the pool splits. No dice, no random spinner
-anywhere in frame — only real, specific numbers on screen.
+**Image prompt (scene):** The card shows a "Place / Player / Score / Prize" results table header,
+with one highlighted purple-outlined row reading "1 · You #1 · −2.71% · 95 SKR" — real, specific
+numbers, nothing randomized. No floating props except a couple of small sparkle particles; keep
+the frame clean and precise rather than playful, to underline "this is measured, not chance."
 
 ---
 
@@ -127,10 +136,10 @@ anywhere in frame — only real, specific numbers on screen.
 - You get **4,000 FP** for **5 coins** — so an all-Degen roster is mathematically impossible, and
   an all-safe roster rarely wins.
 
-**Image prompt (scene):** A tight close-up of the phone's screen showing exactly five coin slot
-cards stacked in a column, each clearly labelled with a different category pill — "Hold 100 FP",
-"Farm 300 FP", "Pump 650 FP", "Moon 1,000 FP", "Degen 1,600 FP" — each pill a distinct color (green,
-teal, purple, violet, red), with the green FP budget bar visible above them, nearly full.
+**Image prompt (scene):** The card is a tight close-up on exactly five coin slot rows, each with a
+round coin icon and a small red "×" remove-badge in its corner, each row clearly labelled with a
+different category pill and FP amount — "Hold · 100 FP", "Farm · 300 FP", "Pump · 650 FP", "Moon ·
+1,000 FP", "Degen · 1,600 FP" — with a green "4,000 FP" budget bar, nearly full, across the top.
 
 ---
 
@@ -143,10 +152,11 @@ teal, purple, violet, red), with the green FP budget bar visible above them, nea
 - Pick a prize structure before you enter: **Top 1** winner-take-all, **Top 3**, **top 30%**,
   **top 50%**, or a 1-v-1 **PvP** duel.
 
-**Image prompt (scene):** The phone's screen shows the Lobby with two tournament cards stacked:
-the top one reads a payout badge "Top 3", a title like "50 SKR · Friday Draft", and a stats row
-"Players · Duration 1h · Starts in"; the second card behind/below it is slightly dimmed, showing a
-small padlock icon for "private". A small chain-link "copy invite" icon glows near the top card.
+**Image prompt (scene):** The card shows a tournament lobby entry: a payout badge "Top 3", a title
+"50 SKR · Friday Draft", and a stats row "Players · Duration 1h · Starts in". Floating props: a
+glowing padlock at top-left and two small round avatar-bubble icons at the right edge, each
+connected to the card by a thin glowing cable — conveying "a private tournament, shared with
+friends."
 
 ---
 
@@ -160,10 +170,11 @@ small padlock icon for "private". A small chain-link "copy invite" icon glows ne
 - The Solana program computes every score itself from recorded prices and sends prizes straight
   to winners' wallets — no manual payouts, nothing to claim from a person.
 
-**Image prompt (scene):** The phone's screen shows a finished portfolio card: five coin rows each
-with a small colored percentage tag (some green "+6.63%", some red "−2.71%"), and below the card a
-green pill reading "Paid out · View payout on Solscan" with a small checkmark and an external-link
-icon.
+**Image prompt (scene):** The card shows a finished portfolio: five coin rows each with a small
+colored percentage tag (some mint-green "+6.63%", one red "−2.71%"), and along the bottom a solid
+mint-green bar reading "Paid out · View payout on Solscan" with a checkmark and an external-link
+icon. Floating props: a small trophy at the top-left and two round coin discs (bold "S" symbol) at
+the right, lightly glowing.
 
 ---
 
@@ -178,10 +189,11 @@ icon.
 - Nothing the model says is trusted blindly: every answer is validated on the server — five
   distinct real coins, total cost inside the 4,000 FP budget — before it ever reaches you.
 
-**Image prompt (scene):** The phone's screen shows the AI page: a row of five small risk-level
-labels ("Steady · Careful · Balanced · Bold · Moonshot") above a thin horizontal gradient slider
-(green fading to red) with its round white thumb sitting on "Moonshot", and below it a short list
-of coin rows tagged "Bold" and "Degen" with FP numbers on the right.
+**Image prompt (scene):** The card shows five small risk-level labels ("Steady · Careful ·
+Balanced · Bold · Moonshot") above a thin horizontal gradient slider (green fading to red) with
+its round white thumb sitting on "Moonshot", and below it a short list of coin rows tagged "Bold"
+and "Degen" with FP numbers on the right. Floating prop: a glowing purple "AI" wand-and-stars pill
+badge just off the bottom-right corner of the card, with a couple of sparkle particles around it.
 
 ---
 
@@ -196,10 +208,10 @@ of coin rows tagged "Bold" and "Degen" with FP numbers on the right.
 - A beta-safe fee ceiling (500 SKR, about $10) keeps early rounds low-stakes while the game is
   proven out.
 
-**Image prompt (scene):** A tight close-up of just the phone's top bar: the DraftGem logo on the
-left, and on the right a rounded wallet pill showing a circular black-and-white "S" (SKR) coin
-icon next to the number "195" — sharply lit and slightly enlarged compared to the rest of the
-screen, as the clear focal point of the shot.
+**Image prompt (scene):** A tight close-up: the card shows just a wallet balance pill, a round
+black-and-white "S" (SKR) coin icon next to the number "195", sharply lit and enlarged as the clear
+focal point. Floating props: two more "S" coin discs of different sizes drifting near the card,
+gently glowing mint-green, echoing the coin icon on the card.
 
 ---
 
@@ -213,10 +225,10 @@ screen, as the clear focal point of the shot.
   the game — more variety in how a portfolio can be built.
 - Same beta-safety approach as every currency: a fee ceiling (5 ORE) while the game is young.
 
-**Image prompt (scene):** The phone's screen shows the Create-tournament currency picker: four
-round pill chips in a row labelled "SKR", "SOL", "ORE", "USDC", with the "ORE" chip clearly
-selected — brighter, outlined, its round amber coin icon lit up — while the other three sit dim
-and unselected beside it.
+**Image prompt (scene):** The card shows a currency picker: four round pill chips in a row labelled
+"SKR", "SOL", "ORE", "USDC", with the "ORE" chip clearly selected — brighter, outlined, its round
+amber coin icon lit up — while the other three sit dim and unselected beside it. One matching
+amber coin disc floats near the card, mirroring the selected chip.
 
 ---
 
@@ -231,10 +243,10 @@ and unselected beside it.
 - Creation itself costs a small fixed fee (0.005 SOL) — cheap enough to run a tournament for a
   Discord, a group chat, or just a few friends.
 
-**Image prompt (scene):** The phone's screen shows the Create-tournament page's top banner: a
-solid mint-green rounded card with a small dollar-sack icon on the left and bold dark text reading
-"Earn 5% of every prize pool", a small "x" close button in its corner, sitting above the start of
-a form (visible field rows like "Who can join" underneath, slightly out of focus).
+**Image prompt (scene):** The card shows a solid mint-green rounded banner with a small dollar-sack
+icon and bold dark text reading "Earn 5% of every prize pool", sitting above the start of a form
+(a field row like "Who can join" beneath it, slightly out of focus). Floating props: one small gold
+coin disc drifting off the bottom-right corner of the card, with a couple of sparkles.
 
 ---
 
@@ -249,10 +261,10 @@ a form (visible field rows like "Who can join" underneath, slightly out of focus
 - The whole draft-to-payout loop was designed to work one-handed, in short sessions, between
   everything else you're doing on your phone.
 
-**Image prompt (scene):** The phone's screen shows the logged-out top bar: the DraftGem logo on
-the left, and on the right a rounded pill reading "Connect" next to a small wallet glyph icon, mid
-tap — a faint ripple/glow animation around the pill as if it's just been pressed, implying a
-native wallet-signing prompt is about to appear.
+**Image prompt (scene):** The card shows a logged-out top bar: the DraftGem wordmark on the left,
+and on the right a rounded pill reading "Connect" next to a small wallet glyph icon, with a faint
+ripple/glow around the pill as if just tapped. Floating prop: a single glowing chain-link "connect"
+icon just above the pill, with a thin cable running down into it.
 
 ---
 
@@ -269,11 +281,11 @@ native wallet-signing prompt is about to appear.
 - Formats supported today: 4 currencies (SKR / SOL / ORE / USDC), 4 round lengths, 5 prize
   structures, public or private, single or multi-entry.
 
-**Image prompt (scene):** Three small glass panels arranged in a triangle instead of one phone:
-on the left, the same dark-glass phone showing the Lobby screen; top right, a thin rounded server
-rack/cloud-shaped glass panel with a few lines of glowing monospace log text ("Settlement:
-finalized, paid"); bottom right, the DraftGem octagon gem-mark itself, slightly larger. Thin
-glowing lines connect all three into a closed loop.
+**Image prompt (scene):** Three small floating cards instead of one, arranged in a loose triangle:
+the DraftGem Lobby card (as in slide 01) at left; a small rounded panel with a few lines of glowing
+monospace log text ("Settlement: finalized, paid") at top right, standing in for the backend; and
+the gem-mark logo itself, slightly larger, at bottom right, standing in for the on-chain program.
+Thin glowing cable-lines connect all three into a closed triangular loop.
 
 ---
 
@@ -287,10 +299,10 @@ glowing lines connect all three into a closed loop.
 - Beta-stage entry-fee ceilings across every currency keep early rounds low-stakes on purpose,
   while the game proves itself out with real players.
 
-**Image prompt (scene):** The phone's screen shows a tournament header status area with a small
-white "BETA" pill badge next to the tournament title, and below it a status line reading "Paid
-out" with a green checkmark. A faint hexagonal outline of thin glowing lines wraps around the
-whole phone like a protective case, without hiding the screen.
+**Image prompt (scene):** The card shows a tournament header with a small white "BETA" pill badge
+next to the title, and below it a status line reading "Paid out" with a green checkmark. Floating
+prop: a faint hexagonal outline of thin glowing lines wrapping loosely around the card like a
+protective case, without covering the content.
 
 ---
 
@@ -302,6 +314,6 @@ whole phone like a protective case, without hiding the screen.
 - Built for Solana Mobile · Live on Solana mainnet · CLOCK IN Hackathon submission
 - draftgem.app
 
-**Image prompt (scene):** The same Lobby-screen phone shot as the cover, centered and dramatically
-lit, but now with a few small particles of light drifting upward and off the top edge of the
-frame — a quiet, forward-looking close instead of a static one.
+**Image prompt (scene):** The same Lobby-card composition as the cover, centered and dramatically
+lit, gem-mark logo and sparkles included — but now with a few small particles of light drifting
+upward and off the top edge of the frame, a quiet forward-looking close instead of a static one.
