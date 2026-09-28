@@ -27,6 +27,18 @@ illustration renders at a fixed **644 × 727 px**.
 > cinematic three-quarter product-shot angle. No people, no cartoon or flat-vector look, no
 > unrelated brand logos. High detail, 4K, photoreal-meets-glassmorphism — the same look as the
 > app's own onboarding art, not abstract shapes.
+>
+> **Phone geometry — get this right, it's the most common failure:** a single, anatomically
+> correct modern smartphone — straight parallel edges, uniform rounded corners of the same
+> radius, a flat rectangular screen with even bezels on every side, no bent, warped, melted or
+> curved-glass distortion anywhere on the body. One consistent camera lens and one consistent
+> perspective for the whole phone and its screen content together — the screen's UI grid must sit
+> flush and flat on the phone's face and recede with the *same* vanishing point as the phone body,
+> never tilted, sheared, or stretched independently of it. Natural, mild 3/4 rotation only — avoid
+> wide-angle/fisheye lens distortion, avoid an exaggerated tilt that bends the rectangle, avoid
+> foreshortening that makes the top and bottom edges different lengths. Exactly one phone, fully
+> in frame, not cropped or cut off by the image edge, no duplicated or extra screens, no warped or
+> mismatched UI elements repeating.
 
 Each prompt below is just the **scene on screen** — prepend the paragraph above to it.
 
