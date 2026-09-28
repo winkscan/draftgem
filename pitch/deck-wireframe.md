@@ -12,20 +12,23 @@ illustration renders at a fixed **644 × 727 px**.
 
 ## Visual style — prepend to every image prompt
 
-> **Output size: 644 × 727 px.** Dark, premium fintech/gaming illustration on a **pure solid black background (#000000), no
-> background gradient, no scenery**. Subject is built from angular, faceted crystal/gem shapes —
-> flat polygon facets, each filled with a smooth linear gradient. Use this exact gradient family
-> across facets (mix 2–4 per image): teal `#4EE8D6→#29BAC6`, cyan `#49D4F3→#388DDC`, blue
-> `#3C72DF→#5295F3`, indigo `#6B69FD→#4F44E8`, purple `#8538FC→#641BFB`, violet
-> `#873EFD→#5A42F0`, magenta-violet `#5221FC→#7523FC`, mint `#50F8CA→#3EF6C0`. Thin glassmorphic
-> UI cards/panels float near the gem shapes with a soft violet glow (`#9945ff`) or mint-green glow
-> (`#14f195`) — abstract app fragments (rounded cards, thin progress bars, coin discs, a
-> candlestick or two) with **no readable text, no logos except the gem mark itself**. Soft
-> volumetric light bloom around edges, no harsh shadows, clean vector edges, isometric or 3/4
-> perspective, centered composition with generous black negative space around it (it sits in the
-> right half of a landscape slide). No people. 4K, high detail, minimal.
+> **Output size: 644 × 727 px.** A polished 3D product-render on a **pure solid black background
+> (#000000), no scenery, no background gradient**. Centerpiece: a modern dark-glass smartphone
+> floating at a dynamic 3/4 angle in the black void, its screen showing a close-up render of the
+> **DraftGem app's real interface** — dark card panels (`#0d0c11`) with a thin hairline lavender
+> border, white bold sans-serif UI text and numbers, a violet-purple glow (`#9945ff`) on primary
+> buttons/accents and a mint-green glow (`#14f195`) on gains and prizes, red (`#f11212`) only on
+> losses. The DraftGem gem-mark logo (a black octagon holding a white "G", ringed by faceted
+> gradient shards) appears once, small, in the app's own top bar on screen — never floating loose
+> or oversized. A few small glowing UI fragments echo the screen's content near the phone: a thin
+> gradient progress bar, a round coin icon, a small pill badge — connected to the phone by faint
+> neon threads. Soft volumetric neon light spilling off the phone's edges, realistic materials
+> (matte phone body, glossy glass screen), shallow depth of field with the phone in sharp focus,
+> cinematic three-quarter product-shot angle. No people, no cartoon or flat-vector look, no
+> unrelated brand logos. High detail, 4K, photoreal-meets-glassmorphism — the same look as the
+> app's own onboarding art, not abstract shapes.
 
-Each prompt below is just the **scene** — prepend the paragraph above to it.
+Each prompt below is just the **scene on screen** — prepend the paragraph above to it.
 
 ---
 
@@ -38,9 +41,11 @@ Each prompt below is just the **scene** — prepend the paragraph above to it.
 - Draft 5 coins. Beat the field. Get paid on-chain.
 - CLOCK IN — Solana Mobile Hackathon · Solana mainnet
 
-**Image prompt (scene):** The DraftGem mark itself, large and centered — a black octagon core
-holding a white letter "G", surrounded by 8 angular gem facets in the gradient family above,
-arranged in a ring like a cut jewel. A faint thin ring of light orbits it.
+**Image prompt (scene):** The phone's screen shows the DraftGem Lobby: the top bar with the gem
+logo and "DraftGem", a wallet pill reading "195", below it a tournament card — a badge reading
+"50%", the title "100 SKR · Saturday pump", and a row of stats "Players · Duration · Starts in".
+The phone is held dead-center, slightly larger and more dramatically lit than on the other
+slides, like a hero shot.
 
 ---
 
@@ -55,10 +60,11 @@ arranged in a ring like a cut jewel. A faint thin ring of light orbits it.
   prize pool. Crypto never got its version — especially not one built for a phone, with a
   crypto-native wallet from the start.
 
-**Image prompt (scene):** A single dim, cracked, monochrome-grey gem facet floating alone in the
-black, disconnected fragments drifting around it with no light connecting them — conveying
-"scattered knowledge, no arena to prove it in." Keep it sparse and a little melancholic compared
-to the other slides.
+**Image prompt (scene):** The phone's screen is almost dark — no app open, just a plain price
+chart candlestick line drifting with no cards, no scoring, no structure around it, dimly lit. The
+phone sits smaller and further back than on the other slides, with more black empty space around
+it, and none of the usual glowing UI fragments floating nearby — conveying "nothing built for
+this yet."
 
 ---
 
@@ -72,10 +78,10 @@ to the other slides.
   outcome — only what the market actually did.
 - Built mobile-first for Solana Mobile, signed end-to-end with Mobile Wallet Adapter.
 
-**Image prompt (scene):** The gem mark from the cover, now whole and glowing brightly, with five
-small glass shard "coin" discs orbiting it in a neat arc, each disc a different single gradient
-color from the family, connected to the gem by thin glowing lines — conveying "five picks, one
-score."
+**Image prompt (scene):** The phone's screen shows the Draft page mid-build: a thin green FP
+progress bar near the top reading "3,650 of 4,000 FP", and below it five coin slot cards in a
+column, each with a round coin icon, a category pill ("Hold", "Farm", "Pump", "Moon", "Degen" in
+their own colors), and an FP number on the right.
 
 ---
 
@@ -92,10 +98,10 @@ score."
 - No pooled jackpot, no lottery mechanic. A fixed entry fee, a transparent prize structure shown
   before you play, and a program that pays out exactly what it promised.
 
-**Image prompt (scene):** A pair of translucent glass scales, one side holding a small grey die
-(dim, nearly invisible, fading out) and the other side holding a glowing faceted gem shard
-(bright, gradient-lit) — the gem side visibly heavier, tipping the scale down. Conveys "skill
-outweighs chance."
+**Image prompt (scene):** The phone's screen shows the Results page: a "Place / Player / Score /
+Prize" table header, with one highlighted purple-outlined row reading "1 · You #1 · −2.71% ·
+95 SKR", and below the table a caption line about how the pool splits. No dice, no random spinner
+anywhere in frame — only real, specific numbers on screen.
 
 ---
 
@@ -109,10 +115,10 @@ outweighs chance."
 - You get **4,000 FP** for **5 coins** — so an all-Degen roster is mathematically impossible, and
   an all-safe roster rarely wins.
 
-**Image prompt (scene):** Five faceted gem shards of clearly different sizes and gradient colors
-(one tiny teal shard, one small cyan, one medium blue, one large purple, one very large
-violet/magenta) resting in a thin glowing glass tray/slot rack, like jewels set into a balance
-beam — conveying "budget spent across five different-cost picks."
+**Image prompt (scene):** A tight close-up of the phone's screen showing exactly five coin slot
+cards stacked in a column, each clearly labelled with a different category pill — "Hold 100 FP",
+"Farm 300 FP", "Pump 650 FP", "Moon 1,000 FP", "Degen 1,600 FP" — each pill a distinct color (green,
+teal, purple, violet, red), with the green FP budget bar visible above them, nearly full.
 
 ---
 
@@ -125,9 +131,10 @@ beam — conveying "budget spent across five different-cost picks."
 - Pick a prize structure before you enter: **Top 1** winner-take-all, **Top 3**, **top 30%**,
   **top 50%**, or a 1-v-1 **PvP** duel.
 
-**Image prompt (scene):** A hexagonal glass "arena" ring floating in black, with several small
-glowing gem shards of different colors arranged around its inner edge like players at a table,
-one shard slightly larger and brighter in the center — conveying "a lobby of competing entries."
+**Image prompt (scene):** The phone's screen shows the Lobby with two tournament cards stacked:
+the top one reads a payout badge "Top 3", a title like "50 SKR · Friday Draft", and a stats row
+"Players · Duration 1h · Starts in"; the second card behind/below it is slightly dimmed, showing a
+small padlock icon for "private". A small chain-link "copy invite" icon glows near the top card.
 
 ---
 
@@ -141,10 +148,10 @@ one shard slightly larger and brighter in the center — conveying "a lobby of c
 - The Solana program computes every score itself from recorded prices and sends prizes straight
   to winners' wallets — no manual payouts, nothing to claim from a person.
 
-**Image prompt (scene):** A single large faceted gem shard mid-transformation — one half still
-angular crystal, the other half dissolving into a stream of small glowing particles flowing
-directly into a minimal glass wallet-card icon below it. Conveys "score becomes an automatic
-on-chain payout."
+**Image prompt (scene):** The phone's screen shows a finished portfolio card: five coin rows each
+with a small colored percentage tag (some green "+6.63%", some red "−2.71%"), and below the card a
+green pill reading "Paid out · View payout on Solscan" with a small checkmark and an external-link
+icon.
 
 ---
 
@@ -159,9 +166,10 @@ on-chain payout."
 - Nothing the model says is trusted blindly: every answer is validated on the server — five
   distinct real coins, total cost inside the 4,000 FP budget — before it ever reaches you.
 
-**Image prompt (scene):** A glowing gradient gem shard at the center acting like a lens, with a
-soft beam of light passing through it and re-emerging on the other side as five smaller, neatly
-aligned gem shards in a row — conveying "one AI pass, five picks out," like light through a prism.
+**Image prompt (scene):** The phone's screen shows the AI page: a row of five small risk-level
+labels ("Steady · Careful · Balanced · Bold · Moonshot") above a thin horizontal gradient slider
+(green fading to red) with its round white thumb sitting on "Moonshot", and below it a short list
+of coin rows tagged "Bold" and "Degen" with FP numbers on the right.
 
 ---
 
@@ -176,10 +184,10 @@ aligned gem shards in a row — conveying "one AI pass, five picks out," like li
 - A beta-safe fee ceiling (500 SKR, about $10) keeps early rounds low-stakes while the game is
   proven out.
 
-**Image prompt (scene):** A single, extra-large hero gem shard in the mint/teal gradient
-(`#50F8CA→#3EF6C0`), catching more light than everything around it, with three small
-low-opacity/dim shards (SOL, ORE, USDC — grey-blue, muted) orbiting further out — conveying "SKR
-is the main currency, the others are supporting options."
+**Image prompt (scene):** A tight close-up of just the phone's top bar: the DraftGem logo on the
+left, and on the right a rounded wallet pill showing a circular black-and-white "S" (SKR) coin
+icon next to the number "195" — sharply lit and slightly enlarged compared to the rest of the
+screen, as the clear focal point of the shot.
 
 ---
 
@@ -193,11 +201,10 @@ is the main currency, the others are supporting options."
   the game — more variety in how a portfolio can be built.
 - Same beta-safety approach as every currency: a fee ceiling (5 ORE) while the game is young.
 
-**Image prompt (scene):** A single amber/orange-gold faceted gem shard (imagine the same facet
-style but warmer, ember-toned — use gradient `#FC8538→#FB1B64`-style warm tones instead of the
-default palette, to stand apart as "ORE's own color") sitting beside — and clearly the same size
-and cut as — one of the standard cool-toned DraftGem shards, on the same glass tray as slide 05 —
-conveying "a second, equally-weighted currency on the board."
+**Image prompt (scene):** The phone's screen shows the Create-tournament currency picker: four
+round pill chips in a row labelled "SKR", "SOL", "ORE", "USDC", with the "ORE" chip clearly
+selected — brighter, outlined, its round amber coin icon lit up — while the other three sit dim
+and unselected beside it.
 
 ---
 
@@ -212,10 +219,10 @@ conveying "a second, equally-weighted currency on the board."
 - Creation itself costs a small fixed fee (0.005 SOL) — cheap enough to run a tournament for a
   Discord, a group chat, or just a few friends.
 
-**Image prompt (scene):** A glowing gem shard "seed" at the bottom growing upward like a crystal
-formation into a taller cluster of connected shards above it, with five thin lines of light
-running from the cluster back down into a single smaller glowing coin-disc at the base — conveying
-"you plant one tournament, it grows, and a share flows back to you."
+**Image prompt (scene):** The phone's screen shows the Create-tournament page's top banner: a
+solid mint-green rounded card with a small dollar-sack icon on the left and bold dark text reading
+"Earn 5% of every prize pool", a small "x" close button in its corner, sitting above the start of
+a form (visible field rows like "Who can join" underneath, slightly out of focus).
 
 ---
 
@@ -230,10 +237,10 @@ running from the cluster back down into a single smaller glowing coin-disc at th
 - The whole draft-to-payout loop was designed to work one-handed, in short sessions, between
   everything else you're doing on your phone.
 
-**Image prompt (scene):** A stylized smartphone silhouette (simple faceted-glass outline, no
-literal brand logo) standing upright, with the DraftGem gem mark floating just above/inside its
-screen area, connected to the phone's edge by a single thin pulsing line of light — conveying
-"the wallet and the game, one motion."
+**Image prompt (scene):** The phone's screen shows the logged-out top bar: the DraftGem logo on
+the left, and on the right a rounded pill reading "Connect" next to a small wallet glyph icon, mid
+tap — a faint ripple/glow animation around the pill as if it's just been pressed, implying a
+native wallet-signing prompt is about to appear.
 
 ---
 
@@ -250,11 +257,11 @@ screen area, connected to the phone's edge by a single thin pulsing line of ligh
 - Formats supported today: 4 currencies (SKR / SOL / ORE / USDC), 4 round lengths, 5 prize
   structures, public or private, single or multi-entry.
 
-**Image prompt (scene):** Three distinct glass "nodes" in a triangle — a phone-shaped shard
-(mobile app), a cloud-shaped shard (backend), and the black-octagon gem mark itself (on-chain
-program) — connected to each other by thin glowing lines forming a closed triangular loop,
-each node a different gradient color from the family, conveying a simple three-part system
-diagram.
+**Image prompt (scene):** Three small glass panels arranged in a triangle instead of one phone:
+on the left, the same dark-glass phone showing the Lobby screen; top right, a thin rounded server
+rack/cloud-shaped glass panel with a few lines of glowing monospace log text ("Settlement:
+finalized, paid"); bottom right, the DraftGem octagon gem-mark itself, slightly larger. Thin
+glowing lines connect all three into a closed loop.
 
 ---
 
@@ -268,9 +275,10 @@ diagram.
 - Beta-stage entry-fee ceilings across every currency keep early rounds low-stakes on purpose,
   while the game proves itself out with real players.
 
-**Image prompt (scene):** A single bright, flawless gem shard sitting inside a faint hexagonal
-glass shield/containment outline (like a protective case around it, drawn as thin glowing lines,
-not solid) — conveying "real value, held inside deliberate guardrails."
+**Image prompt (scene):** The phone's screen shows a tournament header status area with a small
+white "BETA" pill badge next to the tournament title, and below it a status line reading "Paid
+out" with a green checkmark. A faint hexagonal outline of thin glowing lines wraps around the
+whole phone like a protective case, without hiding the screen.
 
 ---
 
@@ -282,6 +290,6 @@ not solid) — conveying "real value, held inside deliberate guardrails."
 - Built for Solana Mobile · Live on Solana mainnet · CLOCK IN Hackathon submission
 - draftgem.app
 
-**Image prompt (scene):** Return to the cover composition (the full gem mark, whole and centered,
-ring of 8 facets glowing brightly), but now with a subtle upward trail of small light particles
-rising off it toward the top of the frame — conveying a forward-looking close.
+**Image prompt (scene):** The same Lobby-screen phone shot as the cover, centered and dramatically
+lit, but now with a few small particles of light drifting upward and off the top edge of the
+frame — a quiet, forward-looking close instead of a static one.
