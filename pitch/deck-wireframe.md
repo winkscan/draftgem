@@ -82,14 +82,24 @@ own mark — this is the hero shot, slightly larger and more dramatically lit th
   prize pool. Crypto never got its version — especially not one built for a phone, with a
   crypto-native wallet from the start.
 
-**Image prompt (scene):** No single unified card this time — instead, five or six small UI
-fragments (a candlestick-chart snippet, a lone percentage tag, a plain coin icon, a short price
-line, a bare number) scattered apart across the frame at different depths and slight, inconsistent
-tilts, each dim and desaturated (muted grey-blue, no violet/mint glow), with **no card, frame, or
-connecting line holding any of them together** and noticeably more black empty space between them
-than in any other slide. It should read as "real pieces of market data, drifting with nothing
-tying them into a game" — a visibly emptier, less confident composition than slide 03's single
-unified card, not just a fainter version of the same shot.
+**Image prompt — one-off exception, does *not* use the shared Visual style block above** (no UI
+card, no gem-mark, no color): a black-and-white sculpture, on the same pure solid black background
+(`#000000`, no scenery, no gradient) as every other slide.
+
+> **Output size: 644 × 727 px.** A gallery-quality, high-contrast **monochrome sculpture**
+> photographed against a pure solid black background (#000000) — no color anywhere in the image,
+> true black-and-white. Subject: a classical marble figure seated in a pensive pose (elbow on
+> knee, chin resting on his hand, head bowed slightly, in the spirit of Rodin's *The Thinker*, but
+> facing forward) looking toward a plain, featureless rectangular slab standing upright a short
+> distance in front of him, like a blank monitor or screen — carved from the same pale stone as the
+> figure, entirely bare, no UI, no glow, no markings on it. Both are carved from the same
+> weathered white/grey marble, with visible fine chisel texture and natural stone veining, lit by a
+> single dramatic light source from one side that throws deep, sculptural shadow across the
+> figure's face and body, rim-lit at the edges so both forms stand out crisply from the black void.
+> Shallow depth of field, the figure in sharp focus, the blank slab slightly softer behind him.
+> Fine-grain black-and-white film photography look, cinematic, contemplative, quiet — a stark,
+> almost lonely mood, in deliberate contrast to the glowing color and UI in every other slide. No
+> text, no other objects, no color grading of any kind. 4K, museum-photography quality.
 
 ---
 
