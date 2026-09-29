@@ -208,7 +208,7 @@ export function LeaderboardScreen() {
               onMomentumScrollEnd={(e) => setMyIndex(Math.round(e.nativeEvent.contentOffset.x / pagerWidth))}
               renderItem={({ item }) => (
                 <View style={{ width: pagerWidth, paddingHorizontal: 16, paddingTop: 10 }}>
-                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} portfolioNo={item.entryIndex + 1} openPayout={openPayout} openingPayout={openingPayout} />
+                  <StandingCard row={item} tournament={tournament} candidatesByMint={candidatesByMint} portfolioNo={item.entryIndex + 1} openPayout={openPayout} openingPayout={openingPayout} archived={archivedId != null} />
                 </View>
               )}
             />
@@ -237,6 +237,7 @@ export function LeaderboardScreen() {
             onPress={() => setCompareKey(null)}
             openPayout={openPayout}
             openingPayout={openingPayout}
+            archived={archivedId != null}
           />
         ) : (
           <View style={styles.compareHint}>
@@ -305,6 +306,7 @@ function StandingCard({
   onPress,
   openPayout,
   openingPayout,
+  archived,
 }: {
   row: Row;
   tournament: import("../pumpfantasy/accounts").TournamentAccount;
@@ -314,6 +316,10 @@ function StandingCard({
   onPress?: () => void;
   openPayout: (entryKey: string) => void;
   openingPayout: string | null;
+  /** True once the whole tournament is archived (see finishedStatusLabel) — the header's own "Paid out" moment.
+   * A single entry's on-chain `claimed` flag can flip true earlier, while the tournament is still winding down;
+   * gating on this too keeps this card in step with the header instead of announcing "Paid out" ahead of it. */
+  archived: boolean;
 }) {
   const titleBadges: { label: string; tone: "accent" | "live"; icon: string }[] = [{ label: String(row.rank), tone: "accent", icon: "medal" }];
   if (row.prizeLamports > 0n) {
@@ -339,7 +345,7 @@ function StandingCard({
         pct: { text: p.bps == null ? "…" : bpsToPercentLabel(p.bps), tone: p.bps == null ? "pending" : p.bps >= 0 ? "up" : "down" },
       }))}
       footer={
-        row.claimed && row.prizeLamports > 0n ? (
+        row.claimed && row.prizeLamports > 0n && archived ? (
           <TouchableRipple style={styles.payoutPill} borderless onPress={() => openPayout(row.key)}>
             <View style={styles.payoutPillInner}>
               <FontAwesome6 name="circle-check" size={13} color={C.positive} />
