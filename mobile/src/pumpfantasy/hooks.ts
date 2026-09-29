@@ -66,10 +66,17 @@ export function useTournament(id: bigint | number | null) {
       // A tournament made by anyone but us is not ours to show (see PLATFORM_AUTHORITY): to the app it doesn't exist.
       if (onChain) return onChain.authority.toBase58() === PLATFORM_AUTHORITY ? onChain : null;
       const archived = await fetchArchivedResult(id!.toString()); // closed after it finished
-      return archived ? toTournamentAccount(archived.tournament) : null;
+      if (archived) return toTournamentAccount(archived.tournament);
+      // The account is already gone on chain, but the archive isn't written yet — the worker is still winding
+      // it down (entries/coins closing before the tournament account itself). That's never really "no such
+      // tournament": resolving it as a permanent null here left DraftScreen showing a bare, back-button-less
+      // spinner that never recovered until the next poll happened to land after the archive caught up. Throw
+      // instead so react-query keeps retrying (short interval below) rather than caching a dead answer.
+      throw new Error("Tournament closed on chain; archive not available yet");
     },
     enabled: !!pda,
-    refetchInterval: 10_000,
+    refetchInterval: (q) => (q.state.data !== undefined ? 10_000 : 3_000),
+    retry: 20,
   });
 }
 

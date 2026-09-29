@@ -20,6 +20,7 @@ import { useTournamentMeta } from "../pumpfantasy/customTournaments";
 import { TokenIcon } from "../components/TokenIcon";
 import { useChrome } from "../utils/Chrome";
 import { TopBar } from "../components/top-bar/TopBar";
+import { BackHeader } from "../components/top-bar/BackHeader";
 import { TournamentInfoModal } from "../components/TournamentInfoModal";
 import { ChartModal } from "../components/ChartModal";
 import { EmptyState } from "../components/EmptyState";
@@ -220,9 +221,15 @@ export function DraftScreen() {
   };
 
   if (!tournament || candidatesLoading) {
+    // This can sit a while (the tournament just closed on chain and hasn't reached the archive yet, or the
+    // fetch is retrying after the app spent time backgrounded) — a bare spinner with nothing else on screen
+    // reads as a hang. Always give a way back to the Lobby instead of a dead end.
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={C.accent} />
+      <View style={styles.screen}>
+        <BackHeader title="Tournament" />
+        <View style={styles.center}>
+          <ActivityIndicator color={C.accent} />
+        </View>
       </View>
     );
   }
