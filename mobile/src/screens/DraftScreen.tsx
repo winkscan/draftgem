@@ -67,11 +67,17 @@ export function DraftScreen() {
   }, [candidates]);
 
   const filteredCandidates = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const trimmed = search.trim();
+    const q = trimmed.toLowerCase();
     return (candidates ?? []).filter((c) => {
       if (categoryTab !== "All" && c.tier !== categoryTab) return false;
       if (!q) return true;
-      return c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.mint.toLowerCase().includes(q);
+      if (c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) return true;
+      // Pasting part of a mint address should still find the coin, but a short query like "skr" turns up
+      // random unrelated coins whose 44-char base58 address just happens to contain that substring — base58
+      // is case-sensitive, so match it case-sensitively and only once the query is long enough that a
+      // coincidental hit is unlikely.
+      return trimmed.length >= 8 && c.mint.includes(trimmed);
     });
   }, [candidates, categoryTab, search]);
 
