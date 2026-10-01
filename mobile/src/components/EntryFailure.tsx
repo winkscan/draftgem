@@ -27,7 +27,7 @@ export function EntryFailure({
       <Text style={styles.title}>Couldn't enter the tournament</Text>
       <Text style={styles.hint}>
         {cancelled
-          ? "You cancelled the payment in your wallet, so nothing was charged and you didn't enter. Your portfolio is still there."
+          ? "Your wallet closed without confirming the payment, so nothing was charged and you didn't enter. Your portfolio is still there. If that looks wrong, check your wallet's history before trying again."
           : message}
       </Text>
     </ScrollView>

@@ -192,7 +192,7 @@ export function CreateTournamentScreen() {
         <Text style={styles.doneTitle}>Couldn't create the tournament</Text>
         <Text style={styles.hint}>
           {failed.cancelled
-            ? "You cancelled the payment in your wallet, so nothing was charged and no tournament was created."
+            ? "Your wallet closed without confirming the payment, so no tournament was created and nothing was charged. If that looks wrong, check your wallet's history before trying again."
             : failed.message}
         </Text>
         {failed.cancelled ? <Text style={styles.errorDetail}>{failed.message}</Text> : null}
