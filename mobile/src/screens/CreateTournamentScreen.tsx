@@ -19,7 +19,8 @@ import {
   DURATION_OPTIONS,
   TIME_OPTIONS,
   fetchCreateInfo,
-  payCreationFee,
+  sendCreationFeePayment,
+  confirmPayment,
   submitCreate,
   useCreateInfo,
   type CreateParams,
@@ -142,10 +143,13 @@ export function CreateTournamentScreen() {
         };
         await ensureHasSol(connection, creator, latest.feeLamports, "create a tournament");
         const ts = Math.floor(Date.now() / 1000);
-        const signature = await payCreationFee(connection, creator, signAndSendTransaction, latest, params, ts);
+        const signature = await sendCreationFeePayment(connection, creator, signAndSendTransaction, latest, params, ts);
+        // The wallet really did send the payment here — remember it before waiting for confirmation,
+        // so a timeout or dropped connection below can never make "Create" look like an unpaid retry.
         payment = { signature, ts, params };
         paymentDone = true;
         setPaid(payment);
+        await confirmPayment(connection, signature);
       }
 
       setStep("creating");
@@ -191,6 +195,7 @@ export function CreateTournamentScreen() {
             ? "You cancelled the payment in your wallet, so nothing was charged and no tournament was created."
             : failed.message}
         </Text>
+        {failed.cancelled ? <Text style={styles.errorDetail}>{failed.message}</Text> : null}
       </ScrollView>
       <BottomBar>
         <TouchableRipple style={styles.whiteButton} borderless onPress={() => setFailed(null)}>
@@ -632,6 +637,7 @@ const styles = StyleSheet.create({
   doneTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 22, textAlign: "center", marginTop: 16 },
   doneName: { color: C.accentText, fontWeight: "700", fontSize: 16, textAlign: "center", marginTop: 6 },
   hint: { color: C.textSecondary, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 12 },
+  errorDetail: { color: C.textSecondary, fontSize: 11, textAlign: "center", marginTop: 10, opacity: 0.6 },
   linkBox: {
     marginTop: 24,
     backgroundColor: C.card,

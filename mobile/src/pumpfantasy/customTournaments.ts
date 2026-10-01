@@ -123,10 +123,13 @@ export function useCreateInfo() {
 }
 
 /**
- * Step 1: one wallet approval that pays the creation fee and records the settings.
- * Returns the payment's signature once it is confirmed on chain.
+ * Step 1a: one wallet approval that pays the creation fee and records the settings. Returns the
+ * signature as soon as the wallet hands it back — the caller must persist it (see CreateTournamentScreen's
+ * `setPaid`) BEFORE awaiting confirmPayment below. The wallet round trip really did spend the money here;
+ * if anything after this point throws (confirmation timeout, a dropped connection resuming from background),
+ * the caller must already know it was paid and must not present "create" again as a free, unpaid retry.
  */
-export async function payCreationFee(
+export async function sendCreationFeePayment(
   connection: Connection,
   creator: PublicKey,
   signAndSendTransaction: SignAndSend,
@@ -149,14 +152,16 @@ export async function payCreationFee(
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
   const minContextSlot = await connection.getSlot("confirmed");
   const tx = new Transaction({ feePayer: creator, blockhash, lastValidBlockHeight }).add(transfer, memoIx);
-  const signature = await signAndSendTransaction(tx, minContextSlot);
+  return signAndSendTransaction(tx, minContextSlot);
+}
 
-  // The worker looks the payment up on chain, so wait until the network has it.
+/** Step 1b: wait until the network has the payment — the worker looks it up on chain by this signature. */
+export async function confirmPayment(connection: Connection, signature: string): Promise<void> {
   for (let attempt = 0; attempt < 30; attempt++) {
     const { value } = await connection.getSignatureStatuses([signature]);
     const status = value[0];
     if (status?.err) throw new Error("The payment transaction failed.");
-    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") return signature;
+    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") return;
     await new Promise((r) => setTimeout(r, 1000));
   }
   throw new Error("The payment didn't confirm in time. Check your wallet before trying again.");
