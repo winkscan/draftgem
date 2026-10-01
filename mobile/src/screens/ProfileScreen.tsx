@@ -23,9 +23,16 @@ export function ProfileScreen() {
 
   const signOut = async () => {
     try {
-      await disconnect();
+      // The wallet round trip can hang instead of rejecting (seen on the create-tournament
+      // payment flow too — the wallet app's own side of the session never signals it's done),
+      // which would leave this button looking dead with nothing to catch. A race against a
+      // timeout guarantees we always fall through to forgetting the wallet locally.
+      await Promise.race([
+        disconnect(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timed out")), 8000)),
+      ]);
     } catch {
-      // Wallet app unreachable or cancelled the request: still forget it here.
+      // Wallet app unreachable, cancelled the request, or timed out: still forget it here.
       await clearAuthorization();
     }
     navigation.goBack();
