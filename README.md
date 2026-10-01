@@ -148,7 +148,7 @@ The design deliberately trusts one authority key for prices and the prize plan (
 programs/pumpfantasy   Anchor program + LiteSVM tests
 worker/                Cloudflare Worker (cron, API, settlement, AI)
 mobile/                Expo app
-pitch/                 Hackathon pitch deck wireframe + demo video script
+pitch/                 Pitch deck (PDF + text version), wireframe, demo video script
 scripts/               smoke and maintenance scripts
 ```
 
