@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
@@ -8,18 +10,17 @@ import { useMyStats } from "../pumpfantasy/profileStats";
 import { PnlCard } from "../components/PnlCard";
 import { BottomBar } from "../components/BottomBar";
 import { EmptyState } from "../components/EmptyState";
+import { PulseBadge } from "../components/PulseBadge";
+import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
 
 // My Profile: the connected wallet's address and four numbers about how I've played.
 export function ProfileScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { selectedAccount, clearAuthorization } = useAuthorization();
   const { disconnect } = useMobileWallet();
   const { data: stats, isLoading } = useMyStats(selectedAccount?.publicKey ?? null);
-  if (!selectedAccount) {
-    return <EmptyState icon="wallet" label="Wallet Not Connected" hint="Connect your wallet to see your profile." />;
-  }
-  const address = selectedAccount.publicKey.toBase58();
+  const [signedOut, setSignedOut] = useState(false);
 
   const signOut = async () => {
     try {
@@ -35,8 +36,31 @@ export function ProfileScreen() {
       // Wallet app unreachable, cancelled the request, or timed out: still forget it here.
       await clearAuthorization();
     }
-    navigation.goBack();
+    setSignedOut(true);
   };
+
+  if (signedOut) {
+    return (
+      <View style={styles.screen}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+          <PulseBadge style={styles.doneBadge}>
+            <FontAwesome6 name="door-open" size={26} color={C.accent2TextOn} />
+          </PulseBadge>
+          <Text style={styles.doneTitle}>Successfully signed out</Text>
+        </ScrollView>
+        <BottomBar>
+          <TouchableRipple style={styles.whiteButton} borderless onPress={() => navigation.navigate("HomeStack")}>
+            <Text style={styles.whiteButtonText}>Go to lobby</Text>
+          </TouchableRipple>
+        </BottomBar>
+      </View>
+    );
+  }
+
+  if (!selectedAccount) {
+    return <EmptyState icon="wallet" label="Wallet Not Connected" hint="Connect your wallet to see your profile." />;
+  }
+  const address = selectedAccount.publicKey.toBase58();
 
   const blocks = [
     { icon: "trophy", title: "Tournaments", value: String(stats?.tournaments ?? 0) },
@@ -92,4 +116,17 @@ const styles = StyleSheet.create({
   spinner: { alignSelf: "flex-start", height: 34 },
   signOut: { height: 52, borderRadius: 999, backgroundColor: C.glassStrong, justifyContent: "center", alignItems: "center" },
   signOutText: { color: C.textPrimary, fontWeight: "800", fontSize: 15 },
+  doneBadge: {
+    alignSelf: "center",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: C.accent2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+  },
+  doneTitle: { color: C.textPrimary, fontWeight: "800", fontSize: 22, textAlign: "center", marginTop: 16 },
+  whiteButton: { height: 52, borderRadius: 999, backgroundColor: C.textPrimary, justifyContent: "center", alignItems: "center" },
+  whiteButtonText: { color: "#000000", fontWeight: "800", fontSize: 15 },
 });
