@@ -43,6 +43,13 @@ export function tournamentDayLabel(startTs: bigint | number): string {
   return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
+/** Start day and time as "DD.MM HH:MM" in the player's own timezone — the tournament title's own date+time. */
+export function tournamentDayTimeLabel(startTs: bigint | number): string {
+  const d = new Date(Number(startTs) * 1000);
+  const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return tournamentDayLabel(startTs) + ' ' + time;
+}
+
 /** What the app shows for a tournament: its own name if a player set one, otherwise a generated one. */
 export function tournamentDisplayName(id: bigint | number | string, meta: Pick<TournamentMeta, "name"> | undefined): string {
   return meta?.name ?? generatedTournamentName(id);

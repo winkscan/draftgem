@@ -1,7 +1,7 @@
 import type { TournamentAccount } from "./accounts";
 import type { TournamentPhase } from "./tournamentPhase";
 import { formatAmountCompact } from "./currency";
-import { tournamentDayLabel } from "./tournamentNames";
+import { tournamentDayTimeLabel } from "./tournamentNames";
 
 // Filters shared by Lobby / Live / Results (one set of choices, three lists).
 // Three layers, top to bottom in the header: scope tabs, payout-structure
@@ -11,21 +11,31 @@ export type FilterScope = "all" | "mine";
 export type PayoutFilter = "all" | "top1" | "top3" | "p30" | "p50" | "pvp";
 export type SortKey = "ending" | "priceAsc" | "priceDesc" | "pool";
 export type EntryFilter = "any" | "multi" | "single" | "low" | "big";
+export type TimeRangeFilter = "all" | "today" | "week" | "month";
 
 export interface TournamentFilters {
   scope: FilterScope;
   payout: PayoutFilter;
   sort: SortKey;
   entry: EntryFilter;
+  timeRange: TimeRangeFilter;
 }
 
-export const DEFAULT_FILTERS: TournamentFilters = { scope: "all", payout: "all", sort: "ending", entry: "any" };
+export const DEFAULT_FILTERS: TournamentFilters = { scope: "all", payout: "all", sort: "ending", entry: "any", timeRange: "all" };
 
 export const isDefaultFilters = (f: TournamentFilters) =>
   f.scope === DEFAULT_FILTERS.scope &&
   f.payout === DEFAULT_FILTERS.payout &&
   f.sort === DEFAULT_FILTERS.sort &&
-  f.entry === DEFAULT_FILTERS.entry;
+  f.entry === DEFAULT_FILTERS.entry &&
+  f.timeRange === DEFAULT_FILTERS.timeRange;
+
+export const TIME_RANGE_OPTIONS: { key: TimeRangeFilter; label: string }[] = [
+  { key: "all", label: "All time" },
+  { key: "today", label: "Today" },
+  { key: "week", label: "This week" },
+  { key: "month", label: "This month" },
+];
 
 export const SCOPE_TABS: { key: FilterScope; label: string }[] = [
   { key: "all", label: "All Tournaments" },
@@ -76,6 +86,20 @@ export function payoutStructureOf(
   return meta?.[t.id.toString()]?.payout ?? "p50";
 }
 
+// Calendar-day based (the player's own local time, same zero-point as tournamentDayLabel), trailing from the
+// start of the period through the end of today — so "Today" also still catches an upcoming tournament that
+// starts later tonight, not just ones already underway.
+function matchesTimeRange(startTs: bigint, range: TimeRangeFilter, now: number): boolean {
+  if (range === "all") return true;
+  const todayStart = new Date(now * 1000);
+  todayStart.setHours(0, 0, 0, 0);
+  const daysBack = range === "today" ? 0 : range === "week" ? 6 : 29; // "month" = a trailing 30 days, not the calendar month
+  const rangeStartSec = Math.floor(todayStart.getTime() / 1000) - daysBack * 86_400;
+  const rangeEndSec = Math.floor(todayStart.getTime() / 1000) + 86_400; // through 23:59:59 today
+  const t = Number(startTs);
+  return t >= rangeStartSec && t < rangeEndSec;
+}
+
 function matchesEntry(t: TournamentAccount, entry: EntryFilter): boolean {
   switch (entry) {
     case "any":
@@ -101,7 +125,7 @@ export const poolOf = (t: TournamentAccount) =>
  * left out of the title until it is actually worth announcing.
  */
 export function tournamentTitle(t: TournamentAccount, name: string, decimals: number, currency: string): string {
-  const day = tournamentDayLabel(t.startTs);
+  const day = tournamentDayTimeLabel(t.startTs);
   if (poolOf(t) === 0n) return `${day} ${name}`;
   return `${formatAmountCompact(poolOf(t), decimals)} ${currency} ${day} ${name}`;
 }
@@ -113,12 +137,14 @@ export function applyTournamentFilters<T extends { publicKey: { toBase58(): stri
   f: TournamentFilters,
   phase: TournamentPhase,
   entered: Set<string> | undefined,
-  meta?: Record<string, { payout: Exclude<PayoutFilter, "all"> }>,
+  meta: Record<string, { payout: Exclude<PayoutFilter, "all"> }> | undefined,
+  now: number,
 ): T[] {
   const out = rows.filter((row) => {
     const t = row.account;
     if (f.scope === "mine" && !entered?.has(row.publicKey.toBase58())) return false;
     if (f.payout !== "all" && payoutStructureOf(t, meta) !== f.payout) return false;
+    if (!matchesTimeRange(t.startTs, f.timeRange, now)) return false;
     return matchesEntry(t, f.entry);
   });
 

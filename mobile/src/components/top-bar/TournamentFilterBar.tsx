@@ -6,6 +6,7 @@ import {
   ENTRY_OPTIONS,
   PAYOUT_CHIPS,
   SCOPE_TABS,
+  TIME_RANGE_OPTIONS,
   sortOptions,
 } from "../../pumpfantasy/tournamentFilters";
 import type { TournamentPhase } from "../../pumpfantasy/tournamentPhase";
@@ -52,13 +53,19 @@ export function TournamentFilterTabs() {
   );
 }
 
-// Layer 3: two selects side by side, on the page background below the panel.
+// Layer 3: selects on the page background below the panel — sort/entry side by side, period on its own
+// row underneath (three pills side by side got cramped: their labels are long enough to ellipsize badly).
 export function TournamentFilterSelects({ phase }: { phase: TournamentPhase }) {
   const { filters, setFilter } = useTournamentFilters();
   return (
-    <View style={styles.selects}>
-      <SelectPill title="SORT BY" value={filters.sort} options={sortOptions(phase)} onChange={(k) => setFilter("sort", k)} />
-      <SelectPill title="ENTRY" value={filters.entry} options={ENTRY_OPTIONS} onChange={(k) => setFilter("entry", k)} />
+    <View>
+      <View style={styles.selects}>
+        <SelectPill title="SORT BY" value={filters.sort} options={sortOptions(phase)} onChange={(k) => setFilter("sort", k)} />
+        <SelectPill title="ENTRY" value={filters.entry} options={ENTRY_OPTIONS} onChange={(k) => setFilter("entry", k)} />
+      </View>
+      <View style={styles.selects}>
+        <SelectPill title="PERIOD" value={filters.timeRange} options={TIME_RANGE_OPTIONS} onChange={(k) => setFilter("timeRange", k)} />
+      </View>
     </View>
   );
 }
