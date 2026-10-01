@@ -20,7 +20,7 @@ const MEMO = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
 const message = (p) =>
   [
-    "DraftJam: create tournament",
+    "DraftGem: create tournament",
     `name=${p.name}`,
     `visibility=${p.visibility}`,
     `payout=${p.payout}`,

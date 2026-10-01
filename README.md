@@ -11,6 +11,15 @@ Built for the [CLOCK IN — Solana Mobile Hackathon](https://solanamobile.radian
 | Backend | Cloudflare Worker (cron + HTTP), `https://draftgem-mainnet.swapkings.workers.dev` |
 | Main currency | SKR (Solana Mobile's Seeker token), plus SOL, ORE, USDC |
 
+## The problem, and who it is for
+
+Crypto on a phone is mostly two things: passive holding, or leveraged trading that burns beginners. There is almost nothing in between that is *social*, *bounded in risk* and *about knowledge*. Fantasy sports solved this decades ago: you do not bet on one outcome, you assemble a team, a fixed budget forces trade-offs, and the best judgment wins. DraftGem brings that shape to crypto.
+
+- **Who:** crypto-curious mobile users and Solana Mobile owners who follow coins and want to test their judgment against others, without opening a leveraged position and without being able to lose more than a small entry fee.
+- **Why a tournament and not a trade:** the downside is capped at the entry fee, a round lasts one hour to one day, and you compete against people, not the market. The budget rule makes "buy the most volatile thing" a losing strategy, so the game rewards reading coins, not recklessness.
+- **Why SKR is central:** SKR is the currency of the Seeker ecosystem, so entering, creating and winning all happen in the token that Seeker owners already hold. Entry fees fill an on-chain SKR vault, prizes come out of it, and a tournament creator earns 5% of the pool in SKR.
+- **Why mobile-native:** one tap to sign through the phone's own wallet, an hourly cadence that fits a commute, and share links so a friend can join a tournament from a message.
+
 ## How a game works
 
 1. **Draft.** Every coin has a price in fantasy points (FP) set by how much it actually moves. Calm coins are cheap (*Hold*, 100 FP), wild ones are expensive (*Degen*, 1,600 FP). You have **4,000 FP** to spend on **5 coins**, so a portfolio of all-in wild coins is impossible and a portfolio of only calm coins rarely wins.
@@ -29,6 +38,29 @@ Coin categories are measured, not guessed: each coin's *typical 1-hour move* is 
 - **SKR is the main currency.** Automatic tournaments are played in SKR, SKR is the first choice when creating a tournament, and the app header and profile show your SKR balance. Entry fees, vaults and payouts are real SPL-token transfers handled by the program.
 - The app talks to the **real mainnet SKR mint** (`SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`). A separate devnet build (`--features` off, `NETWORK=devnet`) exists purely for local development and testing, against its own test mint with the same 6 decimals (`3KQM6MobTX4TZhoLyQgmKmvvexJ7wozY29FFK9rPUZgU`) since the real SKR token doesn't exist on devnet.
 
+## Verify the SKR flow on-chain
+
+Everything below is on Solana **mainnet**, program `4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu` ([Solscan](https://solscan.io/account/4sLvdTFMxJbewJS7gNF6KeqDdkRd12syav8veM4AuYRu)).
+
+**Escrow design.** Every tournament has one account and one vault, both program-derived addresses:
+
+| Account | Seeds | Role |
+|---|---|---|
+| Tournament | `["tournament", id (u64 LE)]` | rules, times, pool, status |
+| Vault | `["vault", tournament]` | owns the pool; for SKR, its associated token account holds the SKR |
+| Entry | `["entry", tournament, player, entry index (u16 LE)]` | one portfolio of 5 coins |
+| Coin price | `["asset", tournament, mint]` | the coin's start and end price |
+
+The entry fee moves from the player's SKR token account into the vault's token account inside `enter_tournament`, and only the program can move it out (`claim_prize`, `refund_entry`, `withdraw_fees`). Nobody holds the pool in a wallet.
+
+**Real SKR transactions** (mainnet, 1 Oct 2026):
+
+- A tournament created in SKR: [`25dQRcLD…`](https://solscan.io/tx/25dQRcLDzbTxVryWKFCKzQ2DYGps7EkG6tihpBt8EZ8yg1JtovX7swYg1TVaoUMNncaJtjBHDfNkiV9yAFMn1a5q)
+- A player entering with SKR, signed through Mobile Wallet Adapter: [`59EjuTbT…`](https://solscan.io/tx/59EjuTbThpqW9WCLqDSfB8TyxnYvaTEKtq5WwtVj9aCHDNB8Wpu9NgD8PpGUvEinSyjUoes63xvNGd7ejdnEadSz) and [`2Er72vNx…`](https://solscan.io/tx/2Er72vNxv8DkrmMcsxUaMKPYQZSfiaPiy9r6fcUrgYx8LVHJQG1HyaAHWmkwcz7QfuENN2e9433UpnjPRDoGBNDc)
+- A prize paid out in SKR from the vault to the winner: [`Y9BrZFFM…`](https://solscan.io/tx/Y9BrZFFMMZpT9ardJrrjoqtyeimthbgb1W5VZ72w29HeEnU4dtRCvNzveHQwZR1GNmfLuVSiC4NtikbXY86Fo9R)
+
+The app reads tournament accounts straight from Solana RPC, not from our server (`mobile/src/pumpfantasy/accounts.ts` decodes them), so any tournament can be checked on-chain.
+
 ## Mainnet beta
 
 Real money moves through this program today, so it launched with guardrails rather than open limits:
@@ -46,6 +78,15 @@ On the draft page, the **AI** button opens a page with a risk slider (*Steady �
 - Nothing the model says is trusted: the answer is **validated on the server** (five distinct coins from the list, total within the FP budget), retried with feedback if it fails, and repaired to fit the budget if it only overshoots.
 - Providers: **Google AI Studio (Gemini)**'s free tier first (a chain of models with per-model timeouts), Anthropic Claude as an alternative. If the free quota runs out, the app shows a *paused until credits renew* screen instead of an error.
 - Free generations are limited per wallet (5 a day) with a global daily cap.
+
+**How it works in detail** (`worker/src/ai.ts`):
+
+- **Inputs.** The five volatility categories (Hold, Farm, Pump, Moon, Degen) each contribute their 30 most liquid coins, so the model chooses from up to 150. Each coin is one line: mint, symbol, category, FP price, typical 1-hour move, market cap, liquidity and age. Coins the player was just shown can be excluded.
+- **Risk levels.** Each of the five slider positions has its own written brief. *Steady* allows only Hold and Farm coins; *Moonshot* wants the most volatile coins the budget allows and forbids Hold. The brief also states the budget arithmetic (for example, three Degen coins already exceed 4,000 FP).
+- **Constraints.** Exactly 5 different coins, total price at most 4,000 FP, every mint taken from the list. The model must answer through a forced JSON schema (Gemini `responseSchema`, or a forced tool call on Claude) and gives each pick a reason of at most 90 characters that names a real property of the coin, plus a one-sentence plan. The system prompt forbids inventing data and presenting price predictions as facts.
+- **Scoring logic.** The AI does not score anything. Its portfolio is an ordinary portfolio: it is entered, priced and scored by the same on-chain rules as any hand-made one (sum of the five coins' % change).
+- **Safety limits.** The answer is validated on the server and never shown unchecked: wrong count, a mint outside the list, a duplicate or an over-budget total is rejected and retried up to 3 times with the reason fed back; a plain overshoot is repaired by swapping the priciest pick for the priciest coin that fits. Free use is capped at 5 generations per wallet per day (3 without a wallet, 40 per IP) and 700 per day overall, and the model chain tries Gemini models in order with a per-model timeout, so a busy or exhausted model is skipped.
+- **Is the AI judged against people?** Not yet. AI portfolios are not tagged on-chain, so we cannot honestly publish "AI versus human players" results today. Because AI picks are normal entries, adding that comparison later is a matter of recording which entries came from the AI button.
 
 ## Architecture
 
