@@ -36,6 +36,9 @@ export function ProfileScreen() {
       // Wallet app unreachable, cancelled the request, or timed out: still forget it here.
       await clearAuthorization();
     }
+    // The header is the navigator's own (ProfileHeader, via the "Profile" screen's options), not part of
+    // this component's body — hiding it has to go through setOptions, not a local render branch.
+    navigation.setOptions({ headerShown: false });
     setSignedOut(true);
   };
 
