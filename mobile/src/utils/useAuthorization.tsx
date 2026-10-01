@@ -84,7 +84,15 @@ async function fetchAuthorization(): Promise<WalletAuthorization | null> {
   if (!cacheFetchResult) {
     return null;
   }
-  const cached = JSON.parse(cacheFetchResult, cacheReviver) as WalletAuthorization;
+  const cached = JSON.parse(cacheFetchResult, cacheReviver) as WalletAuthorization | null;
+  // persistAuthorization(null) used to write the literal string "null" instead of clearing the key (fixed
+  // below), which made this JSON.parse to the JS value null, and `cached.chain` below throw — the query
+  // stayed on its last successful (signed-in) result forever, so Sign Out looked like it did nothing. Clean
+  // up the leftover "null" entry too, so an already-affected install heals itself on the next read.
+  if (!cached) {
+    await AsyncStorage.removeItem(AUTHORIZATION_STORAGE_KEY);
+    return null;
+  }
   // Authorized for another network (e.g. before the switch from devnet to mainnet): the wallet would refuse
   // it ("authorization request failed"), so forget it and let the wallet ask afresh.
   if (cached.chain !== CHAIN_IDENTIFIER) {
@@ -103,6 +111,10 @@ async function fetchAuthorization(): Promise<WalletAuthorization | null> {
 }
 
 async function persistAuthorization(auth: WalletAuthorization | null): Promise<void> {
+  if (auth == null) {
+    await AsyncStorage.removeItem(AUTHORIZATION_STORAGE_KEY);
+    return;
+  }
   await AsyncStorage.setItem(AUTHORIZATION_STORAGE_KEY, JSON.stringify(auth));
 }
 
@@ -121,7 +133,10 @@ export function useAuthorization() {
     queryKey: ["wallet-authorization"],
     queryFn: () => fetchAuthorization(),
   });
-  const { mutate: setAuthorization } = useMutation({
+  // mutateAsync, not mutate: every caller below does `await setAuthorization(...)` expecting the write (and
+  // the cache invalidation that follows it) to actually be done before it continues — plain mutate() returns
+  // void, so that await was a no-op and callers could carry on against the stale cached value.
+  const { mutateAsync: setAuthorization } = useMutation({
     mutationFn: persistAuthorization,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet-authorization"] });
