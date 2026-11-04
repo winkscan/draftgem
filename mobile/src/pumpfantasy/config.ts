@@ -13,7 +13,10 @@ export const CLUSTER = (IS_MAINNET ? "mainnet-beta" : "devnet") as "mainnet-beta
 // The Cloudflare Worker of the chosen network: it auto-creates tournaments, serves the coin pool
 // (`/candidates`), signs pick attestations (`/attest`), builds AI portfolios and, on mainnet, forwards the
 // app's RPC calls to Helius so no API key ships in the app — see worker/src/index.ts.
-export const WORKER_URL = IS_MAINNET ? "https://draftgem-mainnet.swapkings.workers.dev" : "https://pumpfantasy-cron.swapkings.workers.dev";
+// EXPO_PUBLIC_WORKER_URL lets the local web build point at scripts/web-dev-proxy.js (CORS); unset for the Android app.
+export const WORKER_URL = process.env.EXPO_PUBLIC_WORKER_URL || (IS_MAINNET ? "https://draftgem-mainnet.swapkings.workers.dev" : "https://pumpfantasy-cron.swapkings.workers.dev");
+// Shareable /t/ and /p/ links: on mainnet the brand domain routes those paths to the worker (worker/wrangler.mainnet.toml).
+export const SHARE_URL = IS_MAINNET ? "https://draftgem.app" : WORKER_URL;
 export const RPC_ENDPOINT = IS_MAINNET ? WORKER_URL + "/rpc" : "https://api.devnet.solana.com";
 
 export const PROGRAM_ID = new PublicKey(idl.address);

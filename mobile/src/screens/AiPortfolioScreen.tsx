@@ -12,10 +12,12 @@ import { EmptyState } from "../components/EmptyState";
 import { PortfolioCard } from "../components/PortfolioCard";
 import { RiskSlider } from "../components/RiskSlider";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 // The AI page: pick how risky the portfolio should be, press Generate and Claude builds one. Every
 // press replaces the current portfolio with a new one; "Use portfolio" hands it to the draft page.
 export function AiPortfolioScreen() {
+  const edgeScroll = useWindowEdgeScroll();
   const route = useRoute();
   const navigation = useNavigation();
   const { tournamentId } = route.params as { tournamentId: string };
@@ -79,7 +81,7 @@ export function AiPortfolioScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
         <View style={styles.riskHead}>
           <Text style={styles.riskTitle}>Risk level</Text>
           <Text style={[styles.riskName, { color: level.color }]}>{level.name}</Text>

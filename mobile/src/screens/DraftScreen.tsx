@@ -31,8 +31,11 @@ import { saveCoinSnapshots, useCoinMap } from "../pumpfantasy/coinLookup";
 import { EntryFailure } from "../components/EntryFailure";
 import { useDraftTab, useEntrySuccess } from "./draftTabStore";
 import { PF_COLORS as C } from "../theme";
+import { DESKTOP_BAR, useIsDesktop, useWindowEdgeScroll } from "../utils/desktop";
 
 export function DraftScreen() {
+  const edgeScroll = useWindowEdgeScroll();
+  const desktop = useIsDesktop();
   const route = useRoute();
   const navigation = useNavigation();
   const { tournamentId } = route.params as { tournamentId: string };
@@ -260,6 +263,169 @@ export function DraftScreen() {
     );
   }
 
+  const portfolioBlock = viewingExistingSingleEntry ? (
+    <View style={styles.portfolioWrap}>
+      <PortfolioCard
+        portfolioNo={myEntry!.entryIndex + 1}
+        badge={entryBadge(tournament)}
+        slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: coinMap.get(pick.toBase58()) }))}
+      />
+    </View>
+  ) : (
+    <>
+      <View style={styles.budgetBar}>
+        <Text style={styles.budgetTitle}>Portfolio Budget</Text>
+        <View style={styles.budgetRight}>
+          <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
+            {remainingFp} FP
+          </Text>
+          {!entriesClosed ? (
+            <TouchableRipple style={styles.aiButton} borderless onPress={() => navigation.navigate("AiPortfolio", { tournamentId })}>
+              <View style={styles.aiInner}>
+                <FontAwesome6 name="wand-magic-sparkles" size={12} color={C.textPrimary} />
+                <Text style={styles.aiText}>AI</Text>
+              </View>
+            </TouchableRipple>
+          ) : null}
+        </View>
+      </View>
+      <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
+
+      <View style={styles.slotsRow}>
+        {displayedSlots.map((c, i) => (
+          <SlotCard
+            key={i}
+            candidate={c}
+            onRemove={viewingExistingSingleEntry || entriesClosed ? undefined : () => c && togglePick(c)}
+          />
+        ))}
+      </View>
+    </>
+  );
+
+  const errorBlock = error ? <Text style={styles.error}>{error}</Text> : null;
+
+  const pickerBlock = viewingExistingSingleEntry ? null : entriesClosed ? (
+    <View style={styles.closedBanner}>
+      <Text style={{ color: C.textPrimary, fontWeight: "700" }}>
+        {duelFull && !timeClosed ? "This duel is full" : "Entries are closed"}
+      </Text>
+      <Text style={{ color: C.textSecondary, fontSize: 12 }}>
+        {duelFull && !timeClosed
+          ? "Two players are already in this head-to-head."
+          : "This tournament's round already started."}
+      </Text>
+    </View>
+  ) : (
+    <>
+      <View style={styles.categoryRow}>
+        {CATEGORY_TABS.map((cat) => (
+          <TouchableRipple key={cat} style={styles.categoryTab} onPress={() => setCategoryTab(cat)}>
+            <View style={styles.categoryTabInner}>
+              <Text
+                style={[styles.categoryTabText, categoryTab === cat ? styles.categoryTabTextActive : undefined]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {cat}
+              </Text>
+              <View style={[styles.categoryUnderline, categoryTab === cat ? styles.categoryUnderlineActive : undefined]} />
+            </View>
+          </TouchableRipple>
+        ))}
+      </View>
+      <Searchbar
+        placeholder="Search by name, symbol, or contract address"
+        value={search}
+        onChangeText={setSearch}
+        style={styles.searchbar}
+        inputStyle={styles.searchbarInput}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+    </>
+  );
+
+  const coinList = (
+    <FlatList
+      style={[styles.list, edgeScroll]}
+      contentContainerStyle={{ padding: 16, paddingTop: 12, gap: 10 }}
+      data={blockedBySingleEntry || entriesClosed ? [] : filteredCandidates}
+      keyExtractor={(c) => c.mint}
+      ListEmptyComponent={
+        blockedBySingleEntry || entriesClosed ? null : (
+          <EmptyState icon="magnifying-glass" label="No Coins Found" hint="Nothing matches this filter or search." />
+        )
+      }
+      renderItem={({ item }) => {
+        const isPicked = !!picked.find((p) => p.mint === item.mint);
+        return (
+          <TouchableRipple
+            style={[styles.assetRow, isPicked ? styles.assetRowPicked : undefined]}
+            onPress={() => togglePick(item)}
+          >
+            <View style={styles.assetRowInner}>
+              <View style={styles.assetRowLeft}>
+                <TokenIcon mint={item.mint} icon={item.icon} symbol={item.symbol} size={28} />
+                <View style={{ flexShrink: 1 }}>
+                  <View style={styles.assetSymbolRow}>
+                    <Text style={styles.assetSymbol}>{item.symbol}</Text>
+                    <TouchableRipple
+                      style={styles.chartButton}
+                      borderless
+                      onPress={() => setChartCandidate(item)}
+                    >
+                      <FontAwesome6 name="chart-line" size={11} color={C.textSecondary} />
+                    </TouchableRipple>
+                  </View>
+                  <Text style={styles.assetName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={[styles.assetFp, isPicked ? { color: C.accentText } : undefined]}>
+                  {item.fpCost} FP
+                </Text>
+                <Text style={styles.assetTier}>
+                  {item.tier}
+                  {item.volatilityPct != null ? ` · ±${item.volatilityPct.toFixed(1)}%` : ""}
+                </Text>
+              </View>
+            </View>
+          </TouchableRipple>
+        );
+      }}
+    />
+  );
+
+  const enterFooter = (
+    <View style={[styles.footer, desktop ? DESKTOP_BAR : undefined]}>
+      <TouchableRipple
+        style={[styles.enterButton, !canSubmit ? styles.enterDisabled : undefined]}
+        borderless
+        disabled={!canSubmit}
+        onPress={onSubmit}
+      >
+        <View style={styles.enterInner}>
+          {submitting ? <ActivityIndicator size={16} color={C.accentTextOn} /> : null}
+          <Text style={[styles.enterText, !canSubmit ? styles.enterTextDisabled : undefined]}>
+            {blockedBySingleEntry
+              ? "Already Entered"
+              : entriesClosed
+                ? duelFull && !timeClosed
+                  ? "Duel Full"
+                  : "Entries Closed"
+                : selectedAccount
+                  ? `Enter for ${formatAmountCompact(tournament.entryFeeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
+                  : "Connect & Enter"}
+          </Text>
+        </View>
+      </TouchableRipple>
+    </View>
+  );
+
   return (
     <View style={styles.screen}>
       {isMultiple && (tab === "mine" || entriesClosed) ? (
@@ -271,164 +437,11 @@ export function DraftScreen() {
         />
       ) : (
         <>
-          {viewingExistingSingleEntry ? (
-            <View style={styles.portfolioWrap}>
-              <PortfolioCard
-                portfolioNo={myEntry!.entryIndex + 1}
-                badge={entryBadge(tournament)}
-                slots={myEntry!.picks.map((pick, i) => ({ key: String(i), candidate: coinMap.get(pick.toBase58()) }))}
-              />
-            </View>
-          ) : (
-            <>
-              <View style={styles.budgetBar}>
-                <Text style={styles.budgetTitle}>Portfolio Budget</Text>
-                <View style={styles.budgetRight}>
-                  <Text style={[styles.budgetValue, remainingFp < 0 ? { color: C.error } : undefined]}>
-                    {remainingFp} FP
-                  </Text>
-                  {!entriesClosed ? (
-                    <TouchableRipple style={styles.aiButton} borderless onPress={() => navigation.navigate("AiPortfolio", { tournamentId })}>
-                      <View style={styles.aiInner}>
-                        <FontAwesome6 name="wand-magic-sparkles" size={12} color={C.textPrimary} />
-                        <Text style={styles.aiText}>AI</Text>
-                      </View>
-                    </TouchableRipple>
-                  ) : null}
-                </View>
-              </View>
-              <BudgetBar filled={displayedSlots.filter(Boolean).length} total={PICKS_PER_ENTRY} />
-
-              <View style={styles.slotsRow}>
-                {displayedSlots.map((c, i) => (
-                  <SlotCard
-                    key={i}
-                    candidate={c}
-                    onRemove={viewingExistingSingleEntry || entriesClosed ? undefined : () => c && togglePick(c)}
-                  />
-                ))}
-              </View>
-            </>
-          )}
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          {viewingExistingSingleEntry ? null : entriesClosed ? (
-            <View style={styles.closedBanner}>
-              <Text style={{ color: C.textPrimary, fontWeight: "700" }}>
-                {duelFull && !timeClosed ? "This duel is full" : "Entries are closed"}
-              </Text>
-              <Text style={{ color: C.textSecondary, fontSize: 12 }}>
-                {duelFull && !timeClosed
-                  ? "Two players are already in this head-to-head."
-                  : "This tournament's round already started."}
-              </Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.categoryRow}>
-                {CATEGORY_TABS.map((cat) => (
-                  <TouchableRipple key={cat} style={styles.categoryTab} onPress={() => setCategoryTab(cat)}>
-                    <View style={styles.categoryTabInner}>
-                      <Text
-                        style={[styles.categoryTabText, categoryTab === cat ? styles.categoryTabTextActive : undefined]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.75}
-                      >
-                        {cat}
-                      </Text>
-                      <View style={[styles.categoryUnderline, categoryTab === cat ? styles.categoryUnderlineActive : undefined]} />
-                    </View>
-                  </TouchableRipple>
-                ))}
-              </View>
-              <Searchbar
-                placeholder="Search by name, symbol, or contract address"
-                value={search}
-                onChangeText={setSearch}
-                style={styles.searchbar}
-                inputStyle={styles.searchbarInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </>
-          )}
-
-          <FlatList
-            style={styles.list}
-            contentContainerStyle={{ padding: 16, paddingTop: 12, gap: 10 }}
-            data={blockedBySingleEntry || entriesClosed ? [] : filteredCandidates}
-            keyExtractor={(c) => c.mint}
-            ListEmptyComponent={
-              blockedBySingleEntry || entriesClosed ? null : (
-                <EmptyState icon="magnifying-glass" label="No Coins Found" hint="Nothing matches this filter or search." />
-              )
-            }
-            renderItem={({ item }) => {
-              const isPicked = !!picked.find((p) => p.mint === item.mint);
-              return (
-                <TouchableRipple
-                  style={[styles.assetRow, isPicked ? styles.assetRowPicked : undefined]}
-                  onPress={() => togglePick(item)}
-                >
-                  <View style={styles.assetRowInner}>
-                    <View style={styles.assetRowLeft}>
-                      <TokenIcon mint={item.mint} icon={item.icon} symbol={item.symbol} size={28} />
-                      <View style={{ flexShrink: 1 }}>
-                        <View style={styles.assetSymbolRow}>
-                          <Text style={styles.assetSymbol}>{item.symbol}</Text>
-                          <TouchableRipple
-                            style={styles.chartButton}
-                            borderless
-                            onPress={() => setChartCandidate(item)}
-                          >
-                            <FontAwesome6 name="chart-line" size={11} color={C.textSecondary} />
-                          </TouchableRipple>
-                        </View>
-                        <Text style={styles.assetName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={[styles.assetFp, isPicked ? { color: C.accentText } : undefined]}>
-                        {item.fpCost} FP
-                      </Text>
-                      <Text style={styles.assetTier}>
-                        {item.tier}
-                        {item.volatilityPct != null ? ` · ±${item.volatilityPct.toFixed(1)}%` : ""}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableRipple>
-              );
-            }}
-          />
-
-          <View style={styles.footer}>
-            <TouchableRipple
-              style={[styles.enterButton, !canSubmit ? styles.enterDisabled : undefined]}
-              borderless
-              disabled={!canSubmit}
-              onPress={onSubmit}
-            >
-              <View style={styles.enterInner}>
-                {submitting ? <ActivityIndicator size={16} color={C.accentTextOn} /> : null}
-                <Text style={[styles.enterText, !canSubmit ? styles.enterTextDisabled : undefined]}>
-                  {blockedBySingleEntry
-                    ? "Already Entered"
-                    : entriesClosed
-                      ? duelFull && !timeClosed
-                        ? "Duel Full"
-                        : "Entries Closed"
-                      : selectedAccount
-                        ? `Enter for ${formatAmountCompact(tournament.entryFeeLamports, decimalsForMint(tournament.mint))} ${currencyForMint(tournament.mint)}`
-                        : "Connect & Enter"}
-                </Text>
-              </View>
-            </TouchableRipple>
-          </View>
+          {portfolioBlock}
+          {errorBlock}
+          {pickerBlock}
+          {coinList}
+          {enterFooter}
         </>
       )}
 
@@ -531,6 +544,7 @@ function MyEntriesList({
   entriesClosed: boolean;
   tournament: import("../pumpfantasy/accounts").TournamentAccount;
 }) {
+  const edgeScroll = useWindowEdgeScroll();
   if (entries.length === 0) {
     return (
       <EmptyState
@@ -542,7 +556,7 @@ function MyEntriesList({
   }
   return (
     <FlatList
-      style={styles.list}
+      style={[styles.list, edgeScroll]}
       contentContainerStyle={{ padding: 16, gap: 10 }}
       data={entries}
       keyExtractor={(row) => row.publicKey.toBase58()}

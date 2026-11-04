@@ -1,7 +1,9 @@
-import { NavigationContainer, type LinkingOptions, type Theme } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef, type LinkingOptions, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { HomeNavigator } from "./HomeNavigator";
+import { DesktopFrame } from "./DesktopFrame";
+import { useIsDesktop } from "../utils/desktop";
 import { AiPortfolioScreen, CreateTournamentScreen, DraftScreen, LeaderboardScreen, ProfileScreen } from "../screens";
 import { DraftHeader } from "../screens/DraftScreen";
 import { OnboardingModal } from "../components/OnboardingModal";
@@ -77,22 +79,36 @@ export interface NavigationProps {
   navTheme: Theme;
 }
 
-// Shared tournament links (pumpfantasy://t/<id>, opened from the worker's /t/<id>
+// Shared tournament links (draftgem://t/<id>, opened from the worker's /t/<id>
 // page) land on that tournament's Draft screen, with the home tabs underneath so
-// Back still goes somewhere.
+// Back still goes somewhere. The old pumpfantasy:// scheme (what the worker's pages still
+// send) keeps working too. On the web the same paths are the browser's address
+// (play.draftgem.app/t/<id>), and the tabs get short ones of their own.
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ["pumpfantasy://"],
+  prefixes: ["draftgem://", "pumpfantasy://"],
   config: {
     initialRouteName: "HomeStack",
-    screens: { Draft: "t/:tournamentId" },
+    screens: {
+      HomeStack: { screens: { Lobby: "", Live: "live", Results: "results", Guide: "guide" } },
+      Draft: "t/:tournamentId",
+    },
   },
 };
 
+const navRef = createNavigationContainerRef<RootStackParamList>();
+
 export const AppNavigator = ({ navTheme }: NavigationProps) => {
+  const desktop = useIsDesktop();
   return (
-    <NavigationContainer theme={navTheme} linking={linking}>
+    <NavigationContainer ref={navRef} theme={navTheme} linking={linking}>
       <StatusBar style="light" />
-      <AppStack />
+      {desktop ? (
+        <DesktopFrame navRef={navRef}>
+          <AppStack />
+        </DesktopFrame>
+      ) : (
+        <AppStack />
+      )}
       <OnboardingModal />
     </NavigationContainer>
   );

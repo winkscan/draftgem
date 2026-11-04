@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FlatList, Modal, ScrollView, Share, StyleSheet, View } from "react-native";
+import { FlatList, ScrollView, Share, StyleSheet, View } from "react-native";
+import { PageModal } from "./PageModal";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -14,13 +15,15 @@ import { poolOf } from "../pumpfantasy/tournamentFilters";
 import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { ellipsify } from "../pumpfantasy/format";
 import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfantasy/currency";
-import { RAKE_BPS, WORKER_URL } from "../pumpfantasy/config";
+import { RAKE_BPS, SHARE_URL } from "../pumpfantasy/config";
 import { TokenIcon } from "./TokenIcon";
 import { useCoinMap } from "../pumpfantasy/coinLookup";
 import { EmptyState } from "./EmptyState";
 import { PortfolioCard, entryBadge } from "./PortfolioCard";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
 import { PF_COLORS as C } from "../theme";
+import { useIsDesktop } from "../utils/desktop";
+import { CloseButton } from "./CloseButton";
 
 type Tab = "mine" | "prizes" | "players" | "rules";
 const TABS: { key: Tab; label: string }[] = [
@@ -44,6 +47,7 @@ export interface TournamentInfoModalProps {
 export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }: TournamentInfoModalProps) {
   const [tab, setTab] = useState<Tab>("mine");
   const insets = useSafeAreaInsets();
+  const desktop = useIsDesktop();
   const { selectedAccount } = useAuthorization();
   const { data: candidates } = useCandidates();
 
@@ -62,7 +66,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
 
   const copyLink = async () => {
     if (!t) return;
-    const url = `${WORKER_URL}/t/${t.id.toString()}`;
+    const url = `${SHARE_URL}/t/${t.id.toString()}`;
     try {
       const Clipboard = require("expo-clipboard");
       await Clipboard.setStringAsync(url);
@@ -79,7 +83,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
   const isPrivate = meta?.visibility === "private";
 
   return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
+    <PageModal onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Header + tabs share one panel — same look as the tab screens' own TopBar: panel colour,
             rounded only at the bottom, content pushed below the status bar. */}
@@ -87,13 +91,16 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
           <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
             <View style={styles.headerTop}>
               <View style={styles.badgeRow}>
-                <TouchableRipple style={styles.backButton} borderless onPress={onClose}>
-                  <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
-                </TouchableRipple>
+                {desktop ? null : (
+                  <TouchableRipple style={styles.backButton} borderless onPress={onClose}>
+                    <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
+                  </TouchableRipple>
+                )}
                 <ModeBadges tournament={t} />
                 <PayoutBadge label={payoutLabel} />
                 {isPrivate ? <FontAwesome6 name="lock" size={12} color={C.textSecondary} /> : null}
               </View>
+              {desktop ? <CloseButton onPress={onClose} /> : null}
             </View>
             <View style={styles.headerBottom}>
               <View style={{ flexShrink: 1 }}>
@@ -150,7 +157,7 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
           <RulesTab tournament={t} meta={meta} payout={payout} />
         )}
       </View>
-    </Modal>
+    </PageModal>
   );
 }
 

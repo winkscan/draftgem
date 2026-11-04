@@ -156,16 +156,17 @@ export function treasuryAddress(env: Env): string {
 }
 
 /** Checks on chain that `req.signature` really paid the creation fee for exactly these parameters. */
-async function verifyPayment(env: Env, req: CreateRequest, nowSec: number): Promise<string | null> {
+/** The payment's block time when it checks out, or what's wrong with it. */
+async function verifyPayment(env: Env, req: CreateRequest, nowSec: number): Promise<{ blockTime: number } | { error: string }> {
   const connection = new Connection(rpcUrl(env), "confirmed");
   let tx = null;
   for (let attempt = 0; attempt < 4 && !tx; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 1500)); // the RPC can lag a moment behind the wallet
     tx = await connection.getParsedTransaction(req.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
   }
-  if (!tx) return "Payment not found on chain yet — try again in a moment";
-  if (tx.meta?.err) return "Payment transaction failed";
-  if (!tx.blockTime || nowSec - tx.blockTime > PAYMENT_MAX_AGE_SECONDS) return "Payment is too old — start again";
+  if (!tx) return { error: "Payment not found on chain yet — try again in a moment" };
+  if (tx.meta?.err) return { error: "Payment transaction failed" };
+  if (!tx.blockTime || nowSec - tx.blockTime > PAYMENT_MAX_AGE_SECONDS) return { error: "Payment is too old — start again" };
 
   const treasury = treasuryAddress(env);
   let paid = false;
@@ -181,9 +182,9 @@ async function verifyPayment(env: Env, req: CreateRequest, nowSec: number): Prom
       if (ix.programId.toBase58() === MEMO_PROGRAM && ix.parsed === createMessage(req)) memoOk = true;
     }
   }
-  if (!paid) return "Payment does not match the creation fee";
-  if (!memoOk) return "Payment does not match these tournament settings";
-  return null;
+  if (!paid) return { error: "Payment does not match the creation fee" };
+  if (!memoOk) return { error: "Payment does not match these tournament settings" };
+  return { blockTime: tx.blockTime };
 }
 
 export async function loadIndex(env: Env): Promise<CustomMeta[]> {
@@ -272,6 +273,13 @@ interface CreateResult {
   deepLink: string;
 }
 
+/** 0-999, stable for a given transaction signature. */
+function signatureSpread(signature: string): number {
+  let h = 0;
+  for (let i = 0; i < signature.length; i++) h = (h * 31 + signature.charCodeAt(i)) >>> 0;
+  return h % 1000;
+}
+
 export async function handleCreateCustom(
   env: Env,
   body: unknown,
@@ -292,8 +300,8 @@ export async function handleCreateCustom(
     return { status: 409, body: { error: "This tournament is already being created — wait a moment" } };
   }
 
-  const problem = await verifyPayment(env, req, nowSec);
-  if (problem) return { status: 402, body: { error: problem } };
+  const payment = await verifyPayment(env, req, nowSec);
+  if ("error" in payment) return { status: 402, body: { error: payment.error } };
 
   const index = await loadIndex(env);
   if (index.filter((m) => m.endTs > nowSec).length >= MAX_ACTIVE_CUSTOM) {
@@ -301,8 +309,10 @@ export async function handleCreateCustom(
   }
   await env.CACHE.put(paidKey, JSON.stringify({ pendingSince: nowSec }), { expirationTtl: 3600 });
 
-  // ms timestamp id, nudged off the cron's 5-minute grid so the two id spaces never collide.
-  let id = BigInt(Date.now());
+  // The id comes from the payment itself (its block time in ms, plus 0-999 from its signature), so two requests
+  // racing with the same payment both build the SAME tournament account and the chain refuses the second one:
+  // KV alone can't stop that (it is not atomic). Nudged off the cron's 5-minute grid so the two id spaces never collide.
+  let id = BigInt(payment.blockTime) * 1000n + BigInt(signatureSpread(req.signature));
   if (id % BigInt(TICK_MS) === 0n) id += 1n;
   const startTs = nowSec + req.startInSec;
   const endTs = startTs + req.durationSec;
@@ -318,8 +328,11 @@ export async function handleCreateCustom(
       guaranteedAmountLamports: 0, // nothing funds a house guarantee for player-made tournaments
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // The account exists already: a parallel request with this payment is creating it. Leave its marker alone.
+    if (/already in use/i.test(message)) return { status: 409, body: { error: "This tournament is already being created — wait a moment" } };
     await env.CACHE.delete(paidKey); // paid but not created: let the same payment be retried
-    return { status: 500, body: { error: err instanceof Error ? err.message : String(err) } };
+    return { status: 500, body: { error: message } };
   }
 
   const meta: CustomMeta = {
@@ -343,37 +356,58 @@ export async function handleCreateCustom(
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** The page a shared link opens in a browser: a button that launches the app on this tournament. */
+// The listing on the Seeker's dApp Store (docs.solanamobile.com: link-to-dapp-listing-page). Other devices get the landing page.
+const DAPP_STORE_LINK = "solanadappstore://details?id=app.draftgem";
+const SITE_URL = "https://draftgem.app";
+
+/**
+ * The page a shared link opens in a browser: a white "Play" into the web app (env.PLAY_URL, hidden when unset),
+ * "Get the app" (the dApp Store on Android, the landing page elsewhere) and a small link into the installed app.
+ */
+function sharePage(o: { title: string; ogTitle: string; ogDescription: string; text: string; playUrl: string | null; appLink: string }): Response {
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${o.title} · DraftGem</title>
+<meta property="og:title" content="${o.ogTitle}"><meta property="og:description" content="${o.ogDescription}">
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center}
+.card{max-width:400px;width:100%;box-sizing:border-box;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
+h1{font-size:22px;margin:0 0 8px;overflow-wrap:anywhere}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
+.row{display:flex;gap:12px}.btn{flex:1;display:block;font-weight:700;text-decoration:none;padding:14px 12px;border-radius:999px;font-size:15px}
+.play{background:#fff;color:#000}.get{background:rgba(236,228,253,.08);color:#fff;border:1px solid rgba(236,228,253,.16)}
+small{display:block;margin-top:16px;color:#ababba;font-size:13px}small a{color:#b98cff}</style></head><body><div class="card">
+<h1>${o.title}</h1><p>${o.text}</p>
+<div class="row">${o.playUrl ? `<a class="btn play" href="${o.playUrl}">Play</a>` : ""}<a class="btn get" id="get" href="${SITE_URL}">Get the app</a></div>
+<small>Have the app? <a href="${o.appLink}">Open in the app</a></small></div>
+<script>if(/Android/i.test(navigator.userAgent)){var g=document.getElementById("get");g.href="${DAPP_STORE_LINK}";g.addEventListener("click",function(){setTimeout(function(){if(!document.hidden)location.href="${SITE_URL}"},1500)})}</script>
+</body></html>`;
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+/** The page a shared tournament link opens in a browser. */
 export async function landingPage(env: Env, id: string): Promise<Response> {
   if (!/^\d{1,20}$/.test(id)) return new Response("Not found\n", { status: 404 });
   const meta = (await loadIndex(env)).find((m) => m.id === id);
   const title = meta ? esc(meta.name) : `Tournament #${esc(id)}`;
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · DraftGem</title>
-<meta property="og:title" content="${title} · DraftGem"><meta property="og:description" content="You're invited to a DraftGem fantasy crypto tournament.">
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center}
-.card{max-width:360px;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
-h1{font-size:22px;margin:0 0 8px}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
-a.btn{display:block;background:#14f195;color:#04140d;font-weight:700;text-decoration:none;padding:14px;border-radius:999px}
-small{display:block;margin-top:16px;color:#ababba}</style></head><body><div class="card">
-<h1>${title}</h1><p>${meta ? (meta.visibility === "private" ? "A private tournament — you were invited." : "A public tournament.") : "A DraftGem tournament."} Pick 5 coins and compete.</p>
-<a class="btn" href="pumpfantasy://t/${esc(id)}">Open in DraftGem</a><small>Don't have the app yet? Install DraftGem first, then tap this link again.</small></div></body></html>`;
-  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  const kind = meta ? (meta.visibility === "private" ? "A private tournament — you were invited." : "A public tournament.") : "A DraftGem tournament.";
+  return sharePage({
+    title,
+    ogTitle: `${title} · DraftGem`,
+    ogDescription: "You're invited to a DraftGem fantasy crypto tournament.",
+    text: `${kind} Pick 5 coins and compete.`,
+    playUrl: env.PLAY_URL ? `${env.PLAY_URL}/t/${esc(id)}` : null,
+    appLink: `pumpfantasy://t/${esc(id)}`,
+  });
 }
 
-/** The page a shared profit/loss link opens in a browser: the player's short address and a button into the app. */
-export function profilePage(address: string): Response {
+/** The page a shared profit/loss link opens in a browser: the player's short address. */
+export function profilePage(env: Env, address: string): Response {
   if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return new Response("Not found\n", { status: 404 });
   const short = esc(address.slice(0, 4) + "…" + address.slice(-4));
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>${short} · DraftGem</title>
-<meta property="og:title" content="${short} on DraftGem"><meta property="og:description" content="Fantasy crypto tournaments on Solana: pick 5 coins and compete.">
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center}
-.card{max-width:360px;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
-h1{font-size:22px;margin:0 0 8px}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
-a.btn{display:block;background:#14f195;color:#04140d;font-weight:700;text-decoration:none;padding:14px;border-radius:999px}
-small{display:block;margin-top:16px;color:#ababba}</style></head><body><div class="card">
-<h1>${short}</h1><p>A DraftGem player. Pick 5 coins in daily fantasy crypto tournaments on Solana and compete for the prize pool.</p>
-<a class="btn" href="pumpfantasy://">Open DraftGem</a><small>Don't have the app yet? Install DraftGem first.</small></div></body></html>`;
-  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return sharePage({
+    title: short,
+    ogTitle: `${short} on DraftGem`,
+    ogDescription: "Fantasy crypto tournaments on Solana: pick 5 coins and compete.",
+    text: "A DraftGem player. Pick 5 coins in daily fantasy crypto tournaments on Solana and compete for the prize pool.",
+    playUrl: env.PLAY_URL || null,
+    appLink: "pumpfantasy://",
+  });
 }

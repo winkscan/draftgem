@@ -241,7 +241,8 @@ function corsHeaders(): HeadersInit {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    // `solana-client` is sent by @solana/web3.js on every JSON-RPC call from a browser (the web build).
+    "Access-Control-Allow-Headers": "Content-Type, solana-client",
   };
 }
 
@@ -387,7 +388,7 @@ export default {
     if (req.method === "POST" && url.pathname === "/create-tournament") {
       if (!playerTournamentsOn(env)) return json({ error: "Player-made tournaments are switched off during the beta" }, 403);
       try {
-        const result = await handleCreateCustom(env, await req.json().catch(() => null), url.origin, (p) =>
+        const result = await handleCreateCustom(env, await req.json().catch(() => null), env.PUBLIC_URL || url.origin, (p) =>
           createTournamentOnChain(env, p),
         );
         return json(result.body, result.status);
@@ -460,7 +461,28 @@ export default {
     }
 
     // POST /rpc — the app's Solana RPC on mainnet, forwarded to Helius so the key never ships in the app.
-    if (req.method === "POST" && url.pathname === "/rpc") return proxyRpc(env, await req.text());
+    if (req.method === "POST" && url.pathname === "/rpc") {
+      // The Android app sends no Origin. A browser always does: only our web app (and a local dev build) may spend
+      // Helius credits through here — a CORS header alone would not stop another site, the call would still run.
+      const origin = req.headers.get("Origin");
+      const browserAllowed = origin !== null && (origin === env.PLAY_URL || /^http:\/\/localhost(:\d+)?$/.test(origin));
+      if (origin !== null && !browserAllowed) return json({ error: "Origin not allowed" }, 403);
+      if (env.RPC_LIMITER) {
+        const { success } = await env.RPC_LIMITER.limit({ key: req.headers.get("cf-connecting-ip") ?? "unknown" });
+        if (!success) {
+          const busy = json({ error: "Too many requests — slow down" }, 429);
+          if (browserAllowed) busy.headers.set("Access-Control-Allow-Origin", origin);
+          return busy;
+        }
+      }
+      const r = await proxyRpc(env, await req.text());
+      if (!browserAllowed) return r;
+      const headers = new Headers(r.headers);
+      for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v);
+      headers.set("Access-Control-Allow-Origin", origin);
+      headers.set("Vary", "Origin");
+      return new Response(r.body, { status: r.status, headers });
+    }
 
     // GET /pause?on=1|0 — admin kill switch: stops the cron from creating new tournaments (running ones finish).
     if (req.method === "GET" && url.pathname === "/pause") {
@@ -497,7 +519,7 @@ export default {
 
     // GET /p/<wallet> — the link on a shared profit/loss picture.
     const profile = url.pathname.match(/^\/p\/([1-9A-HJ-NP-Za-km-z]{32,44})$/);
-    if (req.method === "GET" && profile) return profilePage(profile[1]);
+    if (req.method === "GET" && profile) return profilePage(env, profile[1]);
 
     // Manual trigger for testing (`curl <worker-url>/create`). Its own path,
     // not a catch-all: this URL is public, and any stray request (crawler,

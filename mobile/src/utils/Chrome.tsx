@@ -1,7 +1,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PF_COLORS as C } from "../theme";
+import { useIsDesktop } from "./desktop";
 
 // The app's outer shell. It leaves the system bars' safe areas (status bar on top,
 // gesture/navigation bar at the bottom) free of content, and paints them: on the home
@@ -23,6 +24,7 @@ export function useChrome(): ChromeState {
 
 export function Shell({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
+  const desktop = useIsDesktop();
   const [homeFocused, setHomeFocused] = useState(false);
   const [panelHeader, setPanelHeader] = useState(false);
   const value = useMemo(() => ({ homeFocused, setHomeFocused, setPanelHeader }), [homeFocused]);
@@ -30,15 +32,23 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <ChromeContext.Provider value={value}>
       <View style={styles.shell}>
-        <View style={{ height: insets.top, backgroundColor: band }} />
-        <View style={styles.content}>{children}</View>
-        <View style={{ height: insets.bottom, backgroundColor: homeFocused ? C.headerPanel : C.bg }} />
+        {/* Web: the app is laid out for a phone, so on a wide window it stays a centred phone-width column. */}
+        <View style={[styles.column, desktop ? styles.columnDesktop : undefined]}>
+          <View style={{ height: insets.top, backgroundColor: band }} />
+          <View style={styles.content}>{children}</View>
+          <View style={{ height: insets.bottom, backgroundColor: homeFocused ? C.headerPanel : C.bg }} />
+        </View>
       </View>
     </ChromeContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  shell: { flex: 1, backgroundColor: C.bg },
+  shell: { flex: 1, backgroundColor: C.bg, alignItems: "center" },
+  column: Platform.OS === "web"
+    ? { flex: 1, width: "100%", maxWidth: 480, borderLeftWidth: 1, borderRightWidth: 1, borderColor: C.cardBorder }
+    : { flex: 1, width: "100%" },
+  // Wide window: the desktop frame (navigators/DesktopFrame.tsx) lays the screen out itself.
+  columnDesktop: { maxWidth: 100000, borderLeftWidth: 0, borderRightWidth: 0 },
   content: { flex: 1 },
 });

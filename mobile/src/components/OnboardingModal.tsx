@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, View } from "react-native";
+import { useIsDesktop, useOverlayOffset } from "../utils/desktop";
 import { Checkbox, Portal, Text, TouchableRipple } from "react-native-paper";
 import { BlurView } from "expo-blur";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -13,7 +14,8 @@ const DISMISSED_KEY = "draftgem.onboardingDismissed.v1";
 // Explicit pixel height instead of the `aspectRatio` style: on-device an Image with aspectRatio ignored the
 // container's width and fell back to its native pixel size (found the hard way in SwapKings). The app is
 // portrait-locked, so the width is stable.
-const CARD_WIDTH = Dimensions.get("window").width - 40;
+// Web: the window can be wider than the phone-width column the app lives in (see Chrome.tsx), so cap it at 480.
+const CARD_WIDTH = Math.min(Dimensions.get("window").width, 480) - 40;
 const IMAGE_HEIGHT = Math.round((CARD_WIDTH * 9) / 16);
 
 // The steps of the guide, 16:9 pictures in assets/onboarding (onboarding-1..5.webp).
@@ -53,10 +55,13 @@ const STEPS = ALL_STEPS.filter((st) => st.onlyWhen !== false);
 // appears whichever tab a new player lands on (same flow as SwapKings' onboarding).
 export function OnboardingModal() {
   const navigation = useNavigation();
+  const desktop = useIsDesktop();
+  const overlayOffset = useOverlayOffset();
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [imageWidth, setImageWidth] = useState(0);
   const opacity = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(1)).current; // the picture and text fade out into the dark and back in
   const stepRef = useRef(0);
@@ -121,13 +126,18 @@ export function OnboardingModal() {
     <Portal>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
         <BlurView intensity={45} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
-        <View style={styles.positioner} pointerEvents="box-none">
+        <View style={[styles.positioner, desktop ? styles.positionerDesktop : undefined, { paddingLeft: 20 + overlayOffset }]} pointerEvents="box-none">
           <View style={styles.card} {...swipe.panHandlers}>
             <Pressable style={styles.closeBtn} onPress={close}>
               <FontAwesome6 name="xmark" size={14} color="#fff" />
             </Pressable>
-            <Animated.View style={{ opacity: fade }}>
-              <Image source={current.image} style={styles.image} resizeMode="cover" />
+            {/* The card's width varies with the window on the web (640 at most), so the 16:9 height follows the measured width. */}
+            <Animated.View style={{ opacity: fade }} onLayout={(e) => setImageWidth(e.nativeEvent.layout.width)}>
+              <Image
+                source={current.image}
+                style={[styles.image, imageWidth > 0 ? { height: Math.round((imageWidth * 9) / 16) } : undefined]}
+                resizeMode="cover"
+              />
             </Animated.View>
             <View style={styles.body}>
               <View style={styles.progressRow}>
@@ -179,7 +189,12 @@ export function OnboardingModal() {
 
 const styles = StyleSheet.create({
   positioner: { flex: 1, justifyContent: "flex-start", paddingTop: 100, paddingHorizontal: 20 },
+  positionerDesktop: { justifyContent: "center", paddingTop: 0 },
+  // At most 640px wide and centred, so on a wide browser window it is a dialog, not a banner; narrower windows shrink it.
   card: {
+    width: "100%",
+    maxWidth: 640,
+    alignSelf: "center",
     backgroundColor: C.card,
     borderRadius: 20,
     overflow: "hidden",
@@ -196,7 +211,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,

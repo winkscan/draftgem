@@ -1,4 +1,8 @@
-import { MD3DarkTheme } from "react-native-paper";
+import { Platform } from "react-native";
+import { MD3DarkTheme, configureFonts } from "react-native-paper";
+
+// The web build sets its text in Inter, like the landing page (loaded in utils/webStyles.web.ts); Android keeps the system font.
+export const WEB_FONT = "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif";
 
 // Night theme in Solana's own colours (studied from solana.com + the brand
 // art, 2026-09-21): true black canvas with near-black violet-tinted surfaces,
@@ -64,6 +68,7 @@ const c = PF_COLORS;
 export const pumpFantasyTheme = {
   ...MD3DarkTheme,
   dark: true,
+  fonts: Platform.OS === "web" ? configureFonts({ config: { fontFamily: WEB_FONT } }) : MD3DarkTheme.fonts,
   colors: {
     ...MD3DarkTheme.colors,
     primary: c.accent,

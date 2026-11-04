@@ -1,0 +1,20 @@
+Copyright (c) 2026 DraftGem. All rights reserved.
+
+This source code is published for transparency, review and evaluation (for example by
+hackathon judges, security researchers and users who want to verify how DraftGem works
+on-chain). Publishing it does not grant any license.
+
+You may read the code and run it locally to evaluate it. Without prior written permission
+from the copyright holder you may NOT copy, modify, redistribute, sublicense, deploy or
+operate it (or a derivative of it) as a service or app, or use it for any commercial
+purpose.
+
+The DraftGem name, logo and brand assets are not licensed in any case.
+
+Third-party components keep their own licenses. In particular, parts of the mobile app
+derived from the Expo project template are covered by the MIT License in mobile/LICENSE,
+and the dependencies in package.json and Cargo.toml are covered by their respective licenses.
+
+The software is provided "as is", without warranty of any kind.
+
+Contact: team@draftgem.app

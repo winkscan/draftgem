@@ -4,10 +4,12 @@ import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { GUIDE_TOPICS } from "../guide/topics";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 // A knowledge base as an accordion: one collapsible item per topic in
 // guide/topics.tsx. Several can be open at once; the first starts open.
 export function GuideScreen() {
+  const edgeScroll = useWindowEdgeScroll();
   const [open, setOpen] = useState<Set<string>>(() => new Set(GUIDE_TOPICS.slice(0, 1).map((t) => t.id)));
 
   const toggle = (id: string) =>
@@ -19,7 +21,7 @@ export function GuideScreen() {
     });
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.screen, edgeScroll]} contentContainerStyle={styles.content}>
       <Text style={styles.intro}>How things work — tap a topic to open it.</Text>
       {GUIDE_TOPICS.map((topic) => {
         const isOpen = open.has(topic.id);

@@ -4,11 +4,12 @@ import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { DraftGemLogo } from "./brand/DraftGemLogo";
 import { PnlChart } from "./PnlChart";
-import { WORKER_URL } from "../pumpfantasy/config";
+import { SHARE_URL } from "../pumpfantasy/config";
 import { ellipsify } from "../pumpfantasy/format";
 import { PNL_PERIOD_LABEL, formatUsd, type PnlPeriod } from "../pumpfantasy/pnlSeries";
 import { PublicKey } from "@solana/web3.js";
 import { PF_COLORS as C } from "../theme";
+import { OVERLAY_BLUR, useOverlayOffset } from "../utils/desktop";
 
 // The share dialog: a picture of the profit/loss chart (logo, period, wallet, amount, chart) that can
 // be copied as an image, sent with the phone's share sheet (X included), or its link copied.
@@ -32,7 +33,7 @@ export function PnlShareModal({
   const shotRef = useRef<View>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const [done, setDone] = useState<"link" | "image" | null>(null);
-  const link = WORKER_URL + "/p/" + address;
+  const link = SHARE_URL + "/p/" + address;
   const tone = total > 0.005 ? C.positive : total < -0.005 ? C.negative : C.textPrimary;
   const text = "My profit/loss on DraftGem: " + formatUsd(total) + " (" + PNL_PERIOD_LABEL[period] + ")";
 
@@ -74,9 +75,10 @@ export function PnlShareModal({
     }
   };
 
+  const offset = useOverlayOffset();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={[styles.backdrop, OVERLAY_BLUR, { paddingLeft: 16 + offset }]} onPress={onClose}>
         <Pressable style={styles.dialog} onPress={() => {}}>
           <View style={styles.head}>
             <Text style={styles.title}>Share Profit/Loss Chart</Text>

@@ -36,7 +36,7 @@ export function HomeNavigator() {
       <Tab.Navigator
         tabBar={(props) => <HomeTabBar {...props} />}
         screenOptions={({ route }) => ({
-          header: () => <TopBar phase={PHASES[route.name]} />,
+          header: () => <TopBar phase={PHASES[route.name]} title={route.name} />,
         })}
       >
         <Tab.Screen name="Lobby" component={LobbyScreen} />

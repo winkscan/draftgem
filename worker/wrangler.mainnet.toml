@@ -6,14 +6,32 @@ main = "src/index.ts"
 compatibility_date = "2026-09-18"
 compatibility_flags = ["nodejs_compat"]
 
+# Both old and new app builds call this worker on workers.dev, so it must stay on.
+workers_dev = true
+# The shareable links live on the brand domain; the rest of draftgem.app is the landing page (Pages).
+routes = [
+  { pattern = "draftgem.app/t/*", zone_name = "draftgem.app" },
+  { pattern = "draftgem.app/p/*", zone_name = "draftgem.app" },
+]
+
 [vars]
 NETWORK = "mainnet"
+# Origin of the shareable /t/ and /p/ links handed out by the worker.
+PUBLIC_URL = "https://draftgem.app"
+# The browser app: the share pages' "Play" button and the only browser origin /rpc accepts.
+PLAY_URL = "https://play.draftgem.app"
 # Players may create their own tournaments (within the mainnet fee limits). "off" switches it off again.
 PLAYER_TOURNAMENTS = "on"
 TREASURY_WALLET = "BAZrwd5FoT9s3S3MMpm8ZqCe3E5uXkHv5srS9Ybik8oL"
 
 [triggers]
 crons = ["* * * * *"]
+
+# /rpc spends our Helius credits: at most this many calls a minute from one IP (a player's app needs far fewer).
+[[ratelimits]]
+name = "RPC_LIMITER"
+namespace_id = "1001"
+simple = { limit = 300, period = 60 }
 
 [[kv_namespaces]]
 binding = "CACHE"

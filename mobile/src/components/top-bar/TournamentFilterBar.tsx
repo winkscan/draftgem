@@ -2,6 +2,7 @@ import { StyleSheet, View } from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import { useTournamentFilters } from "../TournamentFiltersContext";
 import { SelectPill } from "./SelectPill";
+import { useIsDesktop } from "../../utils/desktop";
 import {
   ENTRY_OPTIONS,
   PAYOUT_CHIPS,
@@ -57,15 +58,17 @@ export function TournamentFilterTabs() {
 // row underneath (three pills side by side got cramped: their labels are long enough to ellipsize badly).
 export function TournamentFilterSelects({ phase }: { phase: TournamentPhase }) {
   const { filters, setFilter } = useTournamentFilters();
+  const desktop = useIsDesktop();
+  const period = <SelectPill title="PERIOD" value={filters.timeRange} options={TIME_RANGE_OPTIONS} onChange={(k) => setFilter("timeRange", k)} />;
   return (
     <View>
+      {/* Desktop: all three selects fit on one row. */}
       <View style={styles.selects}>
         <SelectPill title="SORT BY" value={filters.sort} options={sortOptions(phase)} onChange={(k) => setFilter("sort", k)} />
         <SelectPill title="ENTRY" value={filters.entry} options={ENTRY_OPTIONS} onChange={(k) => setFilter("entry", k)} />
+        {desktop ? period : null}
       </View>
-      <View style={styles.selects}>
-        <SelectPill title="PERIOD" value={filters.timeRange} options={TIME_RANGE_OPTIONS} onChange={(k) => setFilter("timeRange", k)} />
-      </View>
+      {desktop ? null : <View style={styles.selects}>{period}</View>}
     </View>
   );
 }
@@ -94,5 +97,4 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: C.accent, borderColor: C.accent },
   chipText: { color: C.textPrimary, fontSize: 12.5, fontWeight: "600" },
   chipTextActive: { color: C.accentTextOn, fontWeight: "800" },
-  selects: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 16, backgroundColor: C.bg },
-});
+  selects: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 16, backgroundColor: C.bg },});

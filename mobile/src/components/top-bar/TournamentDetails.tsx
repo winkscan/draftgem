@@ -9,7 +9,7 @@ import { formatCountdown, formatDuration } from "../../pumpfantasy/format";
 import { payoutStructureOf, tournamentTitle } from "../../pumpfantasy/tournamentFilters";
 import { tournamentDisplayName } from "../../pumpfantasy/tournamentNames";
 import { getTournamentPhase } from "../../pumpfantasy/tournamentPhase";
-import { WORKER_URL } from "../../pumpfantasy/config";
+import { SHARE_URL } from "../../pumpfantasy/config";
 import { finishedStatusLabel } from "../../pumpfantasy/hooks";
 import { ModeBadges, PayoutBadge } from "../ModeBadge";
 import { PF_COLORS as C } from "../../theme";
@@ -51,7 +51,7 @@ export function TournamentDetails({
         : ["Status", finishedStatusLabel(t)];
 
   const copyLink = async () => {
-    const url = `${WORKER_URL}/t/${t.id.toString()}`;
+    const url = `${SHARE_URL}/t/${t.id.toString()}`;
     try {
       const Clipboard = require("expo-clipboard");
       await Clipboard.setStringAsync(url);

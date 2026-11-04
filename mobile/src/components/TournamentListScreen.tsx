@@ -13,7 +13,7 @@ import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfa
 import { tournamentDayLabel, tournamentDisplayName } from "../pumpfantasy/tournamentNames";
 import { getTournamentPhase, type TournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { payoutStructureOf, tournamentTitle } from "../pumpfantasy/tournamentFilters";
-import { WORKER_URL } from "../pumpfantasy/config";
+import { SHARE_URL } from "../pumpfantasy/config";
 import { CurrencyIcon } from "./CurrencyIcon";
 import { EmptyState } from "./EmptyState";
 import { ModeBadges, PayoutBadge } from "./ModeBadge";
@@ -22,6 +22,7 @@ import { useTournamentFilters } from "./TournamentFiltersContext";
 import { applyTournamentFilters, isDefaultFilters } from "../pumpfantasy/tournamentFilters";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 type Row = { publicKey: PublicKey; account: TournamentAccount };
 
@@ -37,6 +38,7 @@ function ResetButton({ onPress }: { onPress: () => void }) {
 }
 
 export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPhase; emptyText: string }) {
+  const edgeScroll = useWindowEdgeScroll();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { data: tournaments, isLoading, isError, error, refetch } = useTournaments();
   const { selectedAccount } = useAuthorization();
@@ -126,7 +128,7 @@ export function TournamentListScreen({ phase, emptyText }: { phase: TournamentPh
   return (
     <>
       <FlatList
-        style={styles.list}
+        style={[styles.list, edgeScroll]}
         contentContainerStyle={styles.listContent}
         data={filtered}
         keyExtractor={(row) => row.publicKey.toBase58()}
@@ -240,7 +242,7 @@ function TournamentCard({
   }
 
   const copyLink = async () => {
-    const url = `${WORKER_URL}/t/${t.id.toString()}`;
+    const url = `${SHARE_URL}/t/${t.id.toString()}`;
     try {
       const Clipboard = require("expo-clipboard");
       await Clipboard.setStringAsync(url);
@@ -307,8 +309,7 @@ const styles = StyleSheet.create({
   },
   resetText: { color: "#000000", fontWeight: "800", fontSize: 14 },
   list: { flex: 1, backgroundColor: C.bg },
-  listContent: { padding: 16, gap: 12, flexGrow: 1 },
-  card: {
+  listContent: { padding: 16, gap: 12, flexGrow: 1 },  card: {
     backgroundColor: C.card,
     borderRadius: 16,
     borderWidth: 1,

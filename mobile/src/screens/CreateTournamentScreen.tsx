@@ -36,6 +36,7 @@ import { PulseBadge } from "../components/PulseBadge";
 import { ensureHasSol } from "../pumpfantasy/balanceCheck";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
+import { DESKTOP_BAR, OVERLAY_BLUR, useIsDesktop, useOverlayOffset, useWindowEdgeScroll } from "../utils/desktop";
 
 const CURRENCY_PRESETS: Record<Currency, string[]> = {
   SKR: ["50", "100", "500", "1000", "5000"],
@@ -62,6 +63,9 @@ const timeLabel = (seconds: number) => [...TIME_OPTIONS, ...DURATION_OPTIONS].fi
 export function CreateTournamentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
+  const overlayOffset = useOverlayOffset();
+  const desktop = useIsDesktop();
+  const edgeScroll = useWindowEdgeScroll();
   const { connection } = useConnection();
   const { selectedAccount } = useAuthorization();
   const { connect, signAndSendTransaction } = useMobileWallet();
@@ -185,7 +189,7 @@ export function CreateTournamentScreen() {
   if (failed) {
     return (
       <View style={styles.screen}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
         <PulseBadge style={[styles.doneBadge, styles.failBadge]}>
           <FontAwesome6 name="xmark" size={28} color={C.textPrimary} />
         </PulseBadge>
@@ -210,7 +214,7 @@ export function CreateTournamentScreen() {
     const { result } = created;
     return (
       <View style={styles.screen}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
         <PulseBadge style={styles.doneBadge}>
           <FontAwesome6 name="check" size={26} color={C.accent2TextOn} />
         </PulseBadge>
@@ -266,7 +270,7 @@ export function CreateTournamentScreen() {
 
   return (
     <View style={styles.screen}>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {!earnHidden ? (
       <View style={styles.earnBanner}>
         <Pressable style={styles.earnClose} hitSlop={10} onPress={() => setConfirmHide(true)}>
@@ -412,7 +416,7 @@ export function CreateTournamentScreen() {
     </ScrollView>
 
     <Modal visible={confirmHide} transparent animationType="fade" onRequestClose={() => setConfirmHide(false)}>
-      <View style={styles.dialogBackdrop}>
+      <View style={[styles.dialogBackdrop, OVERLAY_BLUR, { paddingLeft: 32 + overlayOffset }]}>
         <View style={styles.dialog}>
           <Text style={styles.dialogTitle}>Hide this block?</Text>
           <Text style={styles.dialogText}>You won't see this block again.</Text>
@@ -428,7 +432,7 @@ export function CreateTournamentScreen() {
       </View>
     </Modal>
 
-    <View style={styles.footer}>
+    <View style={[styles.footer, desktop ? DESKTOP_BAR : undefined]}>
       <TouchableRipple
         style={[styles.primary, styles.createButton, !ready ? styles.createDisabled : undefined, busy ? styles.disabled : undefined]}
         borderless

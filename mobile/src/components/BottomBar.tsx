@@ -1,10 +1,12 @@
 import { StyleSheet, View } from "react-native";
 import { PF_COLORS as C } from "../theme";
+import { DESKTOP_BAR, useIsDesktop } from "../utils/desktop";
 
 // The strip pinned to the bottom of a screen that holds its main buttons: same as the draft page's
 // Enter footer, so every result / form screen ends the same way.
 export function BottomBar({ children }: { children: React.ReactNode }) {
-  return <View style={styles.bar}>{children}</View>;
+  const desktop = useIsDesktop();
+  return <View style={[styles.bar, desktop ? DESKTOP_BAR : undefined]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({

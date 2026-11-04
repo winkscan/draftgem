@@ -13,9 +13,11 @@ import { EmptyState } from "../components/EmptyState";
 import { PulseBadge } from "../components/PulseBadge";
 import type { RootStackParamList } from "../navigators/AppNavigator";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 // My Profile: the connected wallet's address and four numbers about how I've played.
 export function ProfileScreen() {
+  const edgeScroll = useWindowEdgeScroll();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { selectedAccount, clearAuthorization } = useAuthorization();
   const { disconnect } = useMobileWallet();
@@ -45,7 +47,7 @@ export function ProfileScreen() {
   if (signedOut) {
     return (
       <View style={styles.screen}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
           <PulseBadge style={styles.doneBadge}>
             <FontAwesome6 name="door-open" size={26} color={C.accent2TextOn} />
           </PulseBadge>
@@ -73,7 +75,7 @@ export function ProfileScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
         <PnlCard events={stats?.events ?? []} address={address} />
 
         <View style={styles.grid}>

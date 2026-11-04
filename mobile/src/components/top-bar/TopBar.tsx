@@ -9,7 +9,7 @@ import { useConnection } from "../../utils/ConnectionProvider";
 import { CURRENCIES, formatAmountCompact } from "../../pumpfantasy/currency";
 import { useSkrBalance } from "../../pumpfantasy/tokenBalance";
 import { CurrencyIcon } from "../CurrencyIcon";
-import { UpdateBadge } from "./UpdateBadge";
+import { useIsDesktop } from "../../utils/desktop";
 import { TournamentFilterSelects, TournamentFilterTabs } from "./TournamentFilterBar";
 import { TournamentDetails } from "./TournamentDetails";
 import { useNavigation } from "@react-navigation/native";
@@ -24,9 +24,12 @@ import { PF_COLORS as C } from "../../theme";
 // page once connected.
 export function TopBar({
   phase,
+  title,
   tournament,
 }: {
   phase?: TournamentPhase;
+  /** The page's name, shown on the desktop layout (the phone layout shows the logo instead). */
+  title?: string;
   /** A tournament's own page: shows its details (and a back button) instead of the lobby's filters. */
   tournament?: {
     account: TournamentAccount;
@@ -36,6 +39,7 @@ export function TopBar({
   };
 }) {
   const navigation = useNavigation();
+  const desktop = useIsDesktop();
   const { selectedAccount } = useAuthorization();
   const { connect } = useMobileWallet();
   const { connection } = useConnection();
@@ -45,7 +49,12 @@ export function TopBar({
   return (
     <View>
       <View style={styles.panel}>
-        {tournament ? null : (
+        {tournament ? null : desktop ? (
+          // Desktop: the logo and the wallet live in the sidebar (navigators/DesktopFrame.tsx), the bar just names the page.
+          <View style={styles.bar}>
+            <Text style={styles.pageTitle}>{title}</Text>
+          </View>
+        ) : (
           <View style={styles.bar}>
             <View style={styles.left}>
               <DraftGemLogo height={28} />
@@ -56,7 +65,6 @@ export function TopBar({
               ) : null}
             </View>
             <View style={styles.right}>
-              <UpdateBadge />
               <View>
                 <TouchableRipple style={[styles.pill, !selectedAccount ? styles.pillSignedOut : undefined]} onPress={selectedAccount ? () => navigation.navigate("Profile") : connect} borderless>
                   {selectedAccount ? (
@@ -94,7 +102,8 @@ export function TopBar({
             tournament={tournament.account}
             meta={tournament.meta}
             onOpenInfo={tournament.onOpenInfo}
-            onBack={() => navigation.goBack()}
+            // Opened straight from a shared link (a browser tab on the web) there is nothing to go back to: go to the Lobby.
+            onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate("HomeStack"))}
             tabs={tournament.tabs}
           />
         ) : phase ? (
@@ -118,6 +127,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  pageTitle: { color: C.textOnHeader, fontWeight: "800", fontSize: 22, paddingVertical: 6 },
   left: { flexDirection: "row", alignItems: "center", gap: 6 },
   right: { flexDirection: "row", alignItems: "center", gap: 4 },
   beta: { borderRadius: 999, backgroundColor: C.glassStrong, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 6 },

@@ -4,6 +4,7 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { BottomBar } from "./BottomBar";
 import { PulseBadge } from "./PulseBadge";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 // Shown when entering a tournament didn't go through (payment cancelled in the wallet, or an error),
 // the same page as when creating a tournament fails. The drafted portfolio is still there behind it.
@@ -18,9 +19,10 @@ export function EntryFailure({
   buttonLabel?: string;
   onBack: () => void;
 }) {
+  const edgeScroll = useWindowEdgeScroll();
   return (
     <View style={styles.screen}>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
       <PulseBadge style={styles.badge}>
         <FontAwesome6 name="xmark" size={28} color={C.textPrimary} />
       </PulseBadge>

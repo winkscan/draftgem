@@ -21,6 +21,7 @@ import { currencyForMint, decimalsForMint, formatAmountCompact } from "../pumpfa
 import { getTournamentPhase } from "../pumpfantasy/tournamentPhase";
 import { PAYOUT_CHOICES, useTournamentMeta, type PayoutChoice } from "../pumpfantasy/customTournaments";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 interface Row {
   key: string;
@@ -41,6 +42,7 @@ interface Row {
 // current prices (refreshed every 25s, see livePrices.ts); once the round is
 // over the submitted end prices are used instead.
 export function LeaderboardScreen() {
+  const edgeScroll = useWindowEdgeScroll();
   const route = useRoute();
   const { tournamentId } = route.params as { tournamentId: string };
   const id = BigInt(tournamentId);
@@ -250,7 +252,7 @@ export function LeaderboardScreen() {
       ) : null}
 
       <FlatList
-        style={styles.list}
+        style={[styles.list, edgeScroll]}
         contentContainerStyle={styles.listContent}
         data={rows}
         keyExtractor={(r) => r.key}

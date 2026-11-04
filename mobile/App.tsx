@@ -1,4 +1,5 @@
 import "./src/polyfills";
+import "./src/utils/webStyles";
 
 import { useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
@@ -12,6 +13,7 @@ import { ClusterProvider } from "./src/components/cluster/cluster-data-access";
 import { Shell } from "./src/utils/Chrome";
 import { AppNavigator } from "./src/navigators/AppNavigator";
 import { AnimatedSplash } from "./src/components/AnimatedSplash";
+import { WalletHost } from "./src/components/WalletHost";
 import { pumpFantasyTheme, PF_COLORS } from "./src/theme";
 
 const queryClient = new QueryClient();
@@ -56,6 +58,7 @@ export default function App() {
               <AnimatedSplash>
                 <PaperProvider theme={pumpFantasyTheme}>
                   <AppNavigator navTheme={combinedNavTheme} />
+                  <WalletHost />
                 </PaperProvider>
               </AnimatedSplash>
             </Shell>

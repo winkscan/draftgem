@@ -26,6 +26,12 @@ export interface Env {
   NETWORK?: string;
   // "on" lets players create their own tournaments on mainnet (see limits.ts).
   PLAYER_TOURNAMENTS?: string;
+  // Origin for the shareable /t/ and /p/ links (e.g. "https://draftgem.app", routed to this worker). Unset = the request's own origin.
+  PUBLIC_URL?: string;
+  // The browser app (e.g. "https://play.draftgem.app"): the share pages' "Play" button, and the only origin allowed to call /rpc from a browser.
+  PLAY_URL?: string;
+  // Per-IP cap on /rpc (wrangler.mainnet.toml [[ratelimits]]); absent on devnet = no cap.
+  RPC_LIMITER?: RateLimit;
   // The owner's own wallet: the platform's token revenue is swept there (treasury.ts). Unset = never swept.
   TREASURY_WALLET?: string;
   ADMIN_TOKEN?: string;

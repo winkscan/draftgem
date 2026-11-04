@@ -54,6 +54,11 @@
   .btn-green:hover { background: #45f5ad; }
   .btn-purple { background: var(--purple); color: #fff; }
   .btn-purple:hover { background: var(--purple-hi); }
+  .btn-white { background: #fff; color: #000; }
+  .btn-white:hover, .nav-links a.btn-white, .nav-links a.btn-white:hover { color: #000; }
+  .btn-white:hover { background: #ececf1; }
+  .nav-links a.btn-green, .nav-links a.btn-green:hover { color: var(--green-ink); }
+  .nav-cta { gap: 10px; }
   .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
   .btn-ghost:hover { border-color: rgba(236,228,253,.4); }
   .btn.is-disabled { opacity: .45; cursor: not-allowed; pointer-events: none; filter: grayscale(.4); }
@@ -203,11 +208,9 @@
 <nav>
   <div class="wrap">
     <a class="brand" href="#top"><img src="assets/logo.svg" alt="DraftGem"></a>
-    <div class="nav-links">
-      <a class="hide-sm" href="#draft">How it works</a>
-      <a class="hide-sm" href="#ai">AI portfolio</a>
-      <a class="hide-sm" href="#prizes">Prizes</a>
-      <span class="btn btn-green btn-sm is-disabled" aria-disabled="true" title="Coming soon">Get the app</span>
+    <div class="nav-links nav-cta">
+      <a class="btn btn-white btn-sm" href="https://play.draftgem.app">Play</a>
+      <a class="btn btn-green btn-sm js-get" href="#get">Get the app</a>
     </div>
   </div>
 </nav>
@@ -218,10 +221,11 @@
     <h1>Pick 5 coins. Beat the field.<br><span class="grad">Get paid on-chain.</span></h1>
     <p class="lead">DraftGem is <b>a skill game for people who know crypto</b>. Show your market knowledge: draft five Solana coins inside a 4,000 FP budget, enter a tournament in <b>SKR, SOL, ORE or USDC</b>, and watch the standings live. An <b>AI</b> can build your portfolio for you.</p>
     <div class="cta-row">
-      <span class="btn btn-green is-disabled" aria-disabled="true" title="Coming soon">
+      <a class="btn btn-white" href="https://play.draftgem.app">Play</a>
+      <a class="btn btn-green js-get" href="#get">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2l1.5 3H15.5L17 2h1.7L17.2 5.1A7 7 0 0 1 20 11H4a7 7 0 0 1 2.8-5.9L5.3 2H7zm2 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM4 12h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/></svg>
-        Get the Android app
-      </span>
+        Get the app
+      </a>
       <a class="btn btn-ghost" href="#draft">How it works</a>
     </div>
   </div>
@@ -402,12 +406,12 @@
   <div class="wrap reveal">
     <div class="final-card">
       <h2>Ready to draft your first portfolio?</h2>
-      <p>Download DraftGem, connect your Solana wallet and join a tournament in a minute.</p>
+      <p>Play in your browser, or get DraftGem from the Solana dApp Store on your Seeker. Connect your Solana wallet and join a tournament in a minute.</p>
       <div class="cta-row">
-        <span class="btn btn-green is-disabled" aria-disabled="true" title="Coming soon">Get the Android app</span>
-        <a class="btn btn-ghost" href="#draft">See how it works</a>
+        <a class="btn btn-white" href="https://play.draftgem.app">Play</a>
+        <a class="btn btn-green js-get" href="#get">Get the app</a>
       </div>
-      <p class="soon">Coming soon · Android · Solana Mobile · Mobile Wallet Adapter</p>
+      <p class="soon">Web · Solana dApp Store · Mobile Wallet Adapter</p>
     </div>
   </div>
 </section>
@@ -416,7 +420,7 @@
   <div class="wrap">
     <div class="row">
       <a class="brand" href="#top"><img src="assets/mark.svg" alt="" style="height:26px"><span>DraftGem</span></a>
-      <div class="links"><a href="#draft">How it works</a><a href="#earn">Earn</a><a href="#ai">AI</a><a href="#prizes">Prizes</a></div>
+      <div class="links"><a href="#draft">How it works</a><a href="#earn">Earn</a><a href="#ai">AI</a><a href="#prizes">Prizes</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></div>
       <span>© 2026 DraftGem</span>
     </div>
     <p class="legal">DraftGem is a game of skill in beta. Only use money you can afford to lose. You must be of legal age in your country, and the app may not be available where such games are restricted. Nothing here is investment advice.</p>
@@ -424,6 +428,10 @@
 </footer>
 
 <script>
+  if (/Android/i.test(navigator.userAgent)) {
+    document.querySelectorAll(".js-get").forEach((a) => { a.href = "solanadappstore://details?id=app.draftgem"; });
+  }
+
   // marquee: duplicate the chips for a seamless loop
   const track = document.getElementById("track");
   track.innerHTML += track.innerHTML;

@@ -5,9 +5,10 @@ import { Portal } from "react-native-paper";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useChrome } from "../utils/Chrome";
+import { useIsDesktop } from "../utils/desktop";
 import { PF_COLORS as C } from "../theme";
 
-const ICONS: Record<string, string> = {
+export const TAB_ICONS: Record<string, string> = {
   Lobby: "trophy",
   Live: "tower-broadcast",
   Results: "flag-checkered",
@@ -17,9 +18,15 @@ const ICONS: Record<string, string> = {
 const FAB_SIZE = 56;
 const FAB_OVERHANG = 24; // how far the "+" button rises above the bar
 
+// The desktop layout has a sidebar instead (navigators/DesktopFrame.tsx).
+export function HomeTabBar(props: BottomTabBarProps) {
+  const desktop = useIsDesktop();
+  return desktop ? null : <PhoneTabBar {...props} />;
+}
+
 // Custom bottom bar: panel-coloured with rounded top corners, the tabs grouped
 // two-and-two around a raised green "+" that opens the create-tournament screen.
-export function HomeTabBar({ state, navigation }: BottomTabBarProps) {
+function PhoneTabBar({ state, navigation }: BottomTabBarProps) {
   const { homeFocused } = useChrome();
   const [barHeight, setBarHeight] = useState(0);
 
@@ -39,7 +46,7 @@ export function HomeTabBar({ state, navigation }: BottomTabBarProps) {
         accessibilityState={{ selected: focused }}
         accessibilityLabel={route.name}
       >
-        <FontAwesome6 name={ICONS[route.name] ?? "circle"} size={17} color={focused ? C.accent : C.textSecondary} />
+        <FontAwesome6 name={TAB_ICONS[route.name] ?? "circle"} size={17} color={focused ? C.accent : C.textSecondary} />
         <Text style={[styles.label, { color: focused ? C.textPrimary : C.textSecondary }]}>{route.name}</Text>
       </Pressable>
     );

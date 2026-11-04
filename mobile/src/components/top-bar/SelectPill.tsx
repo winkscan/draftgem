@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { PF_COLORS as C } from "../../theme";
+import { OVERLAY_BLUR, useIsDesktop, useOverlayOffset } from "../../utils/desktop";
 
 // A pill that shows the current choice and opens a bottom sheet with the
 // options — same look as the reference mockup's select, dark-themed.
@@ -18,6 +19,8 @@ export function SelectPill<K extends string>({
   onChange: (key: K) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const desktop = useIsDesktop();
+  const offset = useOverlayOffset();
   const current = options.find((o) => o.key === value) ?? options[0];
 
   return (
@@ -32,8 +35,11 @@ export function SelectPill<K extends string>({
       </TouchableRipple>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <Pressable style={styles.sheet}>
+        <Pressable
+          style={[styles.backdrop, OVERLAY_BLUR, desktop ? styles.backdropDesktop : undefined, desktop ? { paddingLeft: 16 + offset } : undefined]}
+          onPress={() => setOpen(false)}
+        >
+          <Pressable style={[styles.sheet, desktop ? styles.sheetDesktop : undefined]}>
             <Text style={styles.sheetTitle}>{title}</Text>
             {options.map((o) => {
               const selected = o.key === value;
@@ -87,6 +93,9 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 28,
   },
+  // Desktop: a small centred menu instead of a sheet from the bottom edge of the browser window.
+  backdropDesktop: { justifyContent: "center", alignItems: "center", padding: 16 },
+  sheetDesktop: { width: "100%", maxWidth: 380, borderRadius: 24, paddingBottom: 16, borderWidth: 1, borderColor: C.cardBorder },
   sheetTitle: { color: C.textSecondary, fontSize: 12, fontWeight: "700", marginBottom: 8, marginLeft: 8, letterSpacing: 0.6 },
   option: { borderRadius: 14 },
   optionSelected: { backgroundColor: C.glassStrong },

@@ -1,8 +1,6 @@
 import nacl from "tweetnacl";
 import type { Env } from "./env";
-import { ageDaysFromCreatedAt } from "./tokenDiscovery";
-import { effectiveMarketCap, loadUnderlyingMarketCaps } from "./bridgedAssets";
-import { classify, loadVolMap } from "./volatility";
+import { getAllCandidates } from "./tokenDiscovery";
 
 // Signs a short-lived attestation of each picked mint's real fp_cost (its
 // volatility group), so `enter_tournament` can verify the budget on-chain without ever
@@ -13,21 +11,6 @@ import { classify, loadVolMap } from "./volatility";
 
 const ATTESTATION_TTL_SECONDS = 120; // generous enough to cover picking + confirming, short enough a stale one can't be replayed hours later
 
-interface JupiterToken {
-  id: string;
-  usdPrice?: number;
-  mcap?: number;
-  firstPool?: { createdAt?: string };
-}
-
-async function lookupMints(mints: string[]): Promise<Map<string, JupiterToken>> {
-  const res = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${mints.join(",")}`);
-  const data = res.ok ? ((await res.json()) as JupiterToken[]) : [];
-  const byMint = new Map<string, JupiterToken>();
-  for (const t of data) byMint.set(t.id, t);
-  return byMint;
-}
-
 export interface AttestedPick {
   mint: string;
   fpCost: number;
@@ -36,7 +19,7 @@ export interface AttestedPick {
 
 export class UnknownMintError extends Error {
   constructor(public mint: string) {
-    super(`Unknown or unpriced mint: ${mint}`);
+    super(`This coin is not in the tournament list right now: ${mint}. Refresh the list and pick again.`);
   }
 }
 
@@ -52,20 +35,21 @@ export class BudgetExceededError extends Error {
   }
 }
 
-/** Real fp_cost for each requested mint, computed fresh — never trusts a client-supplied value. */
+/**
+ * Real fp_cost for each requested mint, computed fresh — never trusts a client-supplied value.
+ *
+ * Only coins in the browsable pool can be priced: it is the very list the Draft screen and the AI portfolio
+ * priced the coins from (shared 10-minute cache), so the signed price matches what the player was shown.
+ * Anything else is refused. Signing any mint Jupiter knows would let a player bypass the app and enter with a
+ * token of their own in a tiny pool, then move its price at the round's start or end — the pool's liquidity
+ * and market-cap floor (tokenDiscovery.ts) is what makes the settlement prices hard to push.
+ */
 export async function computeFpCosts(mints: string[], env: Env): Promise<AttestedPick[]> {
-  const [byMint, underlying, vols] = await Promise.all([
-    lookupMints(mints),
-    loadUnderlyingMarketCaps(env),
-    loadVolMap(env),
-  ]);
+  const pool = new Map((await getAllCandidates(env)).map((c) => [c.mint, c]));
   return mints.map((mint) => {
-    const token = byMint.get(mint);
-    if (!token || !token.mcap) throw new UnknownMintError(mint);
-    const createdAt = token.firstPool?.createdAt;
-    const ageDays = createdAt ? ageDaysFromCreatedAt(createdAt) : 365;
-    const { tier } = classify(mint, effectiveMarketCap(mint, token.mcap, underlying), ageDays, vols);
-    return { mint, fpCost: tier.fpCost, tier: tier.name };
+    const c = pool.get(mint);
+    if (!c) throw new UnknownMintError(mint);
+    return { mint, fpCost: c.fpCost, tier: c.tier };
   });
 }
 

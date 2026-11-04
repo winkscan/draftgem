@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy · DraftGem</title>
+<meta name="description" content="What DraftGem does and does not collect: no accounts, no ads, no tracking. Your wallet address and game activity are public on the Solana blockchain.">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="assets/logo.svg" alt="DraftGem"></a>
+    <div class="nav-links">
+      <a class="hide-sm" href="terms.html">Terms of Use</a>
+      <a class="btn" href="index.html">Back to site</a>
+    </div>
+  </div>
+</nav>
+
+<main class="doc">
+  <div class="eyebrow">Legal</div>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Last updated: 2 November 2026 · Applies to the DraftGem Android app and draftgem.app</p>
+
+  <div class="summary">
+    <h2>The short version</h2>
+    <ul>
+      <li><b>No account.</b> We don't ask for your name, email, phone number or ID. You connect a Solana wallet.</li>
+      <li><b>No keys.</b> Your wallet app signs everything. We never see your seed phrase or private key.</li>
+      <li><b>No ads, no analytics, no tracking.</b> The app contains no advertising or analytics SDKs.</li>
+      <li><b>Public by design.</b> Your wallet address and your tournament entries and prizes are recorded on the Solana blockchain. Anyone can see them, and we cannot hide or delete them.</li>
+    </ul>
+  </div>
+
+  <h2>1. What we process</h2>
+
+  <h3>Wallet address and on-chain activity</h3>
+  <p>When you connect, the app learns your wallet's public address from your wallet app. Tournaments, entries, scores and prizes are stored on the Solana blockchain, and the app reads them directly from the network to show you your portfolios and results. This is public blockchain data.</p>
+
+  <h3>What the app sends to our servers</h3>
+  <ul>
+    <li><b>Entering a tournament:</b> the five coins you picked, so our server can sign their current Fantasy Point prices. This request does not include your wallet address.</li>
+    <li><b>AI portfolio:</b> the risk level you chose, the coins already shown to you, and your wallet address (used only to apply the daily free-use limit for that wallet).</li>
+    <li><b>Creating a tournament:</b> your wallet address, the tournament's name, whether it is public or private, its schedule and currency. We store these so the tournament can be listed in the app, for as long as it is listed.</li>
+    <li><b>Browsing:</b> the app asks our server for the list of coins, tournament names and archived results. These requests carry no personal data beyond what any web request carries (see next point).</li>
+  </ul>
+
+  <h3>IP address</h3>
+  <p>Every request to our server reaches it through Cloudflare, which sees the IP address of your connection. We use it for one thing: when you generate an AI portfolio, a counter (per wallet, or per IP address if no wallet is connected) enforces a daily limit. These counters are deleted automatically within two days. We do not build profiles from IP addresses. Cloudflare may keep standard server logs under its own policy.</p>
+
+  <h3>On your device</h3>
+  <p>The app stores a few small items on your phone: the connection to your wallet (its address and the authorization token your wallet issued), whether you dismissed the intro and a tip banner, and the price and category of the coins in portfolios you entered, so they display as you drafted them. These are removed when you disconnect or uninstall the app.</p>
+
+  <h2>2. Third parties</h2>
+  <p>DraftGem relies on the services below. Each has its own privacy policy, and some see your device's IP address when the app contacts them.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Service</th><th>What it is used for</th><th>What it receives</th></tr>
+    <tr><td><b>Your wallet app</b> (the Seeker's built-in wallet, Phantom, Solflare, Backpack, ...)</td><td>Holds your keys and signs transactions</td><td>Transactions you approve</td></tr>
+    <tr><td><b>Solana network and an RPC provider</b> (Helius)</td><td>Reading and sending blockchain transactions. Our server forwards the app's requests to the provider.</td><td>Public blockchain requests; the provider sees our server, not your device</td></tr>
+    <tr><td><b>DexScreener, Jupiter, GeckoTerminal</b></td><td>Coin prices, charts and coin details; coin images</td><td>The coin you look at, and your device's IP address</td></tr>
+    <tr><td><b>Google (Gemini) and Anthropic (Claude)</b></td><td>Building an AI portfolio</td><td>A shortlist of coins and the risk level. Never your wallet address or personal information.</td></tr>
+    <tr><td><b>Cloudflare</b></td><td>Hosts our backend and this website</td><td>Requests to our server, including IP addresses</td></tr>
+    <tr><td><b>Expo (EAS Update)</b></td><td>Delivering app updates over the air</td><td>The app version and device information needed to deliver an update</td></tr>
+    <tr><td><b>Solscan, Solana Explorer</b></td><td>Only when you tap a link to a transaction</td><td>Whatever their sites collect; their policies apply</td></tr>
+  </table>
+  </div>
+
+  <h2>3. How long we keep things</h2>
+  <ul>
+    <li><b>On the blockchain:</b> forever. We have no ability to change or erase it.</li>
+    <li><b>Tournament details you created</b> (name, visibility, schedule, your address): while the tournament is listed in the app.</li>
+    <li><b>AI usage counters:</b> up to two days.</li>
+    <li><b>On your device:</b> until you disconnect or uninstall.</li>
+  </ul>
+
+  <h2>4. Security</h2>
+  <p>We keep the platform's keys on a server, away from the app, and the app never handles your keys. We take reasonable steps to protect what we store, but no system is perfectly secure. DraftGem is a beta.</p>
+
+  <h2>5. Age</h2>
+  <p>DraftGem is for adults only. It is not intended for anyone under 18 (or under the legal age of majority where you live, if that is higher), and we do not knowingly process data of children.</p>
+
+  <h2>6. Your choices and rights</h2>
+  <p>There is no account to close. You can disconnect your wallet in the app at any time and uninstall it to remove the data on your device.</p>
+  <p>If you want us to delete off-chain information tied to your wallet, such as the name of a tournament you created, contact us at the address below. If you are in the EU or EEA you also have the right to access, correct, restrict or object to our processing of your personal data, and to complain to your local data protection authority. We cannot alter or delete data that is recorded on the Solana blockchain.</p>
+
+  <h2>7. Changes</h2>
+  <p>If we change this policy, we will update the date at the top. Material changes will be announced in the app or on <a class="link" href="index.html">draftgem.app</a>.</p>
+
+  <h2>8. Contact</h2>
+  <p>Questions or requests about privacy: <!--email_off--><a class="link" href="mailto:team@draftgem.app">team@draftgem.app</a><!--/email_off--></p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <a class="brand" href="index.html"><img src="assets/mark.svg" alt="" style="height:26px"><span>DraftGem</span></a>
+      <div class="links"><a href="index.html">Home</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></div>
+      <span>© 2026 DraftGem</span>
+    </div>
+    <p class="legal">DraftGem is a game of skill in beta. Only use money you can afford to lose. You must be of legal age in your country, and the app may not be available where such games are restricted. Nothing here is investment advice.</p>
+  </div>
+</footer>
+
+</body>
+</html>

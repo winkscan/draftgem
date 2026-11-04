@@ -1,10 +1,13 @@
 import { Fragment, useMemo, useRef, useState } from "react";
-import { PanResponder, StyleSheet, View } from "react-native";
+import { PanResponder, Platform, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import Svg, { Defs, LinearGradient, Stop, Path, Line, Circle, Text as SvgText } from "react-native-svg";
 import type { PricePoint } from "../pumpfantasy/chartData";
 import { formatPrice } from "../pumpfantasy/format";
-import { PF_COLORS as C } from "../theme";
+import { PF_COLORS as C, WEB_FONT } from "../theme";
+
+// SVG text has no default font in a browser (it falls back to serif); the rest of the UI uses the system font.
+const SVG_FONT = Platform.OS === "web" ? WEB_FONT : undefined;
 
 // The chart fills whatever space it is given, edge to edge: every label sits inside the plot, over
 // the gridlines / the filled area, and the fill runs down to the bottom edge.
@@ -102,7 +105,7 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
             return (
               <Fragment key={k}>
                 <Line x1={0} x2={width} y1={y} y2={y} stroke={C.cardBorder} strokeWidth={1} />
-                <SvgText x={8} y={y - 4} fontSize={9} fill={C.textSecondary} textAnchor="start">
+                <SvgText x={8} y={y - 4} fontSize={9} fill={C.textSecondary} textAnchor="start" fontFamily={SVG_FONT}>
                   {formatPrice(v)}
                 </SvgText>
               </Fragment>
@@ -121,6 +124,7 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
                 y={height - 10}
                 fontSize={9}
                 fill={C.textSecondary}
+                fontFamily={SVG_FONT}
                 textAnchor={k === 0 ? "start" : k === 3 ? "end" : "middle"}
                 dx={k === 0 ? 8 : k === 3 ? -8 : 0}
               >
@@ -130,8 +134,8 @@ export function PriceChart({ points, color }: { points: PricePoint[]; color: str
           })}
 
           {a == null ? (
-            <SvgText x={8} y={18} fontSize={11} fill={C.textSecondary}>
-              Touch and drag on the chart to see the price at any moment.
+            <SvgText x={8} y={18} fontSize={11} fill={C.textSecondary} fontFamily={SVG_FONT}>
+              {Platform.OS === "web" ? "Click and drag on the chart to see the price at any moment." : "Touch and drag on the chart to see the price at any moment."}
             </SvgText>
           ) : null}
 

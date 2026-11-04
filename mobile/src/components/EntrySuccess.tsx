@@ -4,11 +4,12 @@ import { Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import type { Candidate } from "../pumpfantasy/candidates";
 import type { TournamentAccount } from "../pumpfantasy/accounts";
-import { WORKER_URL } from "../pumpfantasy/config";
+import { SHARE_URL } from "../pumpfantasy/config";
 import { PortfolioCard, entryBadge } from "./PortfolioCard";
 import { BottomBar } from "./BottomBar";
 import { PulseBadge } from "./PulseBadge";
 import { PF_COLORS as C } from "../theme";
+import { useWindowEdgeScroll } from "../utils/desktop";
 
 // Shown after a successful entry, like the "Tournament created" page: a big pulsing check, the
 // congratulation, the portfolio just entered, the tournament link to copy, and where to go next.
@@ -26,8 +27,9 @@ export function EntrySuccess({
   /** Multiple tournaments only: back to the draft for another portfolio. */
   onAnother?: () => void;
 }) {
+  const edgeScroll = useWindowEdgeScroll();
   const [copied, setCopied] = useState(false);
-  const url = WORKER_URL + "/t/" + tournament.id.toString();
+  const url = SHARE_URL + "/t/" + tournament.id.toString();
 
   // Copies with expo-clipboard; if that native module isn't in this build, falls back to the share sheet.
   const copyLink = async () => {
@@ -43,7 +45,7 @@ export function EntrySuccess({
 
   return (
     <View style={styles.screen}>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.scroll, edgeScroll]} contentContainerStyle={styles.content}>
       <PulseBadge style={styles.badge}>
         <FontAwesome6 name="check" size={26} color={C.accent2TextOn} />
       </PulseBadge>

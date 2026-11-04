@@ -105,6 +105,9 @@ const STABLE_PEG_HIGH = 1.03;
 
 function isStablecoin(t: JupiterToken): boolean {
   if (STABLECOIN_SYMBOLS.has(t.symbol.toUpperCase())) return true;
+  // Wrapped and yield-bearing dollars / euros sit above the peg band (jlUSDC ~1.07, Jupiter Lend's receipt)
+  // and keep turning up under new names: anything with USD or EUR in its symbol is out too (user, 2026-11-04).
+  if (/USD|EUR/i.test(t.symbol)) return true;
   const price = t.usdPrice ?? 0;
   return price >= STABLE_PEG_LOW && price <= STABLE_PEG_HIGH;
 }

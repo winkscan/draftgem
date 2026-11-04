@@ -18,6 +18,14 @@
     "production": {
       "channel": "production",
       "node": "22.9.0"
+    },
+    "dappstore": {
+      "extends": "production",
+      "channel": "dappstore",
+      "node": "24.19.0",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

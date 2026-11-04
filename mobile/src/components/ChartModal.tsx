@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Linking, Modal, ScrollView, StyleSheet, View } from "react-native";
+import { Linking, ScrollView, StyleSheet, View } from "react-native";
+import { PageModal } from "./PageModal";
 import { ActivityIndicator, Text, TouchableRipple } from "react-native-paper";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +12,8 @@ import { TokenIcon } from "./TokenIcon";
 import { PriceChart } from "./PriceChart";
 import { EmptyState } from "./EmptyState";
 import { PF_COLORS as C } from "../theme";
+import { useIsDesktop } from "../utils/desktop";
+import { CloseButton } from "./CloseButton";
 
 // In-app coin details: a natively drawn price chart (candles from
 // GeckoTerminal's free API, see chartData.ts) and an About tab (the numbers we
@@ -20,6 +23,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
   const [range, setRange] = useState<ChartRange>("24H");
   const mint = candidate?.mint ?? null;
   const insets = useSafeAreaInsets();
+  const desktop = useIsDesktop();
 
   const { data: pool, isLoading: poolLoading } = usePoolAddress(mint);
   const { data: points, isLoading: seriesLoading, isError } = usePriceSeries(pool, range);
@@ -32,16 +36,18 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
   const color = up ? C.positive : C.negative;
 
   return (
-    <Modal visible={!!candidate} animationType="slide" onRequestClose={onClose}>
+    <PageModal visible={!!candidate} onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Header + tabs share one panel, same as the tournament popup: panel colour, rounded only at
             the bottom, content pushed below the status bar. */}
         <View style={styles.panel}>
           <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
             <View style={styles.headerLeft}>
-              <TouchableRipple style={styles.backButton} borderless onPress={onClose}>
-                <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
-              </TouchableRipple>
+              {desktop ? null : (
+                <TouchableRipple style={styles.backButton} borderless onPress={onClose}>
+                  <FontAwesome6 name="chevron-left" size={16} color={C.textPrimary} />
+                </TouchableRipple>
+              )}
               {candidate ? (
                 <TokenIcon mint={candidate.mint} icon={candidate.icon} symbol={candidate.symbol} size={32} />
               ) : null}
@@ -61,6 +67,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
                   {change != null ? (up ? "+" : "") + change.toFixed(2) + "% · " + range : " "}
                 </Text>
               </View>
+              {desktop ? <CloseButton onPress={onClose} /> : null}
             </View>
           </View>
 
@@ -138,7 +145,7 @@ export function ChartModal({ candidate, onClose }: { candidate: Candidate | null
           </ScrollView>
         )}
       </View>
-    </Modal>
+    </PageModal>
   );
 }
 
