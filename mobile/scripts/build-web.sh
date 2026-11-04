@@ -31,6 +31,9 @@ if grep -rq "assets/node_modules" dist; then
   echo "A reference to assets/node_modules is left in dist" >&2
   exit 1
 fi
+# Link previews (X, Telegram, Discord): Expo's index.html only has a bare title, so swap in scripts/web-meta.html.
+node -e 'const fs=require("fs");const p="dist/index.html";const s=fs.readFileSync(p,"utf8");if(!s.includes("<title>DraftGem</title>"))throw new Error("title tag not found in dist/index.html");fs.writeFileSync(p,s.replace("<title>DraftGem</title>",fs.readFileSync("scripts/web-meta.html","utf8").trim()))'
+
 # Security headers for every page (Cloudflare Pages reads dist/_headers): no framing by other sites (a framed
 # wallet dApp can be click-jacked), no MIME sniffing, a tight referrer, HTTPS only.
 cat > dist/_headers <<'HEADERS'

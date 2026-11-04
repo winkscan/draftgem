@@ -359,6 +359,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 // The listing on the Seeker's dApp Store (docs.solanamobile.com: link-to-dapp-listing-page). Other devices get the landing page.
 const DAPP_STORE_LINK = "solanadappstore://details?id=app.draftgem";
 const SITE_URL = "https://draftgem.app";
+// The link-preview banner (X, Telegram, Discord), the same one the landing page uses.
+const OG_IMAGE = SITE_URL + "/assets/og.jpg";
 
 /**
  * The page a shared link opens in a browser: a white "Play" into the web app (env.PLAY_URL, hidden when unset),
@@ -368,6 +370,10 @@ function sharePage(o: { title: string; ogTitle: string; ogDescription: string; t
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${o.title} · DraftGem</title>
 <meta property="og:title" content="${o.ogTitle}"><meta property="og:description" content="${o.ogDescription}">
+<meta property="og:type" content="website"><meta property="og:site_name" content="DraftGem">
+<meta property="og:image" content="${OG_IMAGE}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:site" content="@draftgemapp">
+<meta name="twitter:title" content="${o.ogTitle}"><meta name="twitter:description" content="${o.ogDescription}"><meta name="twitter:image" content="${OG_IMAGE}">
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center}
 .card{max-width:400px;width:100%;box-sizing:border-box;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
 h1{font-size:22px;margin:0 0 8px;overflow-wrap:anywhere}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
