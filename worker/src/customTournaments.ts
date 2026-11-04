@@ -364,7 +364,9 @@ const OG_IMAGE = SITE_URL + "/assets/og.jpg";
 
 /**
  * The page a shared link opens in a browser: a white "Play" into the web app (env.PLAY_URL, hidden when unset),
- * "Get the app" (the dApp Store on Android, the landing page elsewhere) and a small link into the installed app.
+ * "Get the app" on Android phones only (the dApp Store is on Seeker; browsers don't say which phone they are, so every
+ * Android gets it, and one where the dApp Store doesn't open lands on the landing page's "get it" section) and a small
+ * link into the installed app.
  */
 function sharePage(o: { title: string; ogTitle: string; ogDescription: string; text: string; playUrl: string | null; appLink: string }): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -378,12 +380,12 @@ function sharePage(o: { title: string; ogTitle: string; ogDescription: string; t
 .card{max-width:400px;width:100%;box-sizing:border-box;padding:32px 24px;margin:16px;background:#0d0c11;border:1px solid rgba(236,228,253,.12);border-radius:24px}
 h1{font-size:22px;margin:0 0 8px;overflow-wrap:anywhere}p{color:#ababba;font-size:14px;line-height:1.5;margin:0 0 24px}
 .row{display:flex;gap:12px}.btn{flex:1;display:block;font-weight:700;text-decoration:none;padding:14px 12px;border-radius:999px;font-size:15px}
-.play{background:#fff;color:#000}.get{background:rgba(236,228,253,.08);color:#fff;border:1px solid rgba(236,228,253,.16)}
+.play{background:#fff;color:#000}.get{display:none;background:rgba(236,228,253,.08);color:#fff;border:1px solid rgba(236,228,253,.16)}
 small{display:block;margin-top:16px;color:#ababba;font-size:13px}small a{color:#b98cff}</style></head><body><div class="card">
 <h1>${o.title}</h1><p>${o.text}</p>
 <div class="row">${o.playUrl ? `<a class="btn play" href="${o.playUrl}">Play</a>` : ""}<a class="btn get" id="get" href="${SITE_URL}">Get the app</a></div>
 <small>Have the app? <a href="${o.appLink}">Open in the app</a></small></div>
-<script>if(/Android/i.test(navigator.userAgent)){var g=document.getElementById("get");g.href="${DAPP_STORE_LINK}";g.addEventListener("click",function(){setTimeout(function(){if(!document.hidden)location.href="${SITE_URL}"},1500)})}</script>
+<script>if(/Android/i.test(navigator.userAgent)){var g=document.getElementById("get");g.style.display="block";g.href="${DAPP_STORE_LINK}";g.addEventListener("click",function(){setTimeout(function(){if(!document.hidden)location.href="${SITE_URL}/#get"},1500)})}</script>
 </body></html>`;
   return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

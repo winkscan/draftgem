@@ -70,6 +70,8 @@
   .btn-white:hover { background: #ececf1; }
   .nav-links a.btn-green, .nav-links a.btn-green:hover { color: var(--green-ink); }
   .nav-cta { gap: 10px; }
+  .js-get { display: none !important; }
+  .is-android .js-get { display: inline-flex !important; }
   .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
   .btn-ghost:hover { border-color: rgba(236,228,253,.4); }
   .btn.is-disabled { opacity: .45; cursor: not-allowed; pointer-events: none; filter: grayscale(.4); }
@@ -214,7 +216,7 @@
 </style>
 </head>
 <body>
-<script>document.documentElement.classList.add("js")</script>
+<script>document.documentElement.classList.add("js"); if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add("is-android");</script>
 
 <nav>
   <div class="wrap">
@@ -439,8 +441,14 @@
 </footer>
 
 <script>
-  if (/Android/i.test(navigator.userAgent)) {
-    document.querySelectorAll(".js-get").forEach((a) => { a.href = "solanadappstore://details?id=app.draftgem"; });
+  // "Get the app" shows on Android phones only (the dApp Store lives on Solana's Seeker; browsers there don't say
+  // which phone they're on, so every Android gets it). It opens DraftGem's listing in the dApp Store; when nothing
+  // opens (not a Seeker), the page moves on to the "get it on your Seeker" section instead.
+  if (document.documentElement.classList.contains("is-android")) {
+    document.querySelectorAll(".js-get").forEach((a) => {
+      a.href = "solanadappstore://details?id=app.draftgem";
+      a.addEventListener("click", () => setTimeout(() => { if (!document.hidden) location.hash = "get"; }, 1500));
+    });
   }
 
   // marquee: duplicate the chips for a seamless loop
