@@ -43,7 +43,7 @@ Fantasy tournaments for crypto. Pick 5 coins, outplay the field.
 Pick 5 coins. Beat the field. Get paid on-chain.
 ```
 
-**Chosen 2026-11-05 (user):** `The Ultimate Crypto Draft. Skill Over Luck.` (43 chars) replaces the old subtitle "Pick 5 coins. Beat the field. Get paid on-chain." everywhere.
+**Chosen 2026-11-05 (user):** `Skill Over Luck. The Ultimate Crypto Draft.` (43 chars) replaces the old subtitle "Pick 5 coins. Beat the field. Get paid on-chain." everywhere.
 
 Earlier recommendation: **A**. It says what you do and what happens, and "skill game" lives in the long text.
 
