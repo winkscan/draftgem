@@ -54,13 +54,15 @@ export function TournamentInfoModal({ row, meta, onClose, ctaLabel, onPressCta }
   const t = row?.account ?? null;
   const tournamentKey = row?.publicKey ?? null;
   const archivedId = t && isArchivedTournament(t) ? t.id : null;
+  const finalizedId = t && t.status === "finalized" ? t.id : null; // paying out: the archive is already there
 
   const { data: myEntries, isLoading: mineLoading } = useMyEntries(
     tournamentKey,
     selectedAccount?.publicKey ?? null,
     archivedId,
+    finalizedId,
   );
-  const { data: allEntries } = useTournamentEntries(tournamentKey, archivedId);
+  const { data: allEntries } = useTournamentEntries(tournamentKey, archivedId, finalizedId);
 
   const candidatesByMint = useCoinMap((myEntries ?? []).flatMap((e) => e.account.picks.map((p) => p.toBase58())));
 

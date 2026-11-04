@@ -101,17 +101,25 @@ const ASSET_TOURNAMENT_OFFSET = 8;
 // Registered lazily, post-start_ts, only for mints someone actually picked
 // (see register_asset_price.rs) — so this can be an empty list right up
 // until a tournament's entry window locks, and that's expected, not a bug.
-export function useAssetPrices(tournament: PublicKey | null, archivedId: bigint | null = null) {
+// While a tournament pays out ("Paying out…": finalized, account still on chain) the worker archives the standings
+// FIRST and then closes the entry and coin-price accounts one batch at a time, so the chain can show a half-empty
+// or empty list for a minute. `finalizedId` (set once the tournament is finalized) reads the archive first then,
+// and only falls back to the chain while the archive isn't written yet.
+export function useAssetPrices(tournament: PublicKey | null, archivedId: bigint | null = null, finalizedId: bigint | null = null) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ["asset-prices", tournament?.toBase58(), archivedId?.toString()],
+    queryKey: ["asset-prices", tournament?.toBase58(), archivedId?.toString(), finalizedId?.toString()],
     queryFn: async () => {
       // A finished tournament's coin accounts are closed; its prices are in the archive.
       if (archivedId != null) {
         const archived = await fetchArchivedResult(archivedId.toString());
         if (archived) return toAssetRows(archived);
         throw new Error("archive not available yet"); // never fall back to the chain: its accounts are closed. Retried below.
+      }
+      if (finalizedId != null) {
+        const archived = await fetchArchivedResult(finalizedId.toString()).catch(() => null);
+        if (archived) return toAssetRows(archived);
       }
       return fetchAllAccountsV2(connection, PROGRAM_ID, ASSET_PRICE_DISCRIMINATOR, decodeAssetPrice, [
         { memcmp: { offset: ASSET_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
@@ -143,11 +151,11 @@ const ENTRY_PLAYER_OFFSET = 40;
 
 // Multiple mode: every entry this wallet holds in this tournament, however
 // many there are.
-export function useMyEntries(tournament: PublicKey | null, player: PublicKey | null, archivedId: bigint | null = null) {
+export function useMyEntries(tournament: PublicKey | null, player: PublicKey | null, archivedId: bigint | null = null, finalizedId: bigint | null = null) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ["entries", tournament?.toBase58(), player?.toBase58(), archivedId?.toString()],
+    queryKey: ["entries", tournament?.toBase58(), player?.toBase58(), archivedId?.toString(), finalizedId?.toString()],
     queryFn: async () => {
       // A finished tournament's entries are closed on chain; look this wallet up in the archive instead.
       if (archivedId != null) {
@@ -159,6 +167,15 @@ export function useMyEntries(tournament: PublicKey | null, player: PublicKey | n
             .sort((a, b) => a.account.entryIndex - b.account.entryIndex);
         }
         throw new Error("archive not available yet");
+      }
+      if (finalizedId != null) {
+        const archived = await fetchArchivedResult(finalizedId.toString()).catch(() => null);
+        if (archived) {
+          const me = player!.toBase58();
+          return toEntryRows(archived)
+            .filter((r) => r.account.player.toBase58() === me)
+            .sort((a, b) => a.account.entryIndex - b.account.entryIndex);
+        }
       }
       const rows = await fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },
@@ -176,17 +193,21 @@ export function useMyEntries(tournament: PublicKey | null, player: PublicKey | n
 // data source. Refetched fairly often since standings should visibly move
 // while a round is live, but this is still just an account-list poll, not
 // a price feed — price movement itself comes from useLivePrices.
-export function useTournamentEntries(tournament: PublicKey | null, archivedId: bigint | null = null) {
+export function useTournamentEntries(tournament: PublicKey | null, archivedId: bigint | null = null, finalizedId: bigint | null = null) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ["tournament-entries", tournament?.toBase58(), archivedId?.toString()],
+    queryKey: ["tournament-entries", tournament?.toBase58(), archivedId?.toString(), finalizedId?.toString()],
     queryFn: async () => {
       // A finished tournament's entries are closed (each player got their rent back); the standings are archived.
       if (archivedId != null) {
         const archived = await fetchArchivedResult(archivedId.toString());
         if (archived) return toEntryRows(archived);
         throw new Error("archive not available yet");
+      }
+      if (finalizedId != null) {
+        const archived = await fetchArchivedResult(finalizedId.toString()).catch(() => null);
+        if (archived) return toEntryRows(archived);
       }
       return fetchAllAccountsV2(connection, PROGRAM_ID, ENTRY_DISCRIMINATOR, decodeEntry, [
         { memcmp: { offset: ENTRY_TOURNAMENT_OFFSET, bytes: bs58.encode(tournament!.toBuffer()) } },

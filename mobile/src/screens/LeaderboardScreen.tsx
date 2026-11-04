@@ -52,8 +52,9 @@ export function LeaderboardScreen() {
   const { data: tournament } = useTournament(id);
   // A finished tournament is closed on chain (to recover the rent); its standings come from the archive.
   const archivedId = isArchivedTournament(tournament) ? id : null;
-  const { data: assets } = useAssetPrices(tournament ? tournamentPubkey : null, archivedId);
-  const { data: entries, isLoading: entriesLoading } = useTournamentEntries(tournament ? tournamentPubkey : null, archivedId);
+  const finalizedId = tournament?.status === "finalized" ? id : null; // paying out: the archive is already there
+  const { data: assets } = useAssetPrices(tournament ? tournamentPubkey : null, archivedId, finalizedId);
+  const { data: entries, isLoading: entriesLoading } = useTournamentEntries(tournament ? tournamentPubkey : null, archivedId, finalizedId);
   const { data: candidates } = useCandidates();
   // Player-made tournaments can pay Top 1 / Top 3 / 30%; everything else pays the top half.
   const { data: tournamentMeta } = useTournamentMeta();
